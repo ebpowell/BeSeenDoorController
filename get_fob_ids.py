@@ -102,8 +102,11 @@ class keyfobs:
                     data = {'s4':'Swipe'}
                 else:
                     # Derive the PC value from the form element of the response text
+                    pc_val = ''
+
+
                     # Update passed data
-                    data = {'PC':f"000{(x*20)-19}",
+                    data = {'PC':pc_val,
                             'PE':0,
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
