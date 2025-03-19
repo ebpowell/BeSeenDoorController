@@ -1,3 +1,4 @@
+import re
 import requests
 from requests.auth import HTTPBasicAuth
 from requests_html import HTMLSession
