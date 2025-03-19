@@ -4,18 +4,26 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="New code">
-      <change afterPath="$PROJECT_DIR$/door_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/clubhouse_calendar.py" beforeDir="false" afterPath="$PROJECT_DIR$/clubhouse_calendar.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/get_fob_ids.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/swipelist.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/work.py" beforeDir="false" />
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper.">
+      <change afterPath="$PROJECT_DIR$/data_extractor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/door_controller_data" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fobs.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/swipes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements" beforeDir="false" afterPath="$PROJECT_DIR$/requirements" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -32,6 +40,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.clubhouse_calendar.executor": "Debug",
+    "Python.data_extractor.executor": "Run",
+    "Python.door_controller.executor": "Debug",
     "Python.get_fob_ids.executor": "Debug",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -40,7 +50,7 @@
     "settings.editor.selected.configurable": "preferences.fileTypes"
   }
 }]]></component>
-  <component name="RunManager" selected="Python.door_controller">
+  <component name="RunManager" selected="Python.data_extractor">
     <configuration name="clubhouse_calendar" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ww_door_controller" />
       <option name="ENV_FILES" value="" />
@@ -55,6 +65,28 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/clubhouse_calendar.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="data_extractor" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="ww_door_controller" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/data_extractor.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -109,6 +141,7 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.data_extractor" />
         <item itemvalue="Python.door_controller" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.clubhouse_calendar" />
@@ -155,7 +188,23 @@
       <option name="project" value="LOCAL" />
       <updated>1742267059760</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper.">
+      <option name="closed" value="true" />
+      <created>1742349923322</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1742349923322</updated>
+    </task>
+    <task id="LOCAL-00005" summary="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper.">
+      <option name="closed" value="true" />
+      <created>1742349938705</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1742349938705</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -181,7 +230,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="New code" />
-    <option name="LAST_COMMIT_MESSAGE" value="New code" />
+    <MESSAGE value="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper." />
+    <option name="LAST_COMMIT_MESSAGE" value="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -192,6 +242,13 @@
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
     </breakpoint-manager>
   </component>
 </project>

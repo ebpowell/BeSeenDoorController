@@ -27,17 +27,19 @@ class door_controller:
         self.session = requests.session()
         self.session.headers.update(headers)
         self.db_path = dbpath
+        self.sql = ''
+        self.timeout = 15
 
 
     def get_httpresponse(self, url, data):
-        # print(url)
-        # print(data)
-        # print(self.session.headers)
         try:
-            response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=5)
+            response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
         except ReadTimeout:
             print ('Read Timeout, get_httpresponse')
-            return
+            raise ReadTimeout
+        except ConnectionError:
+            print('Max Connections Exceeded, get_httpresponse')
+            raise ConnectionError
         # Check for successful response
         if response.status_code == 200:
             # print(response.text)
@@ -85,23 +87,33 @@ class door_controller:
 
     def connect(self, data):
         url = self.url+'/ACT_ID_1'
-        response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth)
+        try:
+            response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+        except Exception as e:
+            raise e
         # Check for successful response
         if response.status_code == 200:
             print("Connected")
             return response
         else:
-            print(f"Request failed with status code: {response.status_code}")
+            print(f"Connection Request failed with status code: {response.status_code}")
             print(response.text)
+            return
 
-    def write_db(self, query, data):
+    def write_db(self, data):
         db = sqlite3.connect(self.db_path)
         # Add records tp SQLite database
         cur = db.cursor()
-        [cur.execute(f"{query}{token})") for token in data]
+        [cur.execute(self.generate_query_string(self.sql, token)) for token in data]
         db.commit()
         # Close the database
         db.close()
+
+    def generate_query_string(self, sql, token):
+        # Convert list to a string of comma seperated values
+        the_string = '","'.join(token)
+        the_query = f"""{sql}("{the_string}")"""
+        return the_query
 
     def purge_db(self, table):
         db = sqlite3.connect(self.db_path)
@@ -110,158 +122,7 @@ class door_controller:
         cur.execute(f"delete from {table}")
         db.commit()
 
-class key_fobs(door_controller):
-    def __init__(self, url, username, password, dbpath):
-        super().__init__(url, username, password, dbpath)
-        self.sql = f"INSERT INTO system_fobs (record_id, fob_id) values("
-
-    def parse_fobs_data(self, markup):
-        tpl_row = []
-        #Trim everything before the first data row in the table
-        text_markup = markup[markup.find('<th>Operation</th></tr>'):]
-        tag_len = len('<th>Operation</th></tr>')
-        text_markup = text_markup[tag_len:text_markup.find('</table></p>')]
-        tpl_murow = self.parse_tr_data(text_markup, r'<tr align=(.*?)</tr>', 4)
-        [tpl_row.append([row[0], row[1]]) for row in tpl_murow]
-        return  tpl_row
-
-    def get_keyfobs(self):
-        data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
-        response = self.connect(data)
-        if response.status_code == 200:
-            for x in range (1,18):
-                print(x)
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s2':'Users'}
-                elif x == 2:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_325'
-                    ata = {'PC': f"0001",
-                           'PE': f"00020",
-                           'PN': 'Next'}
-                else:
-                    # Derive the PC value from the form element of the response text
-                    # Update passed data
-                    data = {'PC':f"000{(x*20)-19}",
-                            'PE':f"000{(x*20)}",
-                            'PN':'Next'}
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
-                    url = self.url + '/ACT_ID_325'
-                response = self.get_httpresponse(url, data)
-                try:
-                    if response.status_code ==200:
-                        # Extract data from the returned page
-                        batch = self.parse_fobs_data(response.text)
-                        if batch:
-                            fobs = fobs + batch
-                        else:
-                            print ("No Records returned")
-                            # next_index =  swipes[len(swipes)-20][0]
-                        time.sleep(5)
-                except:
-                    pass
 
 
-class fob_swipes(door_controller):
-    def __init__(self, url, username, password, dbpath):
-        super().__init__(url, username, password, dbpath)
-        self.sql = f"INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp) values("
-
-    def get_swipes(self):
-        # data = {'s2': 'Users'}
-        swipes = []
-        connect_data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
-        print(self.session.headers)
-        print(connect_data)
-        response = self.connect(connect_data)
-        if response.status_code == 200:
-            for x in range (1,18):
-                print(x)
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s4':'Swipe'}
-                    print(self.session.headers)
-                    print(data)
-                elif x == 2:
-                    # Update passed data
-                    data = {'PC': next_index,
-                            'PE': 0,
-                            'PN': 'Next'}
-                    # Update Request header to revise the referrer attribute
-                    url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    print(self.session.headers)
-                    print(data)
-                else:
-                    # Update passed data
-                    data = {'PC':next_index,
-                            'PE':0,
-                            'PN':'Next'}
-                    # Update Request header to revise the referrer attribute
-                    url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] =  self.url + '/ACT_ID_21'
-                    print(self.session.headers)
-                    print(data)
-                response = self.get_httpresponse(url, data)
-                try:
-                    if response.status_code ==200:
-                        # Extract data from the returned page
-                        batch = self.parse_swipes_data(response.text)
-                        if batch:
-                            next_index = int(batch[1][0])
-                            print(next_index)
-                            print(batch)
-                            swipes = swipes + batch
-                        else:
-                            print ("No Records returned")
-                            next_index =  swipes[len(swipes)-20][0]
-                        time.sleep(5)
-                except:
-                    pass
-
-        print(swipes)
-                    # if swipes:
-                    #     self.write_db('s',swipes, x)
-
-    def parse_swipes_data(self, markup):
-        tpl_row = []
-        #Trim everything before the first data row in the table
-        text_markup = markup[markup.find('<th>DateTime</th></tr>'):]
-        tag_len = len('<th>DateTime</th></tr>')
-        text_markup = text_markup[tag_len:text_markup.find('</table></p>')]
-        # if text_markup.find('Forbid') !=0:
-        #     print(text_markup)
-        # Extract the table data
-        tpl_murow = self.parse_tr_data(text_markup, r'<tr class=(.*?)</tr>', 5)
-        # Parse the list of rows for the data we want
-        for row in tpl_murow:
-            door_row = row[3]
-            splt_row = door_row.split('IN[#')
-            # print(splt_row)
-            splt_row[1] = splt_row[1][0:1]
-            the_row = [row[0], row[1], splt_row[0].strip(), splt_row[1], row[4]]
-            # print(the_row)
-            tpl_row.append(the_row)
-        return tpl_row
 
 
-if __name__=='__main__':
-    username = "abc"
-    password = "654321"
-    url = "http://69.21.119.148"
-
-    obj_keyfobs = key_fobs(url, username, password, '/home/ebpowell/Documents/Wentworth HOA/Key_Fobs/key_fobs.db')
-    obj_keyfobs.get_keyfobs()
-    # obj_swipe = fob_swipes(url, username, password, '/home/ebpowell/Documents/Wentworth HOA/Key_Fobs/key_fobs.db')
-    # obj_swipe.get_swipes()
