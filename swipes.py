@@ -4,7 +4,7 @@ import time
 class fob_swipes(door_controller):
     def __init__(self, url, username, password):
         super().__init__(url, username, password)
-        self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp) values"
+        self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp, door_controller) values"
 
     def get_swipe_range(self, iterations, rec_id_start):
         # Add iterations, start val parameters
@@ -139,7 +139,6 @@ class fob_swipes(door_controller):
                         time.sleep(5)
                 except:
                     pass
-
         return swipes
 
     def parse_swipes_data(self, markup):
