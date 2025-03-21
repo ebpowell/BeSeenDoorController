@@ -7,7 +7,7 @@ import sqlite3
 import time
 
 class door_controller:
-    def __init__(self, url, username, password, dbpath):
+    def __init__(self, url, username, password):
         self.auth = HTTPBasicAuth(username, password)
         self.url = url
         self.username = username
@@ -26,7 +26,6 @@ class door_controller:
         }
         self.session = requests.session()
         self.session.headers.update(headers)
-        self.db_path = dbpath
         self.sql = ''
         self.timeout = 15
 
@@ -34,12 +33,8 @@ class door_controller:
     def get_httpresponse(self, url, data):
         try:
             response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
-        except ReadTimeout:
-            print ('Read Timeout, get_httpresponse')
-            raise ReadTimeout
-        except ConnectionError:
-            print('Max Connections Exceeded, get_httpresponse')
-            raise ConnectionError
+        except Exception as e:
+            raise e
         # Check for successful response
         if response.status_code == 200:
             # print(response.text)
@@ -100,27 +95,8 @@ class door_controller:
             print(response.text)
             return
 
-    def write_db(self, data):
-        db = sqlite3.connect(self.db_path)
-        # Add records tp SQLite database
-        cur = db.cursor()
-        [cur.execute(self.generate_query_string(self.sql, token)) for token in data]
-        db.commit()
-        # Close the database
-        db.close()
 
-    def generate_query_string(self, sql, token):
-        # Convert list to a string of comma seperated values
-        the_string = '","'.join(token)
-        the_query = f"""{sql}("{the_string}")"""
-        return the_query
 
-    def purge_db(self, table):
-        db = sqlite3.connect(self.db_path)
-        # Add records tp SQLite database
-        cur = db.cursor()
-        cur.execute(f"delete from {table}")
-        db.commit()
 
 
 

@@ -2,35 +2,33 @@ from door_controller import door_controller
 import time
 
 class fob_swipes(door_controller):
-    def __init__(self, url, username, password, dbpath):
-        super().__init__(url, username, password, dbpath)
+    def __init__(self, url, username, password):
+        super().__init__(url, username, password)
         self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp) values"
 
     def get_swipe_range(self, iterations, rec_id_start):
         # Add iterations, start val parameters
-        next_index = rec_id_start
+        next_index = rec_id_start+20
         # data = {'s2': 'Users'}
         swipes = []
         connect_data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
-        print(self.session.headers)
-        print(connect_data)
+        # print(rec_id_start)
+        # print(self.session.headers)
+        # print(connect_data)
         try:
             response = self.connect(connect_data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
-                print(x)
+                print('get_swipes_range X value:', x)
                 if x == 1:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s4':'Swipe'}
-                    print(url)
-                    print(self.session.headers)
-                    print(data)
                 elif x == 2:
                     # Update passed data
                     data = {'PC': next_index,
@@ -39,9 +37,6 @@ class fob_swipes(door_controller):
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    print(url)
-                    print(self.session.headers)
-                    print(data)
                 else:
                     # Update passed data
                     data = {'PC':next_index,
@@ -50,13 +45,19 @@ class fob_swipes(door_controller):
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
                     self.session.headers['Referer'] =  self.url + '/ACT_ID_345'
-                    print(url)
-                    print(self.session.headers)
-                    print(data)
-                try:
-                    response = self.get_httpresponse(url, data)
-                except:
-                    raise
+                for y in range (1, 5):
+                    try:
+                        print('Connect Attempt:', y)
+                        response = self.get_httpresponse(url, data)
+                        print("Success")
+                        # print(url)
+                        # print(self.session.headers)
+                        # print(x, data)
+                        break
+                    except:
+                        # after two tries, move to the next batch of records
+                        time.sleep(self.timeout)
+                        pass
                 if x > 1:
                     try:
                         if response.status_code ==200:
@@ -64,38 +65,43 @@ class fob_swipes(door_controller):
                             batch = self.parse_swipes_data(response.text)
                             if batch:
                                 next_index = int(batch[1][0])
-                                print(next_index)
-                                print(batch)
                                 swipes = swipes + batch
+                                print('Pass:',x, 'Parse Records Success', 'Batch Record Count:',
+                                      len(batch),'Next Index:', next_index)
+                                print('Swipes Count:', len(swipes))
                             else:
-                                print ("No Records returned")
-                                next_index =  swipes[len(swipes)-20][0]
+                                # next_index =  swipes[len(swipes)-20][0]
+                                print(response.text)
+                                print("No Records returned", 'Next Index:', next_index)
+                                # This connection is f&cked....write the records and try again
+                                break
                             time.sleep(self.timeout/3)
+                        else:
+                            print(response.status_code)
                     except:
                         pass
+        print('Records to add:',len(swipes))
         return swipes
 
     def get_new_swipes(self, iterations):
+        next_index = 0
         swipes = []
         connect_data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
-        print(self.session.headers)
-        print(connect_data)
+        # print(self.session.headers)
+        # print(connect_data)
         try:
             response = self.connect(connect_data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
-                print(x)
                 if x == 1:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s4':'Swipe'}
-                    print(self.session.headers)
-                    print(data)
                 elif x == 2:
                     # Update passed data
                     data = {'PC': next_index,
@@ -104,8 +110,6 @@ class fob_swipes(door_controller):
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    print(self.session.headers)
-                    print(data)
                 else:
                     # Update passed data
                     data = {'PC':next_index,
@@ -114,9 +118,10 @@ class fob_swipes(door_controller):
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
                     self.session.headers['Referer'] =  self.url + '/ACT_ID_21'
-                    print(self.session.headers)
-                    print(data)
                 try:
+                    # print(url)
+                    # print(self.session.headers)
+                    # print(x, data)
                     response = self.get_httpresponse(url, data)
                 except:
                     raise
@@ -126,12 +131,11 @@ class fob_swipes(door_controller):
                         batch = self.parse_swipes_data(response.text)
                         if batch:
                             next_index = int(batch[1][0])
-                            print(next_index)
-                            print(batch)
                             swipes = swipes + batch
+                            print('Parse Records Success', 'Next Index:', next_index)
                         else:
-                            print ("No Records returned")
                             next_index =  swipes[len(swipes)-20][0]
+                            print("No Records returned", 'Next Index:', next_index)
                         time.sleep(5)
                 except:
                     pass
@@ -150,6 +154,6 @@ class fob_swipes(door_controller):
             door_row = row[3]
             splt_row = door_row.split('IN[#')
             splt_row[1] = splt_row[1][0:1]
-            the_row = [row[0], row[1], splt_row[0].strip(), splt_row[1], row[4]]
+            the_row = [row[0], row[1], splt_row[0].strip(), splt_row[1], row[4], self.url]
             tpl_row.append(the_row)
         return tpl_row

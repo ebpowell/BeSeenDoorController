@@ -2,8 +2,8 @@ from door_controller import door_controller
 import time
 
 class key_fobs(door_controller):
-    def __init__(self, url, username, password, dbpath):
-        super().__init__(url, username, password, dbpath)
+    def __init__(self, url, username, password):
+        super().__init__(url, username, password)
         self.sql = 'INSERT INTO system_fobs (record_id, fob_id) values'
 
     def parse_fobs_data(self, markup):
@@ -28,14 +28,11 @@ class key_fobs(door_controller):
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
-                print(x)
                 if x == 1:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
-                    print(x, data)
-                    print(self.session.headers)
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
@@ -43,8 +40,6 @@ class key_fobs(door_controller):
                     data = {'PC': f"000{(x*20)-19}",
                            'PE': f"000{(x*20)}",
                            'PN': 'Next'}
-                    print(x, data)
-                    print(self.session.headers)
                 else:
                     # Derive the PC value from the form element of the response text
                     # Update passed data
@@ -54,9 +49,10 @@ class key_fobs(door_controller):
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
+                try:
+                    print(url)
                     print(x, data)
                     print(self.session.headers)
-                try:
                     response = self.get_httpresponse(url, data)
                 except:
                     raise
@@ -87,15 +83,11 @@ class key_fobs(door_controller):
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
-                print(x)
                 if x == 1:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
-                    print(url)
-                    print(x, data)
-                    print(self.session.headers)
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
@@ -103,9 +95,6 @@ class key_fobs(door_controller):
                     data = {'PC': f"000{start_rec}",
                            'PE': f"000{(start_rec+20)}",
                            'PN': 'Next'}
-                    print(url)
-                    print (x, data)
-                    print(self.session.headers)
                 else:
                     # Derive the PC value from the form element of the response text
                     # Update passed data
@@ -115,10 +104,10 @@ class key_fobs(door_controller):
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
+                try:
                     print(url)
                     print(x, data)
                     print(self.session.headers)
-                try:
                     response = self.get_httpresponse(url, data)
                 except:
                     raise
