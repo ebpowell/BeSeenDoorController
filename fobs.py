@@ -125,3 +125,6 @@ class key_fobs(door_controller):
                     except:
                         pass
             return fobs
+
+    def get_fob_range(self, iterations, max_id):
+        pass
