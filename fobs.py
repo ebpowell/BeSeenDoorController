@@ -22,6 +22,7 @@ class key_fobs(door_controller):
         data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
+        next_index = 20
         try:
             response = self.connect(data)
         except:
@@ -37,15 +38,15 @@ class key_fobs(door_controller):
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                     url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{(x*20)-19}",
-                           'PE': f"000{(x*20)}",
+                    data = {'PC': f"000{next_index-19}",
+                           'PE': f"000{next_index}",
                            'PN': 'Next'}
                 else:
                     # Derive the PC value from the form element of the response text
                     # Update passed data
-                    data = {'PC':f"000{(x*20)-19}",
-                            'PE':f"000{(x*20)}",
-                            'PN':'Next'}
+                    data = {'PC': f"000{next_index - 19}",
+                     'PE': f"000{next_index}",
+                     'PN': 'Next'}
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
@@ -62,6 +63,8 @@ class key_fobs(door_controller):
                         batch = self.parse_fobs_data(response.text)
                         if batch:
                             fobs = fobs + batch
+                            next_index = int(batch[19][0])
+                            print('Next Index:', next_index, 'Records Added:', len(fobs), 'Total Count:', len(batch))
                         else:
                             print ("No Records returned")
                             # next_index =  swipes[len(swipes)-20][0]
@@ -72,6 +75,7 @@ class key_fobs(door_controller):
 
     def get_keyfobs_range(self, iterations, start_rec):
         fobs = []
+        next_index = start_rec
         print("Start:",start_rec)
         # Add iterations, start val parameters
         data = {'username': self.username,
@@ -92,22 +96,19 @@ class key_fobs(door_controller):
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                     url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{start_rec}",
-                           'PE': f"000{(start_rec+20)}",
+                    data = {'PC': f"000{next_index-19}",
+                           'PE': f"000{(next_index)}",
                            'PN': 'Next'}
                 else:
                     # Derive the PC value from the form element of the response text
                     # Update passed data
-                    data = {'PC':f"000{start_rec+((x*20)-19)}",
-                            'PE':f"000{start_rec+(x*20)}",
+                    data = {'PC':f"000{next_index-19}",
+                            'PE':f"000{next_index}",
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
                     self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
                 try:
-                    print(url)
-                    print(x, data)
-                    print(self.session.headers)
                     response = self.get_httpresponse(url, data)
                 except:
                     raise
@@ -118,6 +119,8 @@ class key_fobs(door_controller):
                             batch = self.parse_fobs_data(response.text)
                             if batch:
                                 fobs = fobs + batch
+                                next_index = int(batch[19][0])
+                                print ('Next Index:',next_index, 'Records Added:',len(fobs), 'Total Count:',len(batch))
                             else:
                                 print ("No Records returned")
                                 # next_index =  swipes[len(swipes)-20][0]

@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Added a seperate database class.&#10;Numering issues (mostly) fixed.&#10;Quirks on door controller web access fixed.">
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Refactored executable code.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_extractor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/door_controller_data" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller_data" afterDir="false" />
@@ -34,19 +34,19 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.clubhouse_calendar.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.data_extractor.executor&quot;: &quot;Run&quot;,
-    &quot;Python.door_controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.get_fob_ids.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.fileTypes&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.clubhouse_calendar.executor": "Debug",
+    "Python.data_extractor.executor": "Run",
+    "Python.door_controller.executor": "Debug",
+    "Python.get_fob_ids.executor": "Debug",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "settings.editor.selected.configurable": "preferences.fileTypes"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.data_extractor">
     <configuration name="clubhouse_calendar" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ww_door_controller" />
@@ -225,7 +225,23 @@
       <option name="project" value="LOCAL" />
       <updated>1742575181175</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Refactored executable code.">
+      <option name="closed" value="true" />
+      <created>1742609909605</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1742609909605</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Refactored executable code.">
+      <option name="closed" value="true" />
+      <created>1742609922603</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1742609922603</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -254,7 +270,8 @@
     <MESSAGE value="key_fobs became door controller, now pulls swipes and fob list, still some debugging. Intial work on the clanedar scraper." />
     <MESSAGE value="Major refactoring and debugging. &#10;Need to rework exception handling for robustness for large pulls." />
     <MESSAGE value="Added a seperate database class.&#10;Numering issues (mostly) fixed.&#10;Quirks on door controller web access fixed." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added a seperate database class.&#10;Numering issues (mostly) fixed.&#10;Quirks on door controller web access fixed." />
+    <MESSAGE value="Refactored executable code." />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactored executable code." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -13,7 +13,7 @@ class ww_data_extractor:
         self.iterations =  5
 
     def get_historical_fob_swipes(self):
-        # obj_db.purge_db('system_swipes')
+        obj_db.purge_db('system_swipes')
         obj_swipe = fob_swipes(self.url, self.username, self.password)
         lst_swipes = obj_swipe.get_new_swipes(5)
         self.obj_db.write_db(lst_swipes, obj_swipe.sql)
@@ -22,7 +22,7 @@ class ww_data_extractor:
         query = F""""SELECT min(record_id) FROM system_swipes where door_controller=('{self.url}'"""
         max_id = self.obj_db.get_maxid(query)
         print("Starting ID:", max_id)
-        for x in range(0, int(round(max_id/20), 0)):
+        for x in range(0, 21):
             try:
                 for y in range(0, 5):
                     try:
@@ -42,20 +42,22 @@ class ww_data_extractor:
                 break
 
     def get_system_fob_list(self):
+        obj_db.purge_db('system_fobs')
         obj_keyfobs = key_fobs(self.url, username, password)
         lst_fobs = obj_keyfobs.get_keyfobs(5)
         self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
         print("get_new_swipes Complete")
         # Query the database to get the last recordid
-        query = F""""SELECT min(record_id) FROM system_fobs where door_controller={self.url})"""
-        max_id = self.obj_db.get_maxid(query)
+        query = "SELECT max(record_id) FROM system_fobs"
+         # where door_controller={self.url})"""
+        max_id = self.obj_db.get_maxid(query)-20
         print("Starting ID:", max_id)
-        for x in range(0, int(round(max_id / 20), 0)):
+        for x in range(0, 20):
             try:
                 for y in range(0, 5):
                     try:
                         print("get_swipe_range Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
-                        lst_swipes = obj_keyfobs.get_keyfobs_range(self.iterations, max_id)
+                        lst_fobs = obj_keyfobs.get_keyfobs_range(self.iterations, max_id)
                         break
                     except:
                         pass
