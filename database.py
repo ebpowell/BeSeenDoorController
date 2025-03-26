@@ -39,3 +39,22 @@ class cls_sqlite:
         the_string = '","'.join(token)
         the_query = f"""{sql}("{the_string}")"""
         return the_query
+
+    def get_fob_records(self):
+        db = sqlite3.connect(self.db_path)
+        cur = db.cursor()
+        cur.execute('select record_id from  system_fobs')
+        rows = cur.fetchall()
+        # Close the database
+        db.close()
+        return rows
+
+    def insert_access_list_record(self, record):
+        db = sqlite3.connect(self.db_path)
+        # Add records tp SQLite database
+        query = 'INSERT INTO access_control (record_id, fob_id, door, status, controller) values'
+        sql = self.generate_query_string(query, record)
+        cur = db.cursor()
+        cur.execute(sql)
+        db.commit()
+        db.close()

@@ -15,5 +15,7 @@ create TABLE keyswipes as select distinct * from system_swipes ss;
 select count(*) from keyswipes;
 
 --Now we cna start analyzing....
+select count(*) from system_fobs;
+select max(record_id) from system_fobs;
 
-
+select distinct * from system_fobs;

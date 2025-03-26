@@ -94,7 +94,11 @@ if __name__=='__main__':
     #     obj_swipe.get_new_swipes(5)
 
     # *** Get the list of keyfob id from the door controllers
-    obj_extract.get_system_fob_list()
+    # obj_extract.get_system_fob_list()
 
     # *** Generate the access control status list
 
+    #*** Push updated access control list
+
+
+    #**** Get daily pull
