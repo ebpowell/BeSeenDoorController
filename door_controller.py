@@ -1,10 +1,7 @@
-from bs4 import BeautifulSoup
 import re
 import requests
-from requests import ReadTimeout
 from requests.auth import HTTPBasicAuth
-import sqlite3
-import time
+
 
 class door_controller:
     def __init__(self, url, username, password):
@@ -28,21 +25,23 @@ class door_controller:
         self.session.headers.update(headers)
         self.sql = ''
         self.timeout = 15
+        self.max_retries = 20
 
 
     def get_httpresponse(self, url, data):
-        try:
-            response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
-        except Exception as e:
-            raise e
-        # Check for successful response
-        if response.status_code == 200:
-            # print(response.text)
-            return response
-        else:
-            print(f"Request failed with status code: {response.status_code}")
-            print(response.text)
-            return
+        for x in range (0, self.max_retries):
+            try:
+                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # Check for successful response
+                if response.status_code == 200:
+                    print("door_controller.get_httpresponse: Connected")
+                    return response
+                else:
+                    print(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
+                    print(response.text)
+                    return
+            except Exception as e:
+                pass
 
     def is_convertible_to_int(self, token):
       """
@@ -82,18 +81,23 @@ class door_controller:
 
     def connect(self, data):
         url = self.url+'/ACT_ID_1'
-        try:
-            response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
-        except Exception as e:
-            raise e
-        # Check for successful response
-        if response.status_code == 200:
-            print("Connected")
-            return response
-        else:
-            print(f"Connection Request failed with status code: {response.status_code}")
-            print(response.text)
-            return
+        for x in range(0, self.max_retries):
+            try:
+                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # Check for successful response
+                if response.status_code == 200:
+                    print("door_controller.connect: Connected")
+                    return response
+                else:
+                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code}")
+                    print(response.text)
+                    return
+            except:
+                pass
+        print('Connection Failed')
+        return
+
+
 
 
 

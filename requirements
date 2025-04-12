@@ -1,5 +1,5 @@
 requests
-BeautifulSoup
+requests-html
 Selenium
 Lxml
 Urllib

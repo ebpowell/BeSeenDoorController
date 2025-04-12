@@ -1,5 +1,7 @@
-from door_controller import door_controller
 import time
+
+from door_controller import door_controller
+
 
 class fob_swipes(door_controller):
     def __init__(self, url, username, password):

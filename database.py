@@ -43,7 +43,7 @@ class cls_sqlite:
     def get_fob_records(self):
         db = sqlite3.connect(self.db_path)
         cur = db.cursor()
-        cur.execute('select record_id from  system_fobs')
+        cur.execute('select distinct record_id from system_fobs order by record_id asc')
         rows = cur.fetchall()
         # Close the database
         db.close()
@@ -56,5 +56,13 @@ class cls_sqlite:
         sql = self.generate_query_string(query, record)
         cur = db.cursor()
         cur.execute(sql)
+        db.commit()
+        db.close()
+
+    def write_new(self, data, sql_template,  max_id):
+        db = sqlite3.connect(self.db_path)
+        # Add records tp SQLite database
+        cur = db.cursor()
+        [cur.execute(self.generate_query_string(sql_template, token)) for token in data if int(token[0])>max_id]
         db.commit()
         db.close()

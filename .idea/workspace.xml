@@ -4,13 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Swipes and fobs successfully retrieved from Door Controllers">
-      <change afterPath="$PROJECT_DIR$/access_control_list.py" afterDir="false" />
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="New module to pull permissions from Door Controller">
+      <change afterPath="$PROJECT_DIR$/pg_database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/access_control_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/access_control_list.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/clubhouse_calendar.py" beforeDir="false" afterPath="$PROJECT_DIR$/clubhouse_calendar.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_extractor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/door_controller_data" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller_data" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fobs.py" beforeDir="false" afterPath="$PROJECT_DIR$/fobs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements" beforeDir="false" afterPath="$PROJECT_DIR$/requirements" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/swipe_analysis.sql" beforeDir="false" afterPath="$PROJECT_DIR$/swipe_analysis.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/swipes.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,19 +44,19 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Python.access_control_list.executor": "Debug",
-    "Python.clubhouse_calendar.executor": "Debug",
-    "Python.data_extractor.executor": "Run",
+    "Python.access_control_list.executor": "Run",
+    "Python.clubhouse_calendar.executor": "Run",
+    "Python.data_extractor.executor": "Debug",
     "Python.door_controller.executor": "Debug",
     "Python.get_fob_ids.executor": "Debug",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "preferences.fileTypes"
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
-  <component name="RunManager" selected="Python.access_control_list">
+  <component name="RunManager" selected="Python.data_extractor">
     <configuration name="access_control_list" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ww_door_controller" />
       <option name="ENV_FILES" value="" />
@@ -163,11 +169,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.access_control_list" />
         <item itemvalue="Python.data_extractor" />
+        <item itemvalue="Python.access_control_list" />
+        <item itemvalue="Python.clubhouse_calendar" />
         <item itemvalue="Python.door_controller" />
         <item itemvalue="Python.main" />
-        <item itemvalue="Python.clubhouse_calendar" />
       </list>
     </recent_temporary>
   </component>
@@ -275,7 +281,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742650059863</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="New module to pull permissions from Door Controller">
+      <option name="closed" value="true" />
+      <created>1743000515549</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1743000515549</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -306,15 +320,36 @@
     <MESSAGE value="Added a seperate database class.&#10;Numering issues (mostly) fixed.&#10;Quirks on door controller web access fixed." />
     <MESSAGE value="Refactored executable code." />
     <MESSAGE value="Swipes and fobs successfully retrieved from Door Controllers" />
-    <option name="LAST_COMMIT_MESSAGE" value="Swipes and fobs successfully retrieved from Door Controllers" />
+    <MESSAGE value="New module to pull permissions from Door Controller" />
+    <option name="LAST_COMMIT_MESSAGE" value="New module to pull permissions from Door Controller" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/clubhouse_calendar.py</url>
-          <line>28</line>
+          <line>26</line>
           <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/data_extractor.py</url>
+          <line>57</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>65</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>38</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/data_extractor.py</url>
+          <line>49</line>
+          <option name="timeStamp" value="7" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

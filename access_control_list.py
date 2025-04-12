@@ -1,13 +1,15 @@
-import time
-from fobs import key_fobs
-from database import cls_sqlite
 import requests
+
+from database import cls_sqlite
+from fobs import key_fobs
+import time
 
 
 class AccessControlList(key_fobs):
      # Assumes we are at a page of
     def __init__(self, username, password, url):
         super().__init__(url, username, password)
+        self.max_retries = 20
 
 
     def get_permissions_record(self, record_id):
@@ -40,34 +42,59 @@ class AccessControlList(key_fobs):
         # Split into 5 columns
         tpl_murow = self.parse_tr_data(markup, r'<tr align=(.*?)</tr>', 5)
         # Now chop-up row 4 (3) by <br><br>,
-        lst_tags = tpl_murow[0][3].split('<br><br>')
-        # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
-        door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url]
-                      for perm in lst_tags if perm.find('option') >0]
-        return door_perms
+        try:
+            lst_tags = tpl_murow[0][3].split('<br><br>')
+            # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
+            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url]
+                          for perm in lst_tags if perm.find('option') >0]
+            return door_perms
+        except IndexError:
+            print(markup)
+            pass
+        except Exception as e:
+            raise e
 
     def parse_tag(self, permission_tag):
 
         door = permission_tag[0:7]
-        # print (permission_tag)
+        print (permission_tag, door)
         if permission_tag.find('selected') > 0:
-            perm = 'Allow'
+            selected_tag = permission_tag[permission_tag.find('selected')+9:]
+            perm = selected_tag[:selected_tag.find('<')]
+            # print(perm)
+            # perm = selected_tag
         elif permission_tag.find('Forbid') > 0:
             perm = 'Forbid'
         else:
             return
+        print([door, perm])
         return [door, perm]
 
     def users_page(self):
+
         self.session.headers['Referer'] = self.url + '/ACT_ID_1'
         url = self.url + '/ACT_ID_21'
         data ={'s2':'Users'}
-        try:
-            response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
-            return response
-        except:
-            raise
+        for x in range(0, self.max_retries):
+            try:
+                response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
+                return response
+            except:
+                time.sleep(self.timeout/3)
+                pass
 
+    def navigate(self, data):
+        # obj_ACL = AccessControlList(self.username, self.password, self.url)
+        try:
+            response = self.connect(data)
+            if response.status_code == 200:
+                try:
+                    response = self.users_page()
+                    return response
+                except Exception as e:
+                    raise e
+        except Exception as e:
+            raise e
 
 
 if __name__ == '__main__':
@@ -81,25 +108,24 @@ if __name__ == '__main__':
     objdb = cls_sqlite('/home/ebpowell/GIT_REPO/ww_door_controller/door_controller_data')
     record_ids = objdb.get_fob_records()
     for record_id in record_ids:
+        print('Record ID:', record_id)
         for url in urls:
             obj_ACL = AccessControlList(username, password, url)
-            try:
-                response = obj_ACL.connect(data)
-                if response.status_code == 200:
+            response = obj_ACL.navigate(data)
+            if response.status_code == 200:
+                for x in range(0, 20):
                     try:
-                        response = obj_ACL.users_page()
-                        if response.status_code == 200:
-                            try:
-                                lst_perms = obj_ACL.get_permissions_record(record_id[0])
-                                # Insert into database
-                                [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
-                                del obj_ACL
-                            except:
-                                raise
+                        lst_perms = obj_ACL.get_permissions_record(record_id[0])
+                        # Insert into database
+                        if lst_perms:
+                            [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
+                            # time.sleep(1)
+                            break
+                        else: # Record not returned, need to try to pull again
+                            print('Iteration: ', x, '...Reconnecting')
+                            time.sleep(1)
+                            response = obj_ACL.navigate(data)
                     except:
                         raise
-            except:
-                raise
-                # print(lst_perms)
-
+            del obj_ACL
 

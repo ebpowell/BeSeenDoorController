@@ -1,9 +1,7 @@
-import re
 import requests
-from requests.auth import HTTPBasicAuth
 from requests_html import HTMLSession
-from bs4 import BeautifulSoup
-import sqlite3
+from requests.auth import HTTPBasicAuth
+
 
 class hoa_page:
     def __init__(self,
@@ -39,6 +37,30 @@ class calendar(hoa_page):
         super().__init__(username, password)
         # Overload self.url
         self.url = url+'/p/Calendar'
+        # Start a session
+
+    def get_events(self):
+        session = HTMLSession()
+
+        # Load the web page
+        response = session.get(self.url)
+
+        # Render the JavaScript.  This is the key difference from обычный requests
+        response.html.render()
+
+        # Now the HTML should contain the data loaded by JavaScript
+        # Find the elements containing the event data
+        event_elements = response.html.find(".event-item")  # Example CSS selector
+
+        # Extract the data from the elements
+        for event in event_elements:
+            title = event.find(".event-title", first=True).text
+            date = event.find(".event-date", first=True).text
+            print(f"Title: {title}, Date: {date}")
+
+        # Close the session (optional, but good practice)
+        session.close()
+
 
 class minutes(hoa_page):
     def __init__(self, url, username, password):
@@ -56,7 +78,7 @@ if __name__ == '__main__':
     the_calendar = calendar(url, username, password)
     resp = the_calendar.connect('')
     print (resp.text)
-    resp.html.render()
+    the_calendar.get_events()
 
 
 
