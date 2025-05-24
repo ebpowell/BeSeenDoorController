@@ -6,11 +6,12 @@ from door_controller import door_controller
 class fob_swipes(door_controller):
     def __init__(self, url, username, password):
         super().__init__(url, username, password)
-        self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp, door_controller) values"
+        # self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp, door_controller) values"
+        self.sql = "INSERT INTO door_controller.t_keyswipes (record_id, fob_id, status, door, swipe_timestamp, door_controller_ip) values"
 
     def get_swipe_range(self, iterations, rec_id_start):
         # Add iterations, start val parameters
-        next_index = rec_id_start+20
+        next_index = int(rec_id_start)+20
         # data = {'s2': 'Users'}
         swipes = []
         connect_data = {'username': self.username,

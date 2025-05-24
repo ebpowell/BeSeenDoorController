@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 
 
 class cls_sqlite:
@@ -51,8 +52,10 @@ class cls_sqlite:
 
     def insert_access_list_record(self, record):
         db = sqlite3.connect(self.db_path)
+        # Add a timestamp tp the record
+        record.append(str(datetime.datetime.now()))
         # Add records tp SQLite database
-        query = 'INSERT INTO access_control (record_id, fob_id, door, status, controller) values'
+        query = 'INSERT INTO access_control (record_id, fob_id, door, status, controller, record_time) values'
         sql = self.generate_query_string(query, record)
         cur = db.cursor()
         cur.execute(sql)
