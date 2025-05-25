@@ -1,8 +1,9 @@
 requests
+requests.auth
 requests-html
-Selenium
-Lxml
-Urllib
-Schedule
 re
+Selenium
+psycopg2
+sqlite3
+datetime
 time

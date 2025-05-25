@@ -1,6 +1,6 @@
 
-from pg_database import postgres
-from data_extractor import ww_data_extractor
+from door_controller.pg_database import postgres
+from door_controller.data_extractor import ww_data_extractor
 
 if __name__=='__main__':
     '''

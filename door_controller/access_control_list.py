@@ -106,7 +106,7 @@ if __name__ == '__main__':
             'pwd': password,
             'logid': '20101222'}
     #record_id = 55
-    objdb = cls_sqlite('/home/ebpowell/GIT_REPO/ww_door_controller/door_controller_data')
+    objdb = cls_sqlite('/door_controller_data')
     record_ids = objdb.get_fob_records()
     for record_id in record_ids:
         print('Record ID:', record_id)
