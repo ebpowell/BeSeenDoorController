@@ -1,9 +1,9 @@
 import time
 
-from database import cls_sqlite
-from fobs import key_fobs
-from pg_database import postgres
-from swipes import fob_swipes
+# from database import cls_sqlite
+from door_controller.fobs import key_fobs
+from door_controller.pg_database import postgres
+from door_controller.swipes import fob_swipes
 
 
 class ww_data_extractor:
@@ -59,7 +59,10 @@ class ww_data_extractor:
         self.obj_db.insert_swipe_record(lst_swipes, db_max_id)
         print("get_new_swipes Complete")
         rec_count = len(lst_swipes)
-        max_id = lst_swipes[rec_count-1][0]
+        if rec_count > 0:
+            max_id = lst_swipes[rec_count-1][0]
+        else:
+            return
         # if target_id < int(db_max_id):
         if db_max_id < int(max_id):
             print("Starting ID:", max_id)

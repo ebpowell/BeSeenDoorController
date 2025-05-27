@@ -4,20 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Major debugging. &#10;Added dedicated script to extract keyswipes and cache data in slop table.">
-      <change afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/door_controller/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Basics of packaging layout in place.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/access_control_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/access_control_list.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/data_extractor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/door_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fobs.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/fobs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/get_recent_swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/get_recent_swipes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/pg_database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements" beforeDir="false" afterPath="$PROJECT_DIR$/requirements" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/package/swipes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/data_extractor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/pg_database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,28 +31,28 @@
   &quot;associatedIndex&quot;: 7
 }</component>
   <component name="ProjectId" id="2tk8p7feHZGwKDQTEQpqEsLuEUF" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.access_control_list.executor": "Run",
-    "Python.clubhouse_calendar.executor": "Run",
-    "Python.data_extractor.executor": "Debug",
-    "Python.door_controller.executor": "Debug",
-    "Python.get_fob_ids.executor": "Debug",
-    "Python.get_recent_swipes.executor": "Run",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.access_control_list.executor&quot;: &quot;Run&quot;,
+    &quot;Python.clubhouse_calendar.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_extractor.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.door_controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.get_fob_ids.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.get_recent_swipes.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/calendar_sync" />
       <recent name="$PROJECT_DIR$/reference" />
       <recent name="$PROJECT_DIR$/scripts" />
       <recent name="$PROJECT_DIR$/door_controller" />
@@ -103,7 +95,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/clubhouse_calendar.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/calendar_sync/clubhouse_calendar.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -191,7 +183,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-4f4e415b4190-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.26053.29" />
+        <option value="bundled-python-sdk-dfff61a61320-9cdd278e9d02-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-251.25410.159" />
       </set>
     </attachedChunks>
   </component>
@@ -316,7 +308,15 @@
       <option name="project" value="LOCAL" />
       <updated>1748090948747</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="Basics of packaging layout in place.">
+      <option name="closed" value="true" />
+      <created>1748145877505</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1748145877505</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -350,13 +350,14 @@
     <MESSAGE value="New module to pull permissions from Door Controller" />
     <MESSAGE value="Added logic for pulling incementals, framed out postgres module, just need connect string and docker files to deploy." />
     <MESSAGE value="Major debugging. &#10;Added dedicated script to extract keyswipes and cache data in slop table." />
-    <option name="LAST_COMMIT_MESSAGE" value="Major debugging. &#10;Added dedicated script to extract keyswipes and cache data in slop table." />
+    <MESSAGE value="Basics of packaging layout in place." />
+    <option name="LAST_COMMIT_MESSAGE" value="Basics of packaging layout in place." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/clubhouse_calendar.py</url>
+          <url>file://$PROJECT_DIR$/calendar_sync/clubhouse_calendar.py</url>
           <line>26</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>

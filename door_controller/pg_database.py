@@ -69,11 +69,13 @@ class postgres:
     def add_new_swipess(self):
         cur = self.db_con.cursor()
         # Purge the slop table
-        cur.execute('insert into door_controller.t_keyswipes (record_id, fob_id , status, swipe_timestamp, '
-                    'door,door_controller_ip) '
-                    'select distinct record_id, fob_id , status, swipe_timestamp, door,door_controller_ip '
-                    'from dataload.t_keyswipes_slop tks '
-                    'where concat(record_id, ''''-'''',substr(door_controller_ip, 18,3))'
-                        ' not in (select distinct concat(record_id, ''''-'''',substr(door_controller_ip, 18,3)) '
-                        ' from door_controller.t_keyswipes );')
+        sql = "insert into door_controller.t_keyswipes (record_id, fob_id , status, swipe_timestamp, "
+        sql += "door,door_controller_ip) "
+        sql += "select distinct record_id, fob_id , status, swipe_timestamp, door,door_controller_ip "
+        sql += "from dataload.t_keyswipes_slop tks "
+        sql += "where concat(record_id, '-',substr(door_controller_ip, 18,3)) "
+        sql += "not in (select distinct concat(record_id, '-',substr(door_controller_ip, 18,3)) "
+        sql += "from door_controller.t_keyswipes )"
+        print(sql)
+        cur.execute(sql)
         self.db_con.commit()

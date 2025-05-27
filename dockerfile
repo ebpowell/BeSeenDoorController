@@ -30,8 +30,8 @@ WORKDIR /app
 
 # For a simple setup tools package, copy the project and install again
 # or carefully copy specific installed files (more complex)
-COPY --from=builder /app/my_python_project /app/my_python_project
-RUN pip install --no-cache-dir /app/my_python_project
+COPY --from=builder /app/ww_door_controller /app/ww_door_controller
+RUN pip install --no-cache-dir /app/ww_door_controller
 
 # Create a non-root user for security
 RUN adduser --system --group appuser
@@ -41,4 +41,4 @@ USER appuser
 EXPOSE 8000
 
 # Command to run your application
-CMD ["my_script.py", "DockerUser"] # Assuming my_script.py is on PATH
+CMD ["get_recent_swipes.py", "DockerUser"] # Assuming my_script.py is on PATH
