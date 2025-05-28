@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Basics of packaging layout in place.">
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Debugging">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/data_extractor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/pg_database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -316,7 +315,15 @@
       <option name="project" value="LOCAL" />
       <updated>1748145877505</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Debugging">
+      <option name="closed" value="true" />
+      <created>1748367857817</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1748367857817</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -351,7 +358,8 @@
     <MESSAGE value="Added logic for pulling incementals, framed out postgres module, just need connect string and docker files to deploy." />
     <MESSAGE value="Major debugging. &#10;Added dedicated script to extract keyswipes and cache data in slop table." />
     <MESSAGE value="Basics of packaging layout in place." />
-    <option name="LAST_COMMIT_MESSAGE" value="Basics of packaging layout in place." />
+    <MESSAGE value="Debugging" />
+    <option name="LAST_COMMIT_MESSAGE" value="Debugging" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

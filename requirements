@@ -1,9 +1,0 @@
-requests
-requests.auth
-requests-html
-re
-Selenium
-psycopg2
-sqlite3
-datetime
-time

@@ -9,10 +9,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . . # Copy all source code for the build stage
+# Copy all source code for the build stage
+COPY . .
 
 # You might also build wheels here for your local packages
-# RUN python setup.py bdist_wheel
+RUN python setup.py bdist_wheel
 
 
 # Stage 2: Production runtime
@@ -25,17 +26,17 @@ WORKDIR /app
 # For setuptools package, we often just reinstall in the final stage.
 
 # If you built wheels in the builder stage:
-# COPY --from=builder /app/dist/*.whl .
-# RUN pip install --no-cache-dir *.whl
+COPY --from=builder /app/dist/*.whl .
+RUN pip install --no-cache-dir *.whl
 
 # For a simple setup tools package, copy the project and install again
 # or carefully copy specific installed files (more complex)
-COPY --from=builder /app/ww_door_controller /app/ww_door_controller
-RUN pip install --no-cache-dir /app/ww_door_controller
+# COPY --from=builder /app/ww_door_controller /app/ww_door_controller
+# RUN pip install --no-cache-dir /app/ww_door_controller
 
 # Create a non-root user for security
-RUN adduser --system --group appuser
-USER appuser
+RUN adduser --system --group doorcontroller
+USER doorcontroller
 
 # Expose the port your application listens on
 EXPOSE 8000

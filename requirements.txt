@@ -1,0 +1,7 @@
+requests
+#requests.auth
+requests.html
+psycopg2-binary
+#sqlite3
+#datetime
+#time
