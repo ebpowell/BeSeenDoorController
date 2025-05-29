@@ -97,6 +97,15 @@ class AccessControlList(key_fobs):
         except Exception as e:
             raise e
 
+    def add_fob(self):
+        ...
+
+    def set_permissions(self):
+         ...
+
+    def del_fob(self):
+        ...
+
 
 if __name__ == '__main__':
     username = "abc"

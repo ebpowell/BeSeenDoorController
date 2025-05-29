@@ -4,10 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Debugging">
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Dockerfile now builds correctly. Still doesn't run...">
+      <change afterPath="$PROJECT_DIR$/door_controller/common_lib/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/door_controller/tools/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/access_control_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/access_control_list.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/data_extractor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/door_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/fobs.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/fobs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/pg_database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/door_controller/swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/swipes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/get_recent_swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/tools/get_recent_swipes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -34,28 +43,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.access_control_list.executor&quot;: &quot;Run&quot;,
-    &quot;Python.clubhouse_calendar.executor&quot;: &quot;Run&quot;,
-    &quot;Python.data_extractor.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.door_controller.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.get_fob_ids.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.get_recent_swipes.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.access_control_list.executor": "Run",
+    "Python.clubhouse_calendar.executor": "Run",
+    "Python.data_extractor.executor": "Debug",
+    "Python.door_controller.executor": "Debug",
+    "Python.get_fob_ids.executor": "Debug",
+    "Python.get_recent_swipes.executor": "Run",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/home/ebpowell/GIT_REPO/ww_door_controller/door_controller/tools",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/door_controller/tools" />
+      <recent name="$PROJECT_DIR$/door_controller/common_lib" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/door_controller/common_lib" />
+      <recent name="$PROJECT_DIR$/door_controller" />
       <recent name="$PROJECT_DIR$/calendar_sync" />
       <recent name="$PROJECT_DIR$/reference" />
       <recent name="$PROJECT_DIR$/scripts" />
-      <recent name="$PROJECT_DIR$/door_controller" />
-      <recent name="$PROJECT_DIR$/package" />
     </key>
   </component>
   <component name="RunManager" selected="Python.get_recent_swipes">
@@ -72,7 +86,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/access_control_list.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/common_lib/access_control_list.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -116,7 +130,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/data_extractor.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/common_lib/data_extractor.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -138,7 +152,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/door_controller.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/door_controller/common_lib/door_controller.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -323,7 +337,23 @@
       <option name="project" value="LOCAL" />
       <updated>1748367857817</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Dockerfile now builds correctly. Still doesn't run...">
+      <option name="closed" value="true" />
+      <created>1748405447349</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1748405447349</updated>
+    </task>
+    <task id="LOCAL-00018" summary="Dockerfile now builds correctly. Still doesn't run...">
+      <option name="closed" value="true" />
+      <created>1748405477042</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1748405477042</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -359,7 +389,8 @@
     <MESSAGE value="Major debugging. &#10;Added dedicated script to extract keyswipes and cache data in slop table." />
     <MESSAGE value="Basics of packaging layout in place." />
     <MESSAGE value="Debugging" />
-    <option name="LAST_COMMIT_MESSAGE" value="Debugging" />
+    <MESSAGE value="Dockerfile now builds correctly. Still doesn't run..." />
+    <option name="LAST_COMMIT_MESSAGE" value="Dockerfile now builds correctly. Still doesn't run..." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

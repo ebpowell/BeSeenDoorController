@@ -42,6 +42,7 @@ class door_controller:
                     return
             except Exception as e:
                 pass
+        return
 
     def is_convertible_to_int(self, token):
       """

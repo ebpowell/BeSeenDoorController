@@ -1,9 +1,9 @@
 import time
 
 # from database import cls_sqlite
-from door_controller.fobs import key_fobs
-from door_controller.pg_database import postgres
-from door_controller.swipes import fob_swipes
+from door_controller.common_lib.fobs import key_fobs
+from door_controller.common_lib.pg_database import postgres
+from door_controller.common_lib.swipes import fob_swipes
 
 
 class ww_data_extractor:
