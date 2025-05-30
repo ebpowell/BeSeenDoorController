@@ -83,6 +83,7 @@ class AccessControlList(key_fobs):
             except:
                 time.sleep(self.timeout/3)
                 pass
+        return None
 
     def navigate(self, data):
         # obj_ACL = AccessControlList(self.username, self.password, self.url)
@@ -96,15 +97,9 @@ class AccessControlList(key_fobs):
                     raise e
         except Exception as e:
             raise e
+        return None
 
-    def add_fob(self):
-        ...
 
-    def set_permissions(self):
-         ...
-
-    def del_fob(self):
-        ...
 
 
 if __name__ == '__main__':

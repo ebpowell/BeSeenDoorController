@@ -12,7 +12,8 @@ setup(
     entry_points={
         'console_scripts': [
             'get_recent_swipes=door_controller.tools.get_recent_swipes:main',
-            # 'my-app-tool-b=my_application_suite.tools.tool_b:main',
+            'get_acl_from_door_controller=door_controller.tools.get_acl_from_controller:main',
+            'update_controller=door_controller.tools.update_controller:main',
             # ... add more tools here
         ]
     },

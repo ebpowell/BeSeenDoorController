@@ -79,3 +79,12 @@ class postgres:
         print(sql)
         cur.execute(sql)
         self.db_con.commit()
+
+    def get_fob_records(self):
+        # db = sqlite3.connect(self.db_path)
+        cur = self.db_con.cursor()
+        cur.execute('select distinct record_id from system_fobs order by record_id asc')
+        rows = cur.fetchall()
+        # Close the database
+        # db.close()
+        return rows

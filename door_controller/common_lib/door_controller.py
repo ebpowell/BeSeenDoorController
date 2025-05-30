@@ -98,7 +98,14 @@ class door_controller:
         print('Connection Failed')
         return
 
+    def add_fob(self):
+            ...
 
+    def set_permissions(self):
+             ...
+
+    def del_fob(self):
+        ...
 
 
 

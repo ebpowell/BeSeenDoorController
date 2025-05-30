@@ -54,11 +54,13 @@ USER doorcontroller
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 # Copy each console script individually
 COPY --from=builder /usr/local/bin/get_recent_swipes /usr/local/bin/
+COPY --from=builder /usr/local/bin/get_acl_from_door_controller /usr/local/bin/
+COPY --from=builder /usr/local/bin/update_controller /usr/local/bin/
 # Expose the port your application listens on
 # EXPOSE 8000
 
 # Command to run your application
 # Define a default command if the container is run without arguments
 # This is mainly for user guidance or a simple health check
-CMD ["echo", "Ready. Run with: docker run door_controller get_recent_swipes [args]"]
+CMD ["echo", "Ready. Run with: docker run door_controller get_recent_swipes [args], docker run get_acl_from_door_controller [args] or docker run update_controller [args]"]
 # CMD ["get_recent_swipes.py", "DockerUser"] # Assuming my_script.py is on PATH
