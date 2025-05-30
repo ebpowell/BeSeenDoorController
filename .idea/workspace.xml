@@ -4,21 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Dockerfile now builds correctly. Still doesn't run...">
-      <change afterPath="$PROJECT_DIR$/door_controller/common_lib/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/door_controller/tools/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/access_control_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/access_control_list.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/data_extractor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/door_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/fobs.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/fobs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/pg_database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/swipes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/get_recent_swipes.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/tools/get_recent_swipes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-    </list>
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Iniatial build implementation complete. Needs testing / debugging in place and a CI/CD process.&#10;Stubbed in functions for altering data on door controllers." />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -353,7 +339,15 @@
       <option name="project" value="LOCAL" />
       <updated>1748405477042</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Iniatial build implementation complete. Needs testing / debugging in place and a CI/CD process.&#10;Stubbed in functions for altering data on door controllers.">
+      <option name="closed" value="true" />
+      <created>1748493042319</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1748493042319</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -390,7 +384,8 @@
     <MESSAGE value="Basics of packaging layout in place." />
     <MESSAGE value="Debugging" />
     <MESSAGE value="Dockerfile now builds correctly. Still doesn't run..." />
-    <option name="LAST_COMMIT_MESSAGE" value="Dockerfile now builds correctly. Still doesn't run..." />
+    <MESSAGE value="Iniatial build implementation complete. Needs testing / debugging in place and a CI/CD process.&#10;Stubbed in functions for altering data on door controllers." />
+    <option name="LAST_COMMIT_MESSAGE" value="Iniatial build implementation complete. Needs testing / debugging in place and a CI/CD process.&#10;Stubbed in functions for altering data on door controllers." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
