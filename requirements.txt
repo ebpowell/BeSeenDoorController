@@ -5,4 +5,4 @@ psycopg2-binary
 #sqlite3
 #datetime
 #time
-yaml
+PyYaml

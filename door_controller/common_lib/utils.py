@@ -32,14 +32,14 @@ def load_config(config_filename="config.yaml"):
         import yaml  # This dependency would be in requirements.txt
         # Construct path relative to the package, or look in a well-known volume mount point
         # For simplicity, let's assume it's directly accessible if mounted, or in a default path
-        config_path = os.path.join(os.getenv('APP_CONFIG_DIR', '/app/data'), config_filename)
-
+        # config_path = os.path.join(os.getenv('APP_CONFIG_DIR', '/app/data'), config_filename)
+        config_path = os.path.join(os.getenv('APP_CONFIG_DIR', './data'), config_filename)
         if not os.path.exists(config_path):
             log_info(f"Config file not found at {config_path}. Attempting to load from package default.")
             # Fallback for default config if not mounted externally
             # This requires the data folder to be copied into the image
             import pkgutil
-            config_data = pkgutil.get_data('my_app_package', os.path.join('data', config_filename))
+            config_data = pkgutil.get_data('door_controller', os.path.join('data', config_filename))
             if config_data:
                 return yaml.safe_load(config_data)
             else:

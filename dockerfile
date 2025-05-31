@@ -53,7 +53,7 @@ USER doorcontroller
 
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 # Copy each console script individually
-COPY --from=builder /usr/local/bin/get_recent_swipes /usr/local/bin/
+COPY --from=builder /usr/local/bin/get_swipes /usr/local/bin/
 COPY --from=builder /usr/local/bin/get_acl_from_door_controller /usr/local/bin/
 COPY --from=builder /usr/local/bin/update_controller /usr/local/bin/
 # Expose the port your application listens on
