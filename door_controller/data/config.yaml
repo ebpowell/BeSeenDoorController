@@ -1,0 +1,12 @@
+app_name: Door Controller
+environment: default
+version: 0.1.0
+settings:
+  api_key: some_default_key
+  log_level: INFO
+  postgres_connect_string: host=192.168.50.150 dbname=wntworth_db user=wentworth_user password=ww_s3cret
+  username: abc
+  password: 654321
+  urls:
+    - http://69.21.119.147
+    - http://69.21.119.148
