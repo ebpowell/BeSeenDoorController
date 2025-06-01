@@ -6,3 +6,21 @@ services:
     volumes:
       - /opt/data/door_controller/data:/app/data
 
+    environment:
+      # Example: Tell your app where to find config files if not in a default path
+      # Your Python code (e.g., utils.py) would read this ENV var
+      APP_CONFIG_DIR: /app/config
+
+      # Example: A setting for a specific tool or overall application mode
+      APP_MODE: production
+
+      # Example: A sensitive API key (consider Docker secrets for production)
+      # MY_API_KEY: ${SECRET_API_KEY} # Use environment variable from host for secrets
+
+    # Set the user to run processes inside the container
+    # This corresponds to the 'appuser' created in your Dockerfile
+    user: doorcontroller
+
+    # Default command for the service (useful if you just run 'docker-compose up')
+    # For cron jobs, this will be overridden by 'docker-compose run'
+    command: ["echo", "Service ready. Use 'docker-compose run' to execute tools."]
