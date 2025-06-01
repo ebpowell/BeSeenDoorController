@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     volumes:
       - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
 
     environment:
       # Example: Tell your app where to find config files if not in a default path
