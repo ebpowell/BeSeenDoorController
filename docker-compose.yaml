@@ -14,7 +14,7 @@ services:
       APP_CONFIG_DIR: /app/config
 
       # Example: A setting for a specific tool or overall application mode
-      APP_MODE: production
+#      APP_MODE: production
 
       # Example: A sensitive API key (consider Docker secrets for production)
       # MY_API_KEY: ${SECRET_API_KEY} # Use environment variable from host for secrets
