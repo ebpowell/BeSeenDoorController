@@ -1,9 +1,10 @@
 import requests
+import time
 
 from door_controller.common_lib.database import cls_sqlite
-from .pg_database import postgres
+from door_controller.common_lib.door_controller import door_controller
+from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.fobs import key_fobs
-import time
 
 
 class AccessControlList(key_fobs):
@@ -99,6 +100,15 @@ class AccessControlList(key_fobs):
             raise e
         return None
 
+     def parse(self, response):
+          tpl_row = []
+          #Trim everything before the first data row in the table
+          text_markup = response.text[markup.find('<th>Operation</th></tr>'):]
+          tag_len = len('<th>Operation</th></tr>')
+          text_markup = text_markup[tag_len:text_markup.find('</table></p>')]
+          tpl_murow = self.parse_tr_data(text_markup, r'<tr align=(.*?)</tr>', 4)
+          [tpl_row.append([row[0], row[1]]) for row in tpl_murow]
+          return  tpl_row
 
 
 
