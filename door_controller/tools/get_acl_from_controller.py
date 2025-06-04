@@ -22,18 +22,19 @@ def main():
             'logid': '20101222'}
 
     objdb = postgres(config.get('settings', {}).get('postgres_connect_string'))
-    record_ids = objdb.get_fob_records()
-    for record_id in record_ids:
-        print('Record ID:', record_id)
-        # ** Implement list comprehension logic ***** TO DO
+    # record_ids = objdb.get_fob_records()
+    # for record_id in record_ids:
+    #     print('Record ID:', record_id)
+    #     # ** Implement list comprehension logic ***** TO DO
         urls = config['settings']['urls']
         for url in urls:
-            obj_ACL = AccessControlList({config.get('settings', {}).config.get('username')}, {config.get('settings', {}).get('password')}, url)
+            obj_ACL = AccessControlList({config.get('settings', {}).get('username')}, {config.get('settings', {}).get('password')}, url)
             response = obj_ACL.navigate(data)
             if response.status_code == 200:
-                for x in range(0, 20):
+                records = obj_ACL.parse(response)
+                for x in record in records:
                     try:
-                        lst_perms = obj_ACL.get_permissions_record(record_id[0])
+                        lst_perms = obj_ACL.get_permissions_record(record[0])
                         # Insert into database
                         if lst_perms:
                             [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
