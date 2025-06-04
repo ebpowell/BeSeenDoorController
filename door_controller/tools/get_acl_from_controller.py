@@ -7,22 +7,6 @@ from door_controller import __version__ # Access package version
 
 
 def main():
-    # username = "abc"
-    # password = "654321"
-    # urls = ["http://69.21.119.147", "http://69.21.119.148"]
-
-    # strconnect = "host=192.168.50.150 dbname=wntworth_db user=wentworth_user password=ww_s3cret"
-    # record_id = 55
-    # objdb = cls_sqlite('/door_controller_data')
-
-    """Main function for 'get_acl_from_controller'."""
-    # log_info(f"--- Starting get_acl_from_comtroller (v{__version__}) at {get_current_timestamp()} ---")
-    #
-    # # Accessing command-line arguments for config path
-    # args = sys.argv[1:]
-    # if args:
-    #     log_info(f"Received arguments: {args}")
-
     # Using common utility to load config
     config = load_config() # Uses default or APP_CONFIG_DIR env var
     # config = load_config(args[0])  # Uses default or APP_CONFIG_DIR env var
@@ -37,7 +21,7 @@ def main():
             'pwd': {config.get('settings', {}).get('password')},
             'logid': '20101222'}
 
-    objdb = postgres(str_connect={config.get('settings', {}).get('postgres_connect_string')})
+    objdb = postgres(config.get('settings', {}).get('postgres_connect_string'))
     record_ids = objdb.get_fob_records()
     for record_id in record_ids:
         print('Record ID:', record_id)
