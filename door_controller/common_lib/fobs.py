@@ -25,20 +25,21 @@ class key_fobs(door_controller):
         'pwd': self.password,
         'logid': '20101222'}
         next_index = 20
+        url = self.url + '/ACT_ID_1'
         try:
-            response = self.connect(data)
+            response = self.get_httpresponse(url, data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+                    headers = {'Referer' : self.url + '/ACT_ID_1'}
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                    headers= {'Referer' : self.url + '/ACT_ID_21'}
                     url = self.url + '/ACT_ID_325'
                     data = {'PC': f"000{next_index-19}",
                            'PE': f"000{next_index}",
@@ -50,13 +51,13 @@ class key_fobs(door_controller):
                      'PE': f"000{next_index}",
                      'PN': 'Next'}
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
+                    headers= {'Referer': self.url+'/ACT_ID_325'}
                     url = self.url + '/ACT_ID_325'
                 try:
                     print(url)
                     print(x, data)
-                    print(self.session.headers)
-                    response = self.get_httpresponse(url, data)
+                    print(headers)
+                    response = self.get_httpresponse(url, data, headers=headers)
                 except:
                     raise
                 try:
@@ -74,6 +75,7 @@ class key_fobs(door_controller):
                 except:
                     pass
             return fobs
+        return None
 
     def get_keyfobs_range(self, iterations, start_rec):
         fobs = []
@@ -83,20 +85,22 @@ class key_fobs(door_controller):
         data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
+        url = self.url + '/ACT_ID_1'
         try:
-            response = self.connect(data)
+            # response = self.connect(data)
+            response = self.get_httpresponse(url, data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+                    headers = {'Referer': self.url + '/ACT_ID_1'}
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                    headers={'Referer': self.url + '/ACT_ID_21'}
                     url = self.url + '/ACT_ID_325'
                     data = {'PC': f"000{next_index-19}",
                            'PE': f"000{(next_index)}",
@@ -108,10 +112,10 @@ class key_fobs(door_controller):
                             'PE':f"000{next_index}",
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
+                    headers={'Referer': self.url+'/ACT_ID_325'}
                     url = self.url + '/ACT_ID_325'
                 try:
-                    response = self.get_httpresponse(url, data)
+                    response = self.get_httpresponse(url, data, headers=headers)
                 except:
                     raise
                 if x > 1:
@@ -130,6 +134,7 @@ class key_fobs(door_controller):
                     except:
                         pass
             return fobs
+        return None
 
     def get_fob_range(self, iterations, max_id):
         pass

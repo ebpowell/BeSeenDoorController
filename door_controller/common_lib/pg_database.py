@@ -1,4 +1,5 @@
 import psycopg2
+import datetime
 
 
 class postgres:
@@ -15,6 +16,12 @@ class postgres:
             max_id = row[0]
         return max_id
 
+    def generate_query_string(self, sql, token):
+        # Convert list to a string of comma seperated values
+        the_string = '","'.join(token)
+        the_query = f"""{sql}("{the_string}")"""
+        return the_query
+
     def gen_swipe_record(self, record, sql):
         str_query = F"""{sql} ({int(record[0])}, {int(record[1])}, '{record[2]}',{record[3]},'{record[4]}','{record[5]}')"""
         print (str_query)
@@ -27,14 +34,39 @@ class postgres:
         [cur.execute(self.gen_swipe_record(record, query)) for record in data if int(record[0])>max_id]
         self.db_con.commit()
 
+    def insert_controller_fobs_slop(self, data):
+        data.append(str(datetime.datetime.now()))
+        query = ('INSERT INTO dataload.fobs_slop (record_id, fob_id, controller_ip, '
+                 'record_time) values')
+        cur = self.db_con.cursor()
+        query = F"""{query} {data[0], data[1], data[2], data[3]}"""
+        print(query)
+        cur.execute(query)
+        self.db_con.commit()
+
+    def purge_controller_fobs_slop(self):
+        cur = self.db_con.cursor()
+        # Purge the slop table
+        cur.execute('delete from dataload.fobs_slop')
+        self.db_con.commit()
+
+    def purge_acl_slop(self):
+        cur = self.db_con.cursor()
+        # Purge the slop table
+        cur.execute('delete from dataload.access_list_from_controller_slop')
+        self.db_con.commit()
+
     def insert_access_list_record(self, data):
         # db = sqlite3.connect(self.db_path)
         # Add records tp SQLite database
-        query = 'INSERT INTO dataload.access_list_from_controller_slop (record_id, fob_id, door_controller, status, door_id, controller_ip) values'
+        data.append(str(datetime.datetime.now()))
+        query = ('INSERT INTO dataload.access_list_from_controller_slop (record_id, fob_id, status, '
+                 'door_id, controller_ip, data_date) values')
         # sql = self.generate_query_string(query, record)
         cur = self.db_con.cursor()
-        [cur.execute(F"""{query} ({record[0], record[1], record[2], record[3], record[4], record[5]})""") for record
-         in data if int(record[0])]
+        query = F"""{query} {data[0], data[1], data[3], data[2], data[4], data[5]}"""
+        print(query)
+        cur.execute(query)
         self.db_con.commit()
         # db.close()
 
@@ -80,11 +112,34 @@ class postgres:
         cur.execute(sql)
         self.db_con.commit()
 
-    def get_fob_records(self):
-        # db = sqlite3.connect(self.db_path)
+    # TO DO - Flesh out query
+    def add_new_fobs(self):
         cur = self.db_con.cursor()
-        cur.execute('select distinct record_id from system_fobs order by record_id asc')
+        sql = "insert into key_fobs.fobs (record_id, fob_id ,controller_ip, record_time) "
+        sql += "select distinct record_id, fob_id, controller_ip, record_time"
+        sql += "from dataload.fobs_slop fs "
+        sql += "where concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
+        sql += "not in (select distinct concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
+        sql += "from door_controller.fobs)"
+        print(sql)
+        cur.execute(sql)
+        self.db_con.commit()
+
+    def get_fob_records(self, url):
+        cur = self.db_con.cursor()
+        cur.execute(F"""select distinct record_id from system_fobs where controller_ip ='{url}' order by record_id asc""")
         rows = cur.fetchall()
-        # Close the database
-        # db.close()
         return rows
+
+    def get_max_fob_id(self, url):
+        cur = self.db_con.cursor()
+        sql = F"""select max(record_id) 
+            from dataload.fobs_slop
+            where controller_ip = '{url[7:]}/32'::cidr"""
+            # WHERE record_time >= now()::date
+            # AND record_time < (now()::date + INTERVAL '1 day')"""
+
+        print(sql)
+        cur.execute(sql)
+        rows = cur.fetchone()
+        return rows[0]

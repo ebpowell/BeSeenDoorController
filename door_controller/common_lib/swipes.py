@@ -20,8 +20,10 @@ class fob_swipes(door_controller):
         # print(rec_id_start)
         # print(self.session.headers)
         # print(connect_data)
+        url = self.url + '/ACT_ID_1'
         try:
-            response = self.connect(connect_data)
+            # response = self.connect(connect_data)
+            response = self.get_httpresponse(url, connect_data)
         except:
             raise
         if response.status_code == 200:
@@ -29,7 +31,7 @@ class fob_swipes(door_controller):
                 print('get_swipes_range X value:', x)
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+                    headers ={'Referer': self.url + '/ACT_ID_1'}
                     url = self.url + '/ACT_ID_21'
                     data = {'s4':'Swipe'}
                 elif x == 2:
@@ -39,7 +41,7 @@ class fob_swipes(door_controller):
                             'PN': 'Next'}
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                    headers ={'Referer': self.url + '/ACT_ID_21'}
                 else:
                     # Update passed data
                     data = {'PC':next_index,
@@ -47,11 +49,11 @@ class fob_swipes(door_controller):
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] =  self.url + '/ACT_ID_345'
+                    headers={'Referer':  self.url + '/ACT_ID_345'}
                 for y in range (1, 5):
                     try:
                         print('Connect Attempt:', y)
-                        response = self.get_httpresponse(url, data)
+                        response = self.get_httpresponse(url, data, headers=headers)
                         print("Success")
                         # print(url)
                         # print(self.session.headers)
@@ -94,15 +96,17 @@ class fob_swipes(door_controller):
         'logid': '20101222'}
         # print(self.session.headers)
         # print(connect_data)
+        url = self.url + '/ACT_ID_1'
         try:
-            response = self.connect(connect_data)
+            # response = self.connect(connect_data)
+            response = self.get_httpresponse(url, connect_data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+                    headers={'Referer': self.url + '/ACT_ID_1'}
                     url = self.url + '/ACT_ID_21'
                     data = {'s4':'Swipe'}
                 elif x == 2:
@@ -112,7 +116,7 @@ class fob_swipes(door_controller):
                             'PN': 'Next'}
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                    headers={'Referer': self.url + '/ACT_ID_21'}
                 else:
                     # Update passed data
                     data = {'PC':next_index,
@@ -120,12 +124,12 @@ class fob_swipes(door_controller):
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
-                    self.session.headers['Referer'] =  self.url + '/ACT_ID_21'
+                    headers={'Referer': self.url + '/ACT_ID_21'}
                 try:
                     # print(url)
                     # print(self.session.headers)
                     # print(x, data)
-                    response = self.get_httpresponse(url, data)
+                    response = self.get_httpresponse(url, data, headers=headers)
                 except:
                     raise
                 try:

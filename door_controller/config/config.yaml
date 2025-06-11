@@ -7,6 +7,8 @@ settings:
   postgres_connect_string: host=192.168.50.150 dbname=wntworth_db user=wentworth_user password=ww_s3cret
   username: abc
   password: 654321
+  iterations: 25
+  batch_size: 60
   urls:
     - http://69.21.119.147
     - http://69.21.119.148
