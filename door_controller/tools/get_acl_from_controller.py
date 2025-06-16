@@ -12,7 +12,7 @@ def get_permissions(config, record, objdb, url):
         while not lst_perms:
             try:
                 obj_ACL = AccessControlList({config.get('settings', {}).get('username')},
-                                            {config.get('settings', {}).get('password')}, url)
+                                            {config.get('settings', {}).get('password')}, url, run_time)
                 lst_perms = obj_ACL.get_permissions_record(int(record[0]))
                 del obj_ACL
             except requests.exceptions.Timeout as e:
@@ -43,7 +43,7 @@ def get_acl_list(url, config, objdb, mode = 'All'):
 def get_users_list(url, config, objdb, mode='All'):
     try:
         obj_ACL = AccessControlList({config.get('settings', {}).get('username')},
-                                    {config.get('settings', {}).get('password')}, url)
+                                    {config.get('settings', {}).get('password')}, url, run_time)
         # Get the maximum number of users from the door controller
         record_count = obj_ACL.get_users_count()
         print(F"""Maximum Users: {record_count}""")
@@ -56,7 +56,7 @@ def get_users_list(url, config, objdb, mode='All'):
         while rec_id_start < max_record_id:
             x += 1
             obj_ACL = AccessControlList({config.get('settings', {}).get('username')},
-                                        {config.get('settings', {}).get('password')}, url)
+                                        {config.get('settings', {}).get('password')}, url, run_time)
             obj_ACL.get_users(rec_id_start, {config.get('settings', {}).get('batch_size')}, objdb)
             del obj_ACL
             rec_id_start = objdb.get_max_fob_id(url)
@@ -89,9 +89,9 @@ def main(mode='All'):
     urls = config['settings']['urls']
     for url in urls:
         try:
-            get_users_list(url, config, objdb, mode)
+            get_users_list(url, config, objdb, mode, run_time)
             time.sleep(10)
-            # get_acl_list(url, config, objdb, mode)
+            # get_acl_list(url, config, objdb, mode, run_time)
         except Exception as e:
             raise e
 
