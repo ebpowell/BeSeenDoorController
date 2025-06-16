@@ -342,6 +342,8 @@ class AccessControlList(key_fobs):
                         text = response.text[response.text.find('</body>')-162:response.text.find('</body>')-150]
                         text = text[:text.find("</td>")]
                         text = text[text.find('<td>') + 4:].strip()
+                        while not self.is_convertible_to_int(text):
+                            text = text[:-1]
                         print(F"""Final Record_id:{text}""")
                         return int(text)
         except ValueError:
