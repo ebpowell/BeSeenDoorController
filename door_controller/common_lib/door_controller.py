@@ -33,7 +33,7 @@ class door_controller:
         # allow overriding default timeout
         if timeout == 0:
             timeout = self.timeout
-        print('timeout:', timeout)
+        # print('timeout:', timeout)
         session_headers = self.headers
         if headers:
             # session_headers.update(headers)

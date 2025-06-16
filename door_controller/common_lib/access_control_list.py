@@ -215,11 +215,16 @@ class AccessControlList(key_fobs):
     def get_users(self, rec_id_start, batch_size, objdb):
         headers = {}
         # Add iterations, start val parameters
-        last_index = int(rec_id_start)
-        next_index = last_index
-        users = []
+        if rec_id_start:
+            last_index = int(rec_id_start) - 20
+            # last_index = 20
+        else:
+            last_index = 1
+            rec_id_start = 1
+        next_index = last_index + 20
+        # users = []
         batch_size = tuple(batch_size)
-        iterations = int(batch_size[0] / 20)
+        iterations = int(batch_size[0] / 20) + 1
         connect_data = {'username': self.username,
                      'pwd': self.password,
                      'logid': '20101222'}
@@ -229,8 +234,8 @@ class AccessControlList(key_fobs):
         except:
             raise
         if response.status_code == 200:
-            for x in range(1, iterations):
-                 print('get_users_range X value:', x)
+            for x in range(1, iterations +1):
+                 print('get_users X value:', x)
                  if x == 1:
                      url = self.url + '/ACT_ID_21'
                      data = {'s2': 'Users'}
@@ -240,8 +245,10 @@ class AccessControlList(key_fobs):
                              'PE': next_index,
                              'PN': 'Next'}
                      url = self.url + '/ACT_ID_325'
+                     print(F"""Rec_id_start:{rec_id_start}, Batch_Size:{batch_size},Data: {data}""")
                  try:
                      print('Connect Attempt:')
+
                      headers = {'Referer': self.url + '/ACT_ID_21'}
                      response = self.get_httpresponse(url, data, headers=headers)
                      print("Success")
@@ -250,34 +257,43 @@ class AccessControlList(key_fobs):
                     # after two tries, move to the next batch of records
                     time.sleep(self.timeout)
                     pass
-                 try:
-                     if response.status_code == 200:
-                         # Extract data from the returned page
-                         batch = self.parse_users_data(response.text)
-                         # Write to users table in the database
-                         if batch:
-                             [objdb.insert_controller_fobs_slop([record[0], record[1],
-                                                                 self.url[7:], str(datetime.datetime.now())])
-                              for record in batch]
-                             last_index = next_index
-                             next_index = int(batch[len(batch)-1][0])
-                             time.sleep(10)
+                 # DO not load records 1-20 a bunch of times
+                 if (rec_id_start > 1 and x > 1) or rec_id_start <= 1:
+                     try:
+                         if response.status_code == 200:
+                             # Extract data from the returned page
+                             batch = self.parse_users_data(response.text)
+                             # Write to users table in the database
+                             if batch:
+                                 [objdb.insert_controller_fobs_slop([record[0], record[1],
+                                                                     self.url[7:], str(datetime.datetime.now())])
+                                  for record in batch]
+                                 next_index = objdb.get_max_fob_id(self.url)
+                                 last_index = next_index-20
+                                 # next_index = int(batch[len(batch)-1][0])
+                                 # last_index = next_index-20
+                                 print(F"""last_index: {last_index},  Next_Index:{next_index}""")
+                                 time.sleep(10)
+                                 # if last_index >= rec_id_start:
+                                 #     break
+                             else:
+                                 break
                          else:
-                             break
-                     else:
-                         print(response.status_code)
-                 except:
-                     # pass
-                    raise
-        print('Records to add:', len(users))
+                             print(response.status_code)
+                     except:
+                         # pass
+                        raise
+        # print('Records to add:', len(users))
         return
 
-    def get_max_users(self):
+    def get_users_count(self):
         connect_data = {'username': self.username,
                         'pwd': self.password,
                         'logid': '20101222'}
         url = self.url + '/ACT_ID_1'
+        text = ''
         try:
+
             response = self.get_httpresponse(url, connect_data)
             if response.status_code == 200:
                 try:
@@ -291,11 +307,49 @@ class AccessControlList(key_fobs):
                     text = text[:text.find("<")]
                     # int(text[text.find(':')+1:].strip())
                     return int(text[text.find(':')+1:].strip())
-        except:
-            raise
-
+        except ValueError:
+            print (text)
+            self.get_users_count()
+        except Exception as e:
+            raise e
         return None
 
+    def get_max_record_id(self):
+        connect_data = {'username': self.username,
+                        'pwd': self.password,
+                        'logid': '20101222'}
+        url = self.url + '/ACT_ID_1'
+        text = ''
+        try:
+            response = self.get_httpresponse(url, connect_data)
+            if response.status_code == 200:
+                try: #Navigate to Users
+                    url = self.url + '/ACT_ID_21'
+                    data = {'s2': 'Users'}
+                    response = self.get_httpresponse(url, data)
+                except:
+                    raise
+                if response.status_code == 200:
+                    try: #Navigate to Last page Users
+                        url = self.url + '/ACT_ID_325'
+                        data = {'PC': '00001',
+                                'PE': ['00020', 'Last']}
+                        response = self.get_httpresponse(url, data)
+                    except:
+                        raise
+                    if response.status_code == 200:
+                        # Get the last User record id
+                        text = response.text[response.text.find('</body>')-162:response.text.find('</body>')-150]
+                        text = text[:text.find("</td>")]
+                        text = text[text.find('<td>') + 4:].strip()
+                        print(F"""Final Record_id:{text}""")
+                        return int(text)
+        except ValueError:
+            print(text)
+            self.get_max_record_id()
+        except Exception as e:
+            raise e
+        return None
 
 if __name__ == '__main__':
     username = "abc"

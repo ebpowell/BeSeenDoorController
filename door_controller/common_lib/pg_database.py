@@ -40,7 +40,7 @@ class postgres:
                  'record_time) values')
         cur = self.db_con.cursor()
         query = F"""{query} {data[0], data[1], data[2], data[3]}"""
-        print(query)
+        # print(query)
         cur.execute(query)
         self.db_con.commit()
 
@@ -65,7 +65,7 @@ class postgres:
         # sql = self.generate_query_string(query, record)
         cur = self.db_con.cursor()
         query = F"""{query} {data[0], data[1], data[3], data[2], data[4], data[5]}"""
-        print(query)
+        # print(query)
         cur.execute(query)
         self.db_con.commit()
         # db.close()
@@ -108,7 +108,7 @@ class postgres:
         sql += "where concat(record_id, '-',substr(door_controller_ip, 18,3)) "
         sql += "not in (select distinct concat(record_id, '-',substr(door_controller_ip, 18,3)) "
         sql += "from door_controller.t_keyswipes )"
-        print(sql)
+        # print(sql)
         cur.execute(sql)
         self.db_con.commit()
 
@@ -121,13 +121,13 @@ class postgres:
         sql += "where concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
         sql += "not in (select distinct concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
         sql += "from door_controller.fobs)"
-        print(sql)
+        # print(sql)
         cur.execute(sql)
         self.db_con.commit()
 
     def get_fob_records(self, url):
         cur = self.db_con.cursor()
-        cur.execute(F"""select distinct record_id from system_fobs where controller_ip ='{url}' order by record_id asc""")
+        cur.execute(F"""select distinct record_id from dataload.fobs_slop where controller_ip ='{url[7:]}' order by record_id asc""")
         rows = cur.fetchall()
         return rows
 
@@ -139,7 +139,10 @@ class postgres:
             # WHERE record_time >= now()::date
             # AND record_time < (now()::date + INTERVAL '1 day')"""
 
-        print(sql)
+        # print(sql)
         cur.execute(sql)
         rows = cur.fetchone()
-        return rows[0]
+        if rows[0]:
+            return rows[0]
+        else:
+            return 1
