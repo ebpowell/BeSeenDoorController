@@ -67,6 +67,8 @@ def get_users_list(url, config, objdb, mode='All'):
 
 
 def main(mode='All'):
+    # Get a timestamp for all records
+    run_timne = datetime.datetime.now()
     # Using common utility to load config
     config = load_config() # Uses default or APP_CONFIG_DIR env var
     if config:
