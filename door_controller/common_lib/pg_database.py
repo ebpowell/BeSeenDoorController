@@ -34,9 +34,9 @@ class postgres:
         [cur.execute(self.gen_swipe_record(record, query)) for record in data if int(record[0])>max_id]
         self.db_con.commit()
 
-    def insert_controller_fobs_slop(self, data, run_time):
+    def insert_controller_fobs_slop(self, data):
         # data.append(str(datetime.datetime.now()))
-        data.append(str(run_time))
+        # data.append(str(run_time))
         query = ('INSERT INTO dataload.fobs_slop (record_id, fob_id, controller_ip, '
                  'record_time) values')
         cur = self.db_con.cursor()
@@ -56,9 +56,9 @@ class postgres:
         cur.execute('delete from dataload.access_list_from_controller_slop')
         self.db_con.commit()
 
-    def insert_access_list_record(self, data, run_time):
+    def insert_access_list_record(self, data):
         # data.append(str(datetime.datetime.now()))
-        data.append(str(run_time))
+        # data.append(str(run_time))
         query = ('INSERT INTO dataload.access_list_from_controller_slop (record_id, fob_id, status, '
                  'door_id, controller_ip, data_date) values')
         cur = self.db_con.cursor()
