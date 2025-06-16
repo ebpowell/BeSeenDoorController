@@ -11,9 +11,10 @@ from door_controller.common_lib.fobs import key_fobs
 
 class AccessControlList(key_fobs):
      # Assumes we are at a page of
-    def __init__(self, username, password, url):
+    def __init__(self, username, password, url, run_time):
         super().__init__(url, username, password)
         self.max_retries = 5
+        self.run_time = run_time
 
 
     def get_permissions_record(self, record_id):
@@ -67,7 +68,7 @@ class AccessControlList(key_fobs):
         try:
             lst_tags = tpl_murow[0][3].split('<br><br>')
             # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
-            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url[-3:]]
+            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url[-3:], self.run_time]
                           for perm in lst_tags if perm.find('option') >0]
             return door_perms
         except IndexError:
@@ -124,93 +125,93 @@ class AccessControlList(key_fobs):
         ...
 
     # DEPRECATED
-    def get_acl(self, connect_string):
-        headers = {}
-        # Add iterations, start val parameters
-        last_index = int(rec_id_start)
-        # next_index = int(rec_id_start) + 19
-        next_index = last_index
-        # data = {'s2': 'Users'}
-        users = []
-        connect_data = {'username': self.username,
-                     'pwd': self.password,
-                     'logid': '20101222'}
-        # print(rec_id_start)
-        # print(self.session.headers)
-        # print(connect_data)
-        url = self.url + '/ACT_ID_1'
-        try:
-            # response = self.connect(connect_data)
-            response = self.get_httpresponse(url, connect_data)
-        except:
-            raise
-        if response.status_code == 200:
-            # Pool database for record_ids
-            objdb = postgres(connect_string)
-            records = objdb.get_fob_records()
-            for record in range(records):
-                 print('get_users_range X value:', x)
-                 if x == 1:
-                     # Update Request header to revise the referrer attribute
-                     # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                     url = self.url + '/ACT_ID_21'
-                     data = {'s2': 'Users'}
-                 # elif x == 2:
-                 #     # Update passed data
-                 #     data = {'PC': last_index,
-                 #             'PE': next_index,
-                 #             'PN': 'Next'}
-                 #     # Update Request header to revise the referrer attribute
-                 #     url = self.url + '/ACT_ID_325'
-                     # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                 else:
-                     # Update passed data
-                     data = {'PC': last_index,
-                             'PE': next_index,
-                             'PN': 'Next'}
-                     # Update Request header to revise the referrer attribute
-                     url = self.url + '/ACT_ID_325'
-                     # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                 for y in range(1, iterations):
-                     try:
-                         print('Connect Attempt:', y)
-                         headers = {'Referer': self.url + '/ACT_ID_21'}
-                         response = self.get_httpresponse(url, data, headers=headers)
-                         print("Success")
-                         # print(url)
-                         # print(self.session.headers)
-                         # print(x, data)
-                         break
-                     except:
-                         # after two tries, move to the next batch of records
-                         time.sleep(self.timeout)
-                         pass
-                 # if x > 1:
-                 try:
-                     if response.status_code == 200:
-                         # Extract data from the returned page
-                         batch = self.parse_users_data(response.text)
-                         if batch:
-                             last_index = next_index
-                             next_index = int(batch[len(batch)-1][0])
-                             users = users + batch
-                             print('Pass:', x, 'Parse Records Success', 'Batch Record Count:',
-                                   len(batch), 'Next Index:', next_index)
-                             print('users Count:', len(users))
-                         else:
-                             # next_index =  users[len(users)-20][0]
-                             print(response.text)
-                             print("No Records returned", 'Next Index:', next_index)
-                             # This connection is f&cked....write the records and try again
-                             break
-                         time.sleep(self.timeout / 3)
-                     else:
-                         print(response.status_code)
-                 except:
-                     # pass
-                    raise
-        print('Records to add:', len(users))
-        return users# DEPRECATRE
+    # def get_acl(self, connect_string):
+    #     headers = {}
+    #     # Add iterations, start val parameters
+    #     last_index = int(rec_id_start)
+    #     # next_index = int(rec_id_start) + 19
+    #     next_index = last_index
+    #     # data = {'s2': 'Users'}
+    #     users = []
+    #     connect_data = {'username': self.username,
+    #                  'pwd': self.password,
+    #                  'logid': '20101222'}
+    #     # print(rec_id_start)
+    #     # print(self.session.headers)
+    #     # print(connect_data)
+    #     url = self.url + '/ACT_ID_1'
+    #     try:
+    #         # response = self.connect(connect_data)
+    #         response = self.get_httpresponse(url, connect_data)
+    #     except:
+    #         raise
+    #     if response.status_code == 200:
+    #         # Pool database for record_ids
+    #         objdb = postgres(connect_string)
+    #         records = objdb.get_fob_records()
+    #         for record in range(records):
+    #              print('get_users_range X value:', x)
+    #              if x == 1:
+    #                  # Update Request header to revise the referrer attribute
+    #                  # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+    #                  url = self.url + '/ACT_ID_21'
+    #                  data = {'s2': 'Users'}
+    #              # elif x == 2:
+    #              #     # Update passed data
+    #              #     data = {'PC': last_index,
+    #              #             'PE': next_index,
+    #              #             'PN': 'Next'}
+    #              #     # Update Request header to revise the referrer attribute
+    #              #     url = self.url + '/ACT_ID_325'
+    #                  # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+    #              else:
+    #                  # Update passed data
+    #                  data = {'PC': last_index,
+    #                          'PE': next_index,
+    #                          'PN': 'Next'}
+    #                  # Update Request header to revise the referrer attribute
+    #                  url = self.url + '/ACT_ID_325'
+    #                  # self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+    #              for y in range(1, iterations):
+    #                  try:
+    #                      print('Connect Attempt:', y)
+    #                      headers = {'Referer': self.url + '/ACT_ID_21'}
+    #                      response = self.get_httpresponse(url, data, headers=headers)
+    #                      print("Success")
+    #                      # print(url)
+    #                      # print(self.session.headers)
+    #                      # print(x, data)
+    #                      break
+    #                  except:
+    #                      # after two tries, move to the next batch of records
+    #                      time.sleep(self.timeout)
+    #                      pass
+    #              # if x > 1:
+    #              try:
+    #                  if response.status_code == 200:
+    #                      # Extract data from the returned page
+    #                      batch = self.parse_users_data(response.text)
+    #                      if batch:
+    #                          last_index = next_index
+    #                          next_index = int(batch[len(batch)-1][0])
+    #                          users = users + batch
+    #                          print('Pass:', x, 'Parse Records Success', 'Batch Record Count:',
+    #                                len(batch), 'Next Index:', next_index)
+    #                          print('users Count:', len(users))
+    #                      else:
+    #                          # next_index =  users[len(users)-20][0]
+    #                          print(response.text)
+    #                          print("No Records returned", 'Next Index:', next_index)
+    #                          # This connection is f&cked....write the records and try again
+    #                          break
+    #                      time.sleep(self.timeout / 3)
+    #                  else:
+    #                      print(response.status_code)
+    #              except:
+    #                  # pass
+    #                 raise
+    #     print('Records to add:', len(users))
+    #     return users# DEPRECATRE
 
     def get_users(self, rec_id_start, batch_size, objdb):
         headers = {}
@@ -266,7 +267,7 @@ class AccessControlList(key_fobs):
                              # Write to users table in the database
                              if batch:
                                  [objdb.insert_controller_fobs_slop([record[0], record[1],
-                                                                     self.url[7:], str(datetime.datetime.now())])
+                                                                     self.url[7:], self.run_time])
                                   for record in batch]
                                  next_index = objdb.get_max_fob_id(self.url)
                                  last_index = next_index-20
@@ -353,35 +354,35 @@ class AccessControlList(key_fobs):
             raise e
         return None
 
-if __name__ == '__main__':
-    username = "abc"
-    password = "654321"
-    urls = ["http://69.21.119.147", "http://69.21.119.148"]
-    data = {'username': username,
-            'pwd': password,
-            'logid': '20101222'}
-    #record_id = 55
-    objdb = cls_sqlite('/door_controller_data')
-    record_ids = objdb.get_fob_records()
-    for record_id in record_ids:
-        print('Record ID:', record_id)
-        for url in urls:
-            obj_ACL = AccessControlList(username, password, url)
-            response = obj_ACL.navigate(data)
-            if response.status_code == 200:
-                for x in range(0, 20):
-                    try:
-                        lst_perms = obj_ACL.get_permissions_record(record_id[0])
-                        # Insert into database
-                        if lst_perms:
-                            [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
-                            # time.sleep(1)
-                            break
-                        else: # Record not returned, need to try to pull again
-                            print('Iteration: ', x, '...Reconnecting')
-                            time.sleep(1)
-                            response = obj_ACL.navigate(data)
-                    except:
-                        raise
-            del obj_ACL
+# if __name__ == '__main__':
+#     username = "abc"
+#     password = "654321"
+#     urls = ["http://69.21.119.147", "http://69.21.119.148"]
+#     data = {'username': username,
+#             'pwd': password,
+#             'logid': '20101222'}
+#     #record_id = 55
+#     objdb = cls_sqlite('/door_controller_data')
+#     record_ids = objdb.get_fob_records()
+#     for record_id in record_ids:
+#         print('Record ID:', record_id)
+#         for url in urls:
+#             obj_ACL = AccessControlList(username, password, url)
+#             response = obj_ACL.navigate(data)
+#             if response.status_code == 200:
+#                 for x in range(0, 20):
+#                     try:
+#                         lst_perms = obj_ACL.get_permissions_record(record_id[0])
+#                         # Insert into database
+#                         if lst_perms:
+#                             [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
+#                             # time.sleep(1)
+#                             break
+#                         else: # Record not returned, need to try to pull again
+#                             print('Iteration: ', x, '...Reconnecting')
+#                             time.sleep(1)
+#                             response = obj_ACL.navigate(data)
+#                     except:
+#                         raise
+#             del obj_ACL
 

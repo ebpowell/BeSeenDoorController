@@ -35,12 +35,12 @@ class postgres:
         self.db_con.commit()
 
     def insert_controller_fobs_slop(self, data):
-        data.append(str(datetime.datetime.now()))
+        # data.append(str(datetime.datetime.now()))
+        # data.append(str(run_time))
         query = ('INSERT INTO dataload.fobs_slop (record_id, fob_id, controller_ip, '
                  'record_time) values')
         cur = self.db_con.cursor()
         query = F"""{query} {data[0], data[1], data[2], data[3]}"""
-        # print(query)
         cur.execute(query)
         self.db_con.commit()
 
@@ -57,18 +57,14 @@ class postgres:
         self.db_con.commit()
 
     def insert_access_list_record(self, data):
-        # db = sqlite3.connect(self.db_path)
-        # Add records tp SQLite database
-        data.append(str(datetime.datetime.now()))
+        # data.append(str(datetime.datetime.now()))
+        # data.append(str(run_time))
         query = ('INSERT INTO dataload.access_list_from_controller_slop (record_id, fob_id, status, '
                  'door_id, controller_ip, data_date) values')
-        # sql = self.generate_query_string(query, record)
         cur = self.db_con.cursor()
         query = F"""{query} {data[0], data[1], data[3], data[2], data[4], data[5]}"""
-        # print(query)
         cur.execute(query)
         self.db_con.commit()
-        # db.close()
 
     def insert_swipe_start_record(self):
         cur = self.db_con.cursor()
@@ -100,7 +96,6 @@ class postgres:
 
     def add_new_swipess(self):
         cur = self.db_con.cursor()
-        # Purge the slop table
         sql = "insert into door_controller.t_keyswipes (record_id, fob_id , status, swipe_timestamp, "
         sql += "door,door_controller_ip) "
         sql += "select distinct record_id, fob_id , status, swipe_timestamp, door,door_controller_ip "
