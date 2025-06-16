@@ -68,7 +68,7 @@ class AccessControlList(key_fobs):
         try:
             lst_tags = tpl_murow[0][3].split('<br><br>')
             # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
-            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url[-3:]]
+            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url[-3:], self.run_time]
                           for perm in lst_tags if perm.find('option') >0]
             return door_perms
         except IndexError:
