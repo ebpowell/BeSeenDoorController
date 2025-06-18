@@ -110,12 +110,12 @@ class postgres:
     # TO DO - Flesh out query
     def add_new_fobs(self):
         cur = self.db_con.cursor()
-        sql = "insert into key_fobs.fobs (record_id, fob_id ,controller_ip, record_time) "
-        sql += "select distinct record_id, fob_id, controller_ip, record_time"
-        sql += "from dataload.fobs_slop fs "
-        sql += "where concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
-        sql += "not in (select distinct concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
-        sql += "from door_controller.fobs)"
+        sql = "insert into door_controller.fobs (record_id, fob_id ,controller_id, record_time) "
+        sql += "select distinct record_id, fob_id, controller_id, record_time "
+        sql += "from dataload.v_fob_slop_append"
+        # sql += "where concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
+        # sql += "not in (select distinct concat(record_id::text, '-',substr(door_controller_ip, 18,3)) "
+        # sql += "from door_controller.fobs)"
         # print(sql)
         cur.execute(sql)
         self.db_con.commit()

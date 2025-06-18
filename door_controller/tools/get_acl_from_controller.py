@@ -1,12 +1,13 @@
 import sys
 import time
+import datetime
 import requests
 from door_controller.common_lib.access_control_list import AccessControlList
 from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.utils import log_info, load_config
 
 
-def get_permissions(config, record, objdb, url):
+def get_permissions(config, record, objdb, url, run_time):
     try:
         lst_perms = None
         while not lst_perms:
@@ -25,13 +26,13 @@ def get_permissions(config, record, objdb, url):
     except:
         raise
 
-def get_acl_list(url, config, objdb, mode = 'All'):
+def get_acl_list(url, config, objdb, run_time):
     try:
         # Wth users list in place, query users and controllers, pull ACL record
         records = objdb.get_fob_records(url)
         for record in records:
             try:
-                get_permissions(config, record, objdb, url)
+                get_permissions(config, record, objdb, url, run_time)
                 time.sleep(10)
             except requests.exceptions.Timeout:
                 log_info(F"""Record ID {record[0]} Skipped""")
@@ -40,7 +41,7 @@ def get_acl_list(url, config, objdb, mode = 'All'):
     except Exception as e:
         raise e
 
-def get_users_list(url, config, objdb, mode='All'):
+def get_users_list(url, config, objdb, run_time):
     try:
         obj_ACL = AccessControlList({config.get('settings', {}).get('username')},
                                     {config.get('settings', {}).get('password')}, url, run_time)
@@ -56,7 +57,7 @@ def get_users_list(url, config, objdb, mode='All'):
         while rec_id_start < max_record_id:
             x += 1
             obj_ACL = AccessControlList({config.get('settings', {}).get('username')},
-                                        {config.get('settings', {}).get('password')}, url, run_time)
+                                        {config.get('settings', {}).get('password')}, url,run_time)
             obj_ACL.get_users(rec_id_start, {config.get('settings', {}).get('batch_size')}, objdb)
             del obj_ACL
             rec_id_start = objdb.get_max_fob_id(url)
@@ -64,11 +65,12 @@ def get_users_list(url, config, objdb, mode='All'):
             time.sleep(5)
     except Exception as e:
         raise e
+    return None
 
 
 def main(mode='All'):
     # Get a timestamp for all records
-    run_timne = datetime.datetime.now()
+    run_time = str(datetime.datetime.now())
     # Using common utility to load config
     config = load_config() # Uses default or APP_CONFIG_DIR env var
     if config:
@@ -89,12 +91,17 @@ def main(mode='All'):
     urls = config['settings']['urls']
     for url in urls:
         try:
-            get_users_list(url, config, objdb, mode, run_time)
+            get_users_list(url, config, objdb, run_time)
             time.sleep(10)
             # get_acl_list(url, config, objdb, mode, run_time)
         except Exception as e:
             raise e
-
+    # Append Slop records to main database and purge slop table
+    objdb.add_new_fobs()
+    objdb.purge_controller_fobs_slop()
+    # objdb.add_acl_records()
+    # objdb.purge_acl_slop()
+    return None
 
 if __name__ == '__main__':
     # mode = sys.argv[0]
