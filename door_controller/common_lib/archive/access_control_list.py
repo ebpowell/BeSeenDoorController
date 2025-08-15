@@ -2,7 +2,7 @@ import requests
 
 from database import cls_sqlite
 from pg_database import postgres
-from fobs import key_fobs
+# from fobs import key_fobs
 import time
 
 
@@ -99,38 +99,4 @@ class AccessControlList(key_fobs):
             raise e
         return None
 
-
-
-
-if __name__ == '__main__':
-    username = "abc"
-    password = "654321"
-    urls = ["http://69.21.119.147", "http://69.21.119.148"]
-    data = {'username': username,
-            'pwd': password,
-            'logid': '20101222'}
-    #record_id = 55
-    objdb = cls_sqlite('/door_controller_data')
-    record_ids = objdb.get_fob_records()
-    for record_id in record_ids:
-        print('Record ID:', record_id)
-        for url in urls:
-            obj_ACL = AccessControlList(username, password, url)
-            response = obj_ACL.navigate(data)
-            if response.status_code == 200:
-                for x in range(0, 20):
-                    try:
-                        lst_perms = obj_ACL.get_permissions_record(record_id[0])
-                        # Insert into database
-                        if lst_perms:
-                            [objdb.insert_access_list_record(perm_rec) for perm_rec in lst_perms]
-                            # time.sleep(1)
-                            break
-                        else: # Record not returned, need to try to pull again
-                            print('Iteration: ', x, '...Reconnecting')
-                            time.sleep(1)
-                            response = obj_ACL.navigate(data)
-                    except:
-                        raise
-            del obj_ACL
 

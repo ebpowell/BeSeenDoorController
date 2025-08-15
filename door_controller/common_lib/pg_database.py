@@ -1,3 +1,4 @@
+import datetime
 import psycopg2
 
 
@@ -21,7 +22,8 @@ class postgres:
         return str_query
 
     def insert_swipe_record(self, data, max_id):
-        query = 'INSERT INTO dataload.t_keyswipes_slop (record_id, fob_id,  status, door, swipe_timestamp, door_controller_ip) values'
+        query = ('INSERT INTO dataload.t_keyswipes_slop '
+                 '(record_id, fob_id,  status, door, swipe_timestamp, door_controller_ip) values')
         # Add records tp SQLite database
         cur = self.db_con.cursor()
         [cur.execute(self.gen_swipe_record(record, query)) for record in data if int(record[0])>max_id]
@@ -30,11 +32,17 @@ class postgres:
     def insert_access_list_record(self, data):
         # db = sqlite3.connect(self.db_path)
         # Add records tp SQLite database
-        query = 'INSERT INTO dataload.access_list_from_controller_slop (record_id, fob_id, door_controller, status, door_id, controller_ip) values'
-        # sql = self.generate_query_string(query, record)
+        dt_now = datetime.datetime.now()
+        now = "'{}'".format(dt_now.strftime("%Y-%m-%d %H:%M:%S"))
+        cidr = data[4][7:] + '/32'
+        cidr = "'{}'".format(cidr)
+        door_id = int(data[2][1:2])
+        query = ('INSERT INTO dataload.access_list_from_controller_slop '
+                 '(record_id, fob_id, status, door_id, controller_ip, record_time) values')
         cur = self.db_con.cursor()
-        [cur.execute(F"""{query} ({record[0], record[1], record[2], record[3], record[4], record[5]})""") for record
-         in data if int(record[0])]
+        sql = F"""{query} ({int(data[0])}, {int(data[1])}, '{data[3]}',{door_id}, {cidr}, {now})"""
+        print(sql)
+        cur.execute(sql)
         self.db_con.commit()
         # db.close()
 
@@ -81,10 +89,76 @@ class postgres:
         self.db_con.commit()
 
     def get_fob_records(self):
-        # db = sqlite3.connect(self.db_path)
         cur = self.db_con.cursor()
-        cur.execute('select distinct record_id from system_fobs order by record_id asc')
+        cur.execute('select distinct controller_record_id '
+                    'from door_controller.system_fobs '
+                    'where date(record_time) = '
+                    '(select max(date(record_time)) from door_controller.system_fobs) '
+                    'order by controller_record_id asc;')
         rows = cur.fetchall()
-        # Close the database
-        # db.close()
         return rows
+
+    def move_fob_records(self):
+        cur = self.db_con.cursor()
+        # Purge the slop table for the records by controller CIDR
+        cur.execute(f"insert into door_controller.system_fobs (controller_record_id, record_time, fob_id, controller_ip) "
+                    f"select record_id, record_time, fs2.fob_id , controller_ip "
+                    f"from dataload.fobs_slop fs2")
+        self.db_con.commit()
+        cur.execute(f"delete from dataload.fobs_slop")
+        self.db_con.commit()
+        return
+
+    def purge_fob_records(self, cidr):
+        cur = self.db_con.cursor()
+        # Purge the slop table for the records by controller CIDR
+        cur.execute(f"delete from dataload.fobs_slop where controller_ip={cidr}")
+        self.db_con.commit()
+        return
+
+    def write_db(self, data, sql_template):
+        # db = sqlite3.connect(self.db_path)
+        # Add records tp SQLite database
+        cur = self.db_con.cursor()
+        [cur.execute(self.generate_query_string(sql_template, token)) for token in data]
+        self.db_con.commit()
+        # Close the database
+        return
+
+    def generate_query_string(self, sql, token):
+        # Convert list to a string of comma seperated values
+        the_string = ','.join(token)
+        the_query = f"""{sql}({the_string})"""
+        print(the_query)
+        return the_query
+
+    def get_record_id(self, url, fob_id):
+        cidr = url[7:] + '/32'
+        cidr = "'{}'".format(cidr)
+        cur = self.db_con.cursor()
+        cur.execute(f"select controller_record_id "
+                    f"from door_controller.access_list_from_controller alc "
+                    f"where alc.fob_id = {fob_id} "
+                    f"and date(record_time) = max(date(record_time) "
+                    f"and controller_ip = {cidr}")
+        rows = cur.fetchall()
+        return rows
+
+    def move_acl_records(self):
+        cur = self.db_con.cursor()
+        # Purge the slop table for the records by controller CIDR
+        cur.execute(f"insert into door_controller.access_list_from_controller (record_id, fob_id, status, "
+                    f"door_id, controller_ip, record_time) "
+                    f"select record_id, fs2.fob_id, status, door_id, controller_ip, record_time "
+                    f"from dataload.access_list_from_controller_slop fs2")
+        self.db_con.commit()
+        cur.execute(f"delete from dataload.access_list_from_controller_slop")
+        self.db_con.commit()
+        return
+
+    def purge_acl_records(self):
+        cur = self.db_con.cursor()
+        # Purge the slop table for the records by controller CIDR
+        cur.execute(f"delete from dataload.access_list_from_controller_slop")
+        self.db_con.commit()
+        return

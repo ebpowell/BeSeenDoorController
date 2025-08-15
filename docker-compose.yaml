@@ -1,0 +1,8 @@
+services:
+  doorcontroller:
+    image: door_controller:latest
+    container_name: doorcontroller
+    restart: unless-stopped
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+

@@ -4,7 +4,7 @@ from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.utils import log_info, get_current_timestamp, load_config
 from door_controller import __version__ # Access package version
 
-def main():
+def main(mode, url, fob_id):
     """Main function for 'update_controller'."""
     log_info(f"--- Starting update_controller (v{__version__}) at {get_current_timestamp()} ---")
 
@@ -26,9 +26,16 @@ def main():
             'pwd': config.get('password'),
             'logid': '20101222'}
 
-    objdb = postgres(str_connect=config.get('postgres_connect_string'))
-    for url in config.get('urls'):
+    # objdb = postgres(config.get('settings', {}).get('postgres_connect_string'))
+    # for url in config.get('urls'):
         objcontroller = door_controller(url, config.get('username'), config.get('password'))
+        if mode == 1:
+            objcontroller.add_fob(fob_id)
+        else:
+            objcontroller.del_fob(fob_id)
 
 if __name__ == 'main':
-    main()
+    mode  = 1
+    fob_id = 123456
+    url = ''
+    main(mode, url, fob_id)
