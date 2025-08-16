@@ -1,4 +1,5 @@
 import time
+import datetime
 
 from door_controller.common_lib.door_controller import door_controller
 
@@ -6,16 +7,21 @@ from door_controller.common_lib.door_controller import door_controller
 class key_fobs(door_controller):
     def __init__(self, url, username, password):
         super().__init__(url, username, password)
-        self.sql = 'INSERT INTO system_fobs (record_id, fob_id) values'
+        self.sql = ('INSERT INTO dataload.fobs_slop (record_id, '
+                    'fob_id, controller_ip, record_time) values')
 
     def parse_fobs_data(self, markup):
         tpl_row = []
+        dt_now = datetime.datetime.now()
+        now = "'{}'".format(dt_now.strftime("%Y-%m-%d %H:%M:%S"))
+        cidr = self.url[7:]+'/32'
+        cidr = "'{}'".format(cidr)
         #Trim everything before the first data row in the table
         text_markup = markup[markup.find('<th>Operation</th></tr>'):]
         tag_len = len('<th>Operation</th></tr>')
         text_markup = text_markup[tag_len:text_markup.find('</table></p>')]
         tpl_murow = self.parse_tr_data(text_markup, r'<tr align=(.*?)</tr>', 4)
-        [tpl_row.append([row[0], row[1]]) for row in tpl_murow]
+        [tpl_row.append([row[0], row[1],cidr, now]) for row in tpl_murow]
         return  tpl_row
 
     def get_keyfobs(self, iterations):
@@ -25,21 +31,20 @@ class key_fobs(door_controller):
         'pwd': self.password,
         'logid': '20101222'}
         next_index = 20
-        url = self.url + '/ACT_ID_1'
         try:
-            response = self.get_httpresponse(url, data)
+            response = self.connect(data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    headers = {'Referer' : self.url + '/ACT_ID_1'}
+                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
-                    headers= {'Referer' : self.url + '/ACT_ID_21'}
+                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                     url = self.url + '/ACT_ID_325'
                     data = {'PC': f"000{next_index-19}",
                            'PE': f"000{next_index}",
@@ -51,13 +56,13 @@ class key_fobs(door_controller):
                      'PE': f"000{next_index}",
                      'PN': 'Next'}
                     # Update Request header to revise the referrer attribute
-                    headers= {'Referer': self.url+'/ACT_ID_325'}
+                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
                 try:
                     print(url)
                     print(x, data)
-                    print(headers)
-                    response = self.get_httpresponse(url, data, headers=headers)
+                    print(self.session.headers)
+                    response = self.get_httpresponse(url, data)
                 except:
                     raise
                 try:
@@ -85,22 +90,20 @@ class key_fobs(door_controller):
         data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
-        url = self.url + '/ACT_ID_1'
         try:
-            # response = self.connect(data)
-            response = self.get_httpresponse(url, data)
+            response = self.connect(data)
         except:
             raise
         if response.status_code == 200:
             for x in range (1,iterations):
                 if x == 1:
                     # Update Request header to revise the referrer attribute
-                    headers = {'Referer': self.url + '/ACT_ID_1'}
+                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
                     url = self.url + '/ACT_ID_21'
                     data = {'s2':'Users'}
                 elif x == 2:
                     # Update Request header to revise the referrer attribute
-                    headers={'Referer': self.url + '/ACT_ID_21'}
+                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                     url = self.url + '/ACT_ID_325'
                     data = {'PC': f"000{next_index-19}",
                            'PE': f"000{(next_index)}",
@@ -112,10 +115,10 @@ class key_fobs(door_controller):
                             'PE':f"000{next_index}",
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
-                    headers={'Referer': self.url+'/ACT_ID_325'}
+                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
                     url = self.url + '/ACT_ID_325'
                 try:
-                    response = self.get_httpresponse(url, data, headers=headers)
+                    response = self.get_httpresponse(url, data)
                 except:
                     raise
                 if x > 1:
@@ -138,3 +141,41 @@ class key_fobs(door_controller):
 
     def get_fob_range(self, iterations, max_id):
         pass
+
+    def parse_permissions(self, markup):
+        # access permissions are on attribute names Door controller 1: 24, 25, 26, and 27,
+        # access permissions are on attribute names Door controller 2:  26, and 27,
+        # Values 0 : Forbid, 1 : Allow
+        # Chop the inital noise off of the record
+        # markup = markup[markup.find('<th>Operation</th></tr>'):markup.find('</p></form></body><HEAD>')]
+        markup = markup[markup.find('</th></tr>') + 10:markup.find('</p></form></body><HEAD>') - 8]
+        # Split into 5 columns
+        tpl_murow = self.parse_tr_data(markup, r'<tr align=(.*?)</tr>', 5)
+        # Now chop-up row 4 (3) by <br><br>,
+        try:
+            lst_tags = tpl_murow[0][3].split('<br><br>')
+            # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
+            door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url]
+                          for perm in lst_tags if perm.find('option') > 0]
+            return door_perms
+        except IndexError:
+            print(markup)
+            pass
+        except Exception as e:
+            raise e
+
+    def parse_tag(self, permission_tag):
+
+        door = permission_tag[0:7]
+        print(permission_tag, door)
+        if permission_tag.find('selected') > 0:
+            selected_tag = permission_tag[permission_tag.find('selected') + 9:]
+            perm = selected_tag[:selected_tag.find('<')]
+            # print(perm)
+            # perm = selected_tag
+        elif permission_tag.find('Forbid') > 0:
+            perm = 'Forbid'
+        else:
+            return
+        print([door, perm])
+        return [door, perm]

@@ -1,8 +1,6 @@
-import time
 
-# from database import cls_sqlite
+import time
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.swipes import fob_swipes
 
 
@@ -15,7 +13,7 @@ class ww_data_extractor:
         self.iterations =  5
 
     def get_historical_fob_swipes(self):
-        obj_db.purge_db('system_swipes')
+        self.obj_db.purge_db('system_swipes')
         obj_swipe = fob_swipes(self.url, self.username, self.password)
         lst_swipes = obj_swipe.get_new_swipes(5)
         self.obj_db.write_db(lst_swipes, obj_swipe.sql)
@@ -92,14 +90,16 @@ class ww_data_extractor:
                     break
 
     def get_system_fob_list(self):
-        obj_db.purge_db('system_fobs')
-        obj_keyfobs = key_fobs(self.url, username, password)
+        cidr = self.url[7:] + '/32'
+        cidr = "'{}'".format(cidr)
+        self.obj_db.purge_fob_records(cidr)
+        obj_keyfobs = key_fobs(self.url, self.username, self.password)
         lst_fobs = obj_keyfobs.get_keyfobs(5)
         self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
         print("get_new_swipes Complete")
         # Query the database to get the last recordid
-        query = "SELECT max(record_id) FROM system_fobs"
-         # where door_controller={self.url})"""
+        query = (f"SELECT max(record_id) FROM dataload.fobs_slop "
+                 f"where controller_ip={cidr}")
         max_id = self.obj_db.get_maxid(query)-20
         print("Starting ID:", max_id)
         for x in range(0, 20):
@@ -122,41 +122,30 @@ class ww_data_extractor:
                 break
 
 
-    # def get_authorizations(self)
+    def get_permissions_record(self, record_id):
+        '''
+        Function to extract and return the permissions for a FobID from the Door Controller
 
-
-
-
-if __name__=='__main__':
-    username = "abc"
-    password = "654321"
-    urls = ["http://69.21.119.147", "http://69.21.119.148"]
-    str_connect = "host=192.168.50.110 dbname=wntworth_db user=wentworth_user password=ww_s3cret"
-    # obj_db = cls_sqlite('/home/ebpowell/GIT_REPO/ww_door_controller/door_controller_data')
-    obj_db = postgres(str_connect)
-    # INitial the slop table
-    obj_db.insert_swipe_start_record()
-    for url in urls:
-        obj_extract = ww_data_extractor(username, password, url, obj_db)
-        # *******Download the list of swipes
-        # for url in urls:
-        #     obj_extract.get_historical_fob_swipes()
-
-        #***** Get the most recent swipes
-        # for url in urls:
-        #     obj_swipe = fob_swipes(url, username, password)
-        #     obj_swipe.get_new_swipes(5)
-
-        # *** Get the list of keyfob id from the door controllers
-        # obj_extract.get_system_fob_list()
-
-        # *** Generate the access control status list
-
-        #*** Push updated access control list
-
-
-        #**** Get daily pull
-        # Add records from controller
-        obj_extract.get_recent_fob_swipes()
-    # TO DO: MOve records from slop table to the main table.
-    obj_db.add_new_swipess()
+        :param record_id:
+        :return:
+        '''
+        data = {'username': self.username,
+                'pwd': self.password,
+                'logid': '20101222'}
+        # E0=Edit (where the number is record_id - 1
+        # Ref = ACT_ID_21
+        # URL = http://69.21.119.148/ACT_ID_324
+        obj_keyfobs = key_fobs(self.url, self.username, self.password)
+        response = obj_keyfobs.connect(data)
+        if response.status_code==200:
+            response= obj_keyfobs.users_page()
+            if response.status_code==200:
+                data = {F"""E{record_id - 1}""": 'Edit'}
+                # Update Request header to revise the referrer attribute
+                obj_keyfobs.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                url = self.url + '/ACT_ID_324'
+                try:
+                    response = obj_keyfobs.get_httpresponse(url, data)
+                    return obj_keyfobs.parse_permissions(response.text)
+                except:
+                    raise
