@@ -4,19 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Package deployment tested locally. Ready to build image and test on remote.">
-      <change afterPath="$PROJECT_DIR$/door_controller/tools/add_remove_fob.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/door_controller/tools/get_foblist_from_controller.py" afterDir="false" />
+    <list default="true" id="b26a956b-72b8-4417-9c35-92ae41832203" name="Changes" comment="Tools to pull System FobID and ACL data developed and pass integration testing.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/ww_door_controller.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/ww_door_controller.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/common_lib/access_control_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/archive/access_control_list.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/common_lib/data_extractor.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/data_extractor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/common_lib/door_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/door_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/common_lib/fobs.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/fobs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/common_lib/pg_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/common_lib/pg_database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/tools/get_acl_from_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/tools/get_acl_from_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/door_controller/tools/update_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/door_controller/tools/set_permissions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/dockerfile" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,6 +24,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;ebpowell&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/ebpowell/BeSeenDoorController.git&quot;,
+    &quot;accountId&quot;: &quot;c048ee4c-3b67-4ac6-8fea-7df9b556391b&quot;
+  }
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -42,30 +44,30 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Docker.docker-compose.yaml.doorcontroller: Compose Deployment.executor": "Run",
-    "Docker.docker-compose.yaml: Compose Deployment.executor": "Run",
-    "Python.access_control_list.executor": "Run",
-    "Python.clubhouse_calendar.executor": "Run",
-    "Python.data_extractor (1).executor": "Run",
-    "Python.data_extractor (2).executor": "Run",
-    "Python.data_extractor.executor": "Run",
-    "Python.door_controller.executor": "Debug",
-    "Python.get_acl_from_controller.executor": "Debug",
-    "Python.get_fob_ids.executor": "Debug",
-    "Python.get_foblist_from_controller.executor": "Run",
-    "Python.get_recent_swipes (1).executor": "Run",
-    "Python.get_recent_swipes.executor": "Run",
-    "Python.get_swipes.executor": "Run",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "/home/ebpowell/GIT_REPO/ww_door_controller/door_controller/tools",
-    "settings.editor.selected.configurable": "com.intellij.pycharm.community.ide.impl.configuration.PythonContentEntriesConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Docker.docker-compose.yaml.doorcontroller: Compose Deployment.executor&quot;: &quot;Run&quot;,
+    &quot;Docker.docker-compose.yaml: Compose Deployment.executor&quot;: &quot;Run&quot;,
+    &quot;Python.access_control_list.executor&quot;: &quot;Run&quot;,
+    &quot;Python.clubhouse_calendar.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_extractor (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_extractor (2).executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_extractor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.door_controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.get_acl_from_controller.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.get_fob_ids.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.get_foblist_from_controller.executor&quot;: &quot;Run&quot;,
+    &quot;Python.get_recent_swipes (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.get_recent_swipes.executor&quot;: &quot;Run&quot;,
+    &quot;Python.get_swipes.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/ebpowell/GIT_REPO/ww_door_controller/door_controller/tools&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.pycharm.community.ide.impl.configuration.PythonContentEntriesConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/door_controller/tools" />
@@ -434,7 +436,23 @@
       <option name="project" value="LOCAL" />
       <updated>1748720804041</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Tools to pull System FobID and ACL data developed and pass integration testing.">
+      <option name="closed" value="true" />
+      <created>1755291440650</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1755291440650</updated>
+    </task>
+    <task id="LOCAL-00025" summary="Tools to pull System FobID and ACL data developed and pass integration testing.">
+      <option name="closed" value="true" />
+      <created>1755291467264</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1755291467264</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -452,7 +470,28 @@
         </entry>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="HEAD" />
+                        <option value="master" />
+                        <option value="origin/main" />
+                        <option value="origin/master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+              <option name="GRAPH_OPTIONS">
+                <list>
+                  <option value="Base" />
+                  <option value="Standard" />
+                </list>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
@@ -474,7 +513,8 @@
     <MESSAGE value="Iniatial build implementation complete. Needs testing / debugging in place and a CI/CD process.&#10;Stubbed in functions for altering data on door controllers." />
     <MESSAGE value="Updated deployment, implemented additional tool scripts, added utility script, tool scripts now use a config.yaml file for configuration." />
     <MESSAGE value="Package deployment tested locally. Ready to build image and test on remote." />
-    <option name="LAST_COMMIT_MESSAGE" value="Package deployment tested locally. Ready to build image and test on remote." />
+    <MESSAGE value="Tools to pull System FobID and ACL data developed and pass integration testing." />
+    <option name="LAST_COMMIT_MESSAGE" value="Tools to pull System FobID and ACL data developed and pass integration testing." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -12,8 +12,8 @@ setup(
     entry_points={
         'console_scripts': [
             'get_swipes=door_controller.tools.get_recent_swipes:main',
-            'get_acl_from_door_controller=door_controller.tools.get_acl_from_controller:main',
-            'update_controller=door_controller.tools.update_controller:main',
+            'get_acl_from_controller=door_controller.tools.get_acl_from_controller:main',
+            'get_foblist_from_controller=door_controller.tools.get_foblist_from_controller:main'
             # ... add more tools here
         ]
     },
