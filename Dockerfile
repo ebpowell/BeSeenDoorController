@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.9-slim-buster as builder
+FROM python:3.9-slim-buster AS builder
 
 #  Set environment variables for Python in the container
 ENV PYTHONDONTWRITEBYTECODE=1 \

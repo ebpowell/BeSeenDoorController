@@ -33,7 +33,7 @@ def get_acl_list(url, config, objdb, run_time):
         for record in records:
             try:
                 get_permissions(config, record, objdb, url, run_time)
-                time.sleep(10)
+                time.sleep(5)
             except requests.exceptions.Timeout:
                 log_info(F"""Record ID {record[0]} Skipped""")
             except:
@@ -93,7 +93,7 @@ def main(mode='All'):
         try:
             get_users_list(url, config, objdb, run_time)
             time.sleep(10)
-            # get_acl_list(url, config, objdb, mode, run_time)
+            get_acl_list(url, config, objdb, run_time)
         except Exception as e:
             raise e
     # Append Slop records to main database and purge slop table
