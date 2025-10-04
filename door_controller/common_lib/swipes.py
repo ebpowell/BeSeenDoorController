@@ -53,7 +53,7 @@ class fob_swipes(door_controller):
                 for y in range (1, 5):
                     try:
                         print('Connect Attempt:', y)
-                        response = self.get_httpresponse(url, data, headers=headers)
+                        response = self.get_httpresponse(url, data)
                         print("Success")
                         # print(url)
                         # print(self.session.headers)
@@ -129,7 +129,7 @@ class fob_swipes(door_controller):
                     # print(url)
                     # print(self.session.headers)
                     # print(x, data)
-                    response = self.get_httpresponse(url, data, headers=headers)
+                    response = self.get_httpresponse(url, data)
                 except:
                     raise
                 try:
