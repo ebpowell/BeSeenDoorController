@@ -14,11 +14,13 @@ def get_current_timestamp():
 
 def log_info(message):
     """Logs an informational message."""
+    message = f"{get_current_timestamp()} - {message}"
     logging.info(message)
 
 
 def log_error(message, exc_info=False):
     """Logs an error message, optionally with exception info."""
+    message = f"{get_current_timestamp()} - {message}"
     logging.error(message, exc_info=exc_info)
 
 

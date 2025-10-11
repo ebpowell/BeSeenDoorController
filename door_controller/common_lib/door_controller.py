@@ -168,7 +168,8 @@ class door_controller:
         data ={'s2':'Users'}
         for x in range(0, self.max_retries):
             try:
-                response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
+                response = self.get_httpresponse(url, data=data)
+                #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
                 return response
             except:
                 time.sleep(self.timeout/3)
