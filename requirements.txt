@@ -6,3 +6,4 @@ psycopg2-binary
 #datetime
 #time
 PyYaml
+web-browser

@@ -2,6 +2,7 @@
 import datetime
 import logging
 import os
+import webbrowser
 
 # Configure basic logging for all tools using this utility
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,3 +57,14 @@ def load_config(config_filename="config.yaml"):
     except Exception as e:
         log_error(f"Error loading config file {config_path}: {e}", exc_info=True)
         return {}
+
+def render_output(html_string):
+# html_string = "<h1>Hello World!</h1><p>This will open in your browser.</p>"
+
+# Open from a string
+    webbrowser.open_new_tab(f"data:text/html,{html_string}")
+
+    # Or save to a file and open the file
+    with open("temp.html", "w") as f:
+        f.write(html_string)
+    webbrowser.open_new_tab("temp.html")
