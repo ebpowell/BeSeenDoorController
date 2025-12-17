@@ -4,9 +4,18 @@ from door_controller.common_lib.fobs import key_fobs
 class DataManager(key_fobs):
     def __init__(self, url, username, password):
         super().__init__(url, username, password)
+        self.max_retries = 1
 
     def add_fob(self, fob_id, name):
         # obj_fob = key_fobs(self.url, self.username, self.password)
+        self.max_retries = 1
+        
+        # Authenticate first
+        login_data = {'username': self.username,
+                      'pwd': self.password,
+                      'logid': '20101222'}
+        self.connect(login_data)
+
         data = {'s1':'AddCard'}
         url = self.url + '/ACT_ID_21'
         response = self.get_httpresponse(url, data)
@@ -17,10 +26,12 @@ class DataManager(key_fobs):
             url = self.url+'/ACT_ID_312'
             # ACT_ID_312
             # Assuming UserID 99999, Username 'Test'
-            data = {'25':'Add',
-                    'AD21':str(fob_id),
-                    'AD22':name}
+            str_fobid = str(fob_id)
+            data = [('AD21', str_fobid),
+                    ('AD22', name),
+                    ('25', 'Add')]
             #Call response object
+            print(data)
             response=self.get_httpresponse(url, data)
             # print("Response from server:")
             print(response.text)  # Print the HTML response from the server
@@ -37,7 +48,7 @@ class DataManager(key_fobs):
         # TO DO: Map Door / Controller combos to numeric values on Edit page
         dct_doors = {1:24, 2:25, 3:26, 4:27}
         dct_perms = {'Allow':1, 'Forbid':0}
-        obj_fob = key_fobs(self.username, self.password, self.url)
+        obj_fob = key_fobs(self.url, self.username, self.password)
         response = obj_fob.navigate(data)
         # Look up the Fob_ID
         if response.status_code == 200:
@@ -51,13 +62,13 @@ class DataManager(key_fobs):
                         data = {edit_record:'Edit'}
                         #Call response object
                         response = self.get_httpresponse(url, data)
-                        if response==200:
-                            data = {24:"0",
-                                    25:"0",
-                                    26:"1",
-                                    27:"1",
-                                    "USXo":"",
-                                    save_record:'Save'}
+                        if response.status_code == 200:
+                            data = [('24', '0'),
+                                    ('25', '0'),
+                                    ('26', '1'),
+                                    ('27', '1'),
+                                    ('USXo', ''),
+                                    (save_record, 'Save')]
                             response=self.get_httpresponse(url, data)
                             return response
 
@@ -65,7 +76,7 @@ class DataManager(key_fobs):
                     raise e
 
     def del_fob(self, data, record_id):
-        obj_fob = key_fobs(self.username, self.password, self.url)
+        obj_fob = key_fobs(self.url, self.username, self.password)
         response = obj_fob.navigate(data)
         if response.status_code==200:
             url = self.url +'/ACT_ID_324'

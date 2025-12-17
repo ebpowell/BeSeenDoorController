@@ -24,7 +24,7 @@ class door_controller:
         self.session = requests.session()
         self.session.headers.update(headers)
         self.sql = ''
-        self.timeout = 15
+        self.timeout = 45
         self.max_retries = 20
 
 
@@ -35,13 +35,14 @@ class door_controller:
                 # Check for successful response
                 if response.status_code == 200:
                     print("door_controller.get_httpresponse: Connected")
+
                     return response
                 else:
                     print(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
                     print(response.text)
                     return
             except Exception as e:
-                pass
+                raise e
         return
 
     def is_convertible_to_int(self, token):

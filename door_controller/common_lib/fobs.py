@@ -142,6 +142,16 @@ class key_fobs(door_controller):
     def get_fob_range(self, iterations, max_id):
         pass
 
+    def get_permissions_record(self, record_id):
+        data = {f"E{record_id - 1}": 'Edit'}
+        self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+        url = self.url + '/ACT_ID_324'
+        try:
+            response = self.get_httpresponse(url, data)
+            return self.parse_permissions(response.text)
+        except:
+            raise
+
     def parse_permissions(self, markup):
         # access permissions are on attribute names Door controller 1: 24, 25, 26, and 27,
         # access permissions are on attribute names Door controller 2:  26, and 27,

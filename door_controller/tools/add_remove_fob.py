@@ -1,6 +1,6 @@
 import sys
 from door_controller.common_lib.manage_fobs import DataManager
-from door_controller.common_lib.pg_database import postgres
+
 from door_controller.common_lib.utils import log_info, get_current_timestamp, load_config, render_output
 from door_controller import __version__ # Access package version
 
@@ -29,12 +29,12 @@ def main(mode, fob_id, user_name):
     # objdb = postgres(config.get('settings', {}).get('postgres_connect_string'))
     urls = config['settings']['urls']
     for url in urls:
-        objcontroller = DataManager(url, config.get('username'), config.get('password'))
+        objDataManager = DataManager(url, config.get('username'), config.get('password'))
         try:
             if mode == 1:
-                response = objcontroller.add_fob(fob_id, user_name)
+                response = objDataManager.add_fob(fob_id, user_name)
             else:
-                response = objcontroller.del_fob(fob_id)
+                response = objDataManager.del_fob(fob_id)
             decoded_text = ""
             try:
                 decoded_text = response.content.decode('utf-8')
@@ -56,8 +56,8 @@ def main(mode, fob_id, user_name):
 
 if __name__ == '__main__':
     mode  = 1
-    fob_id = 12345678
-    user_name = 'Test_1'
+    fob_id = '0002725269'
+    user_name = 'Eddie'
     # url = ''
     try:
         main(mode,  fob_id, user_name)
