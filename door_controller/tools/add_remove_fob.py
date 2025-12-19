@@ -56,7 +56,8 @@ def main(mode, fob_id, user_name):
 
 if __name__ == '__main__':
     mode  = 1
-    fob_id = '0002725269'
+    #fob_id = '0002725269'
+    fob_id = '0001234567'
     user_name = 'Eddie'
     # url = ''
     try:

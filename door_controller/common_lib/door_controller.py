@@ -24,8 +24,8 @@ class door_controller:
         self.session = requests.session()
         self.session.headers.update(headers)
         self.sql = ''
-        self.timeout = 45
-        self.max_retries = 20
+        self.timeout = 10
+        self.max_retries = 6
 
 
     def get_httpresponse(self, url, data):
@@ -42,7 +42,8 @@ class door_controller:
                     print(response.text)
                     return
             except Exception as e:
-                raise e
+                #raise e
+                pass
         return
 
     def is_convertible_to_int(self, token):
