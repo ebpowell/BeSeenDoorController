@@ -1,7 +1,7 @@
 
 import unittest
 from unittest.mock import MagicMock, patch
-from door_controller.common_lib.manage_fobs import DataManager
+from door_controller.common_lib.data_manager import DataManager
 
 class TestDataManager(unittest.TestCase):
 

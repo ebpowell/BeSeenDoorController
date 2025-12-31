@@ -1,5 +1,5 @@
 import sys
-from door_controller.common_lib.manage_fobs import DataManager
+from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.utils import log_info, get_current_timestamp, load_config
 from door_controller import __version__
 
