@@ -20,7 +20,7 @@ def get_record_id_from_controller(data_manager, target_fob_id):
                 return int(fob[0])
     return None
 
-def main(url, fob_id, permissions):
+def main(fob_id):
     log_info(f"--- Starting set_permissions (v{__version__}) ---")
     
     # Load Config (simplified)
@@ -35,6 +35,9 @@ def main(url, fob_id, permissions):
     if not url:
         urls = config['settings']['urls']
         url = urls[0] # Default to first
+
+    # Get permissions from Postgres database
+    dct_permissions = get_permissions_from_postgres(fob_id)
 
     # Initialize DataManager
     data_manager = DataManager(url, username, password)
@@ -63,7 +66,7 @@ def main(url, fob_id, permissions):
     # Call set_permissions
     # Note: connect(data) is called inside via navigate(data), but we need to pass login_data as 'data' arg?
     # verify signature: def set_permissions(self, data, record_id, dct_permissions):
-    result = data_manager.set_permissions(login_data, record_id_wrapper, permissions)
+    result = data_manager.set_permissions(login_data, record_id_wrapper, dct_permissions)
     
     if result and result.status_code == 200:
         log_info("Permissions set successfully.")
@@ -74,5 +77,10 @@ if __name__ == '__main__':
     # Test values
     # url = '' 
     fob_id = 2725269 # The ID we know exists from previous step
-    permissions = [] # Not really used in the current hardcoded set_permissions implementation, but required arg
-    main(None, fob_id, permissions)
+    # permissions = [] # Not really used in the current hardcoded set_permissions implementation, but required arg
+    # dct_permissions is a dictionary of {door:permission}
+    # where door is an integer and permission is 'Allow' or 'Forbid'
+    # Permissions are retgreived from the Postgres database by FobID using the get_permissions_record method
+
+    # permissions = {1: 'Allow', 2: 'Allow', 3: 'Allow', 4: 'Allow'}
+    main(None, fob_id)

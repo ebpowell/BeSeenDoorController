@@ -162,3 +162,12 @@ class postgres:
         cur.execute(f"delete from dataload.access_list_from_controller_slop")
         self.db_con.commit()
         return
+
+    def get_permissions_record(self, fob_id):
+        cur = self.db_con.cursor()
+        cur.execute(f"select fob_id, door_1, door_2, door_3, door_4 "
+                    f"from door_controller.system_fobs "
+                    f"where fob_id = {fob_id}")
+        rows = cur.fetchall()
+        return rows
+
