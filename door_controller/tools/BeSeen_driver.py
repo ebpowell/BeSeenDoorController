@@ -146,29 +146,29 @@ class FobManager:
             else:
                 log_info(f"Failed to set permissions on {url}.")
 
-    def sync_permissions(self):
-        """
-        Sync permissions based on database state.
-        This runs a loop to activate/deactivate fobs based on time schedules.
-        """
-        log_info("Starting Permission Sync Loop...")
-        db = self._get_db()
-        conn = db.conn # Access internal connection if needed, or add methods to postgres class
-        # existing code used 'cur' and 'send_to_microcontroller'. 
-        # verify if send_to_microcontroller exists... it was probably pseudocode in the original file 
-        # or imported? The original file check showed it simply called send_to_microcontroller which wasn't defined in the file.
-        # I will assume we need to implement it using set_fob_permissions logic or similar.
+    # def sync_permissions(self):
+    #     """
+    #     Sync permissions based on database state.
+    #     This runs a loop to activate/deactivate fobs based on time schedules.
+    #     """
+    #     log_info("Starting Permission Sync Loop...")
+    #     db = self._get_db()
+    #     conn = db.conn # Access internal connection if needed, or add methods to postgres class
+    #     # existing code used 'cur' and 'send_to_microcontroller'. 
+    #     # verify if send_to_microcontroller exists... it was probably pseudocode in the original file 
+    #     # or imported? The original file check showed it simply called send_to_microcontroller which wasn't defined in the file.
+    #     # I will assume we need to implement it using set_fob_permissions logic or similar.
         
-        # NOTE: The original sync_permissions code seemed incomplete or relied on globals not present.
-        # It referenced `cur` (cursor) which wasn't defined locally.
-        # It referenced `send_to_microcontroller` which wasn't imported.
-        # I will comment out the logic to prevent runtime errors but keep the structure 
-        # for the user to fill in or for future implementation.
+    #     # NOTE: The original sync_permissions code seemed incomplete or relied on globals not present.
+    #     # It referenced `cur` (cursor) which wasn't defined locally.
+    #     # It referenced `send_to_microcontroller` which wasn't imported.
+    #     # I will comment out the logic to prevent runtime errors but keep the structure 
+    #     # for the user to fill in or for future implementation.
         
-        log_info("Sync logic is currently a placeholder as original dependencies were missing.")
-        # while True:
-        #     # Implementation pending correct DB schema and helper methods
-        #     time.sleep(60)
+    #     log_info("Sync logic is currently a placeholder as original dependencies were missing.")
+    #     # while True:
+    #     #     # Implementation pending correct DB schema and helper methods
+    #     #     time.sleep(60)
 
 def main():
     parser = argparse.ArgumentParser(description="Door Controller Fob Management Tool")
@@ -187,8 +187,8 @@ def main():
     parser_perms = subparsers.add_parser("set_permissions", help="Set permissions for a fob")
     parser_perms.add_argument("fob_id", type=str, help="The ID of the fob")
     
-    # Sync
-    parser_sync = subparsers.add_parser("sync", help="Run the sync loop")
+    # # Sync
+    # parser_sync = subparsers.add_parser("sync", help="Run the sync loop")
 
     args = parser.parse_args()
     
@@ -200,8 +200,8 @@ def main():
         manager.remove_fob(args.fob_id)
     elif args.command == "set_permissions":
         manager.set_fob_permissions(args.fob_id)
-    elif args.command == "sync":
-        manager.sync_permissions()
+    # elif args.command == "sync":
+    #     manager.sync_permissions()
     else:
         parser.print_help()
 

@@ -37,7 +37,7 @@ def main(fob_id):
         url = urls[0] # Default to first
 
     # Get permissions from Postgres database
-    dct_permissions = get_permissions_from_postgres(fob_id)
+    lst_permissions = get_permissions_from_postgres(fob_id, url)
 
     # Initialize DataManager
     data_manager = DataManager(url, username, password)
@@ -66,7 +66,7 @@ def main(fob_id):
     # Call set_permissions
     # Note: connect(data) is called inside via navigate(data), but we need to pass login_data as 'data' arg?
     # verify signature: def set_permissions(self, data, record_id, dct_permissions):
-    result = data_manager.set_permissions(login_data, record_id_wrapper, dct_permissions)
+    result = data_manager.set_permissions(login_data, record_id_wrapper, lst_permissions)
     
     if result and result.status_code == 200:
         log_info("Permissions set successfully.")

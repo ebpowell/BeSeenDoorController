@@ -163,11 +163,15 @@ class postgres:
         self.db_con.commit()
         return
 
-    def get_permissions_record(self, fob_id):
+    def get_permissions_record(self, fob_id, controller_ip):
         cur = self.db_con.cursor()
-        cur.execute(f"select fob_id, door_1, door_2, door_3, door_4 "
-                    f"from door_controller.system_fobs "
-                    f"where fob_id = {fob_id}")
+        # cur.execute(f"select door_id, allow "
+        #             f"from door_controller.system_fobs "
+        #             f"where fob_id = {fob_id} and controller_ip = {controller_ip}")
+        cur.execute(f"SELECT door_no, allow "
+                    f"FROM vint.f_get_permissions({fob_id}, {controller_ip+'/32'}, "
+                    f"NOW()::time, CURRENT_DATE);")
         rows = cur.fetchall()
+        # Convert the results into a text string
         return rows
 

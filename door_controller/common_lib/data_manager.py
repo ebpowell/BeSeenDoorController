@@ -43,17 +43,16 @@ class DataManager(key_fobs):
         return response
 
 
-    def set_permissions(self, dct_permissions, record_id:
+    def set_permissions(self, lst_permissions, record_id):
         url = self.url + '/ACT_ID_324'
         # TO DO: Map Door / Controller combos to numeric values on Edit page
         dct_doors = {1:24, 2:25, 3:26, 4:27}
-        dct_perms = {'Allow':1, 'Forbid':0}
         # Compose data for permissions
-        # dct_permissions is a dictionary of {door:permission}
-        # where door is an integer and permission is 'Allow' or 'Forbid'
+        # lst_permissions is a list of [door_no, permission]
+        # where door is an integer and permission is 0 or 1
         data = []
-        for door, permission in dct_permissions.items():
-            data.append((dct_doors[door], dct_perms[permission]))
+        for item in lst_permissions:
+            data.append(str(dct_doors[item[0]]), str(item[1]))
         obj_fob = key_fobs(self.url, self.username, self.password)
         response = obj_fob.navigate(data)
         # Look up the Fob_ID
@@ -73,7 +72,7 @@ class DataManager(key_fobs):
                             #         ('25', '0'),
                             #         ('26', '1'),
                             #         ('27', '1'),
-                            data.append(('USXo', '')
+                            data.append(('USXo', ''))
                             data.append((save_record, 'Save'))
                             response=self.get_httpresponse(url, data)
                             return response
