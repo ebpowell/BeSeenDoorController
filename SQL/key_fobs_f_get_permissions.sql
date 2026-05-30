@@ -33,16 +33,4 @@ $$;
 SELECT * FROM key_fobs.f_get_permissions(12345, '69.21.119.147/32', NOW(), CURRENT_DATE);
 
 
- SELECT 
-        vad.door_no::INT, 
-        vad.allow::INT
-    FROM 
-        key_fobs.vint_acl_data vad
-    WHERE 
-        vad.fob_id = 12345
-        AND vad.controller_ip = '69.21.119.147/32'
-        AND NOW()::time > vad.start_time::time
-        AND NOW()::time < vad.end_time::time
-        AND CURRENT_DATE > vad.start_date 
-        AND CURRENT_DATE < vad.end_date;
 
