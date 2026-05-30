@@ -59,7 +59,7 @@ COPY --from=builder /usr/local/bin/get_foblist_from_controller /usr/local/bin/
 # COPY --from=builder /usr/local/bin/set_permissions /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs_simple /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs /usr/local/bin/
-COPY --from=builder /usr/local/bin/BeSeen_driver /usr/local/bin/
+# COPY --from=builder /usr/local/bin/BeSeen_driver /usr/local/bin/
 # Expose the port your application listens on
 # EXPOSE 8000
 
