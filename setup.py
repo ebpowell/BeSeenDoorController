@@ -8,17 +8,13 @@ setup(
     # List external dependencies from requirements.txt
     # install_requires=install_requires,
 
-    # Define your command-line entry points (console scripts)
     entry_points={
         'console_scripts': [
             'get_swipes=door_controller.tools.get_recent_swipes:main',
             'get_acl_from_controller=door_controller.tools.get_acl_from_controller:main',
             'get_foblist_from_controller=door_controller.tools.get_foblist_from_controller:main',
-            'set_permissions=door_controller.tools.set_permissions:main',
-            'add_remove_fob=door_controller.tools.add_remove_fob:main',
             'list_fobs_simple=door_controller.tools.list_fobs_simple:main',
-            'list_fobs=door_controller.tools.list_fobs:main'
-            # ... add more tools here
+            'list_fobs=door_controller.tools.list_fobs_simple:main'
         ]
     },
     python_requires='>=3.8',
