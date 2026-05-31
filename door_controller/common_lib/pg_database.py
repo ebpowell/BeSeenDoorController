@@ -1,5 +1,5 @@
 import psycopg2
-import time
+import datetime
 
 
 class postgres:
