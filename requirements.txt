@@ -7,3 +7,4 @@ psycopg2-binary
 #time
 PyYaml
 web-browser
+Flask

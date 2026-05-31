@@ -15,7 +15,8 @@ setup(
             'get_foblist_from_controller=door_controller.tools.get_foblist_from_controller:main',
             'list_fobs_simple=door_controller.tools.list_fobs_simple:main',
             'list_fobs=door_controller.tools.list_fobs_simple:main',
-            'BeSeen_driver=door_controller.tools.BeSeen_driver:main'
+            'BeSeen_driver=door_controller.tools.BeSeen_driver:main',
+            'BeSeen_web=door_controller.key_management_application.web_app.app:main'
         ]
     },
     python_requires='>=3.8',

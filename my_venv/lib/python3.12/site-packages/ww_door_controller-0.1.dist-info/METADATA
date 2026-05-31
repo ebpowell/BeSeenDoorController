@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: ww_door_controller
+Version: 0.1
+Home-page: 
+Author: ebpowell
+Author-email: ebpowell.chip@gmail.com
+Requires-Python: >=3.8
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: license-file
+Dynamic: requires-python

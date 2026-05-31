@@ -60,11 +60,13 @@ COPY --from=builder /usr/local/bin/get_foblist_from_controller /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs_simple /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs /usr/local/bin/
 COPY --from=builder /usr/local/bin/BeSeen_driver /usr/local/bin/
+COPY --from=builder /usr/local/bin/BeSeen_web /usr/local/bin/
 # Expose the port your application listens on
-# EXPOSE 8000
+EXPOSE 5000
 
 # Command to run your application
 # Define a default command if the container is run without arguments
 # This is mainly for user guidance or a simple health check
 CMD ["echo", "Ready. Run with: docker run door_controller get_recent_swipes [args], docker run get_acl_from_controller [args], or docker run get_foblist_from_controller [args]"]
+
 # CMD ["get_recent_swipes.py", "DockerUser"] # Assuming my_script.py is on PATH

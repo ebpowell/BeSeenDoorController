@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeSeen Door Controller - Key Fobs</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: rgba(22, 28, 45, 0.45);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.35);
+            --secondary: #a855f7;
+            --secondary-glow: rgba(168, 85, 247, 0.35);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.3);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.3);
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+            background-attachment: fixed;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* Header section */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 0 15px var(--primary-glow);
+            position: relative;
+        }
+
+        .logo-dot::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 50%;
+            border: 1px solid var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 40%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+            padding: 0.4rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: 0 0 10px var(--success-glow);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 968px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card elements (Glassmorphism) */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease-out;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge-read-only {
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            color: #d8b4fe;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        input, select {
+            width: 100%;
+            background: rgba(10, 12, 22, 0.6);
+            border: 1px solid var(--card-border);
+            color: #ffffff;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        select option {
+            background: var(--bg-color);
+            color: #ffffff;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+            background: rgba(10, 12, 22, 0.8);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger-outline {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: var(--danger);
+            width: auto;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 6px;
+        }
+
+        .btn-danger-outline:hover {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 0 12px var(--danger-glow);
+            border-color: var(--danger);
+        }
+
+        /* Table section */
+        .search-container {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+
+        .search-input {
+            padding-left: 2.75rem;
+            font-size: 1rem;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(15, 17, 26, 0.8);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--card-border);
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            transition: background-color 0.2s ease;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr {
+            transition: all 0.2s ease;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+            color: #ffffff;
+        }
+
+        .fob-id-badge {
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #818cf8;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .address-badge {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: #f59e0b;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .owner-name {
+            font-weight: 500;
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        /* Modal popup glass styling */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-backdrop.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: rgba(20, 24, 38, 0.95);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .modal-backdrop.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1.2rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.6rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        .modal-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: white;
+        }
+
+        .modal-body {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .modal-option-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            color: white;
+            padding: 0.85rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            text-align: left;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-option-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 12px var(--primary-glow);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            background: rgba(22, 28, 45, 0.9);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            color: #ffffff;
+            font-weight: 500;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            min-width: 320px;
+            backdrop-filter: blur(8px);
+            animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
+        }
+
+        .toast-success {
+            border-left-color: var(--success);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);
+        }
+
+        .toast-danger {
+            border-left-color: var(--danger);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15);
+        }
+
+        .toast-warning {
+            border-left-color: var(--warning);
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .toast-close:hover {
+            color: white;
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <div class="logo-dot"></div>
+                <h1>BeSeen Door Controller</h1>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>Database Connected</span>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Left Panel: Action Forms & Neighborhood Fact Info -->
+            <div class="forms-panel">
+                <!-- Add Fob Card -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Assign Key Fob
+                    </h2>
+                    <form id="assignFobForm" action="/fob/add" method="POST" onsubmit="return handleAssignSubmit(event)">
+                        <input type="hidden" id="replaced_fob_id" name="replaced_fob_id" value="">
+                        
+                        <div class="form-group">
+                            <label for="add_fob_id">Fob ID (Integer)</label>
+                            <input type="number" id="add_fob_id" name="fob_id" required placeholder="e.g. 5012">
+                        </div>
+                        <div class="form-group">
+                            <label for="add_property_id">Property Address (Assignee)</label>
+                            <select id="add_property_id" name="property_id" required>
+                                <option value="" disabled selected>Select an Address...</option>
+                                {% for prop in properties %}
+                                    <option value="{{ prop.property_id }}">
+                                        {{ prop.address }} ({% if prop.owner_name %}{{ prop.owner_name }}{% else %}No Owner{% endif %})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Assign Fob</button>
+                    </form>
+                </div>
+
+                <!-- Update Property Owner Card -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        Update Property Owner
+                    </h2>
+                    <form action="/property/update_owner" method="POST">
+                        <div class="form-group">
+                            <label for="update_property_id">Select Address</label>
+                            <select id="update_property_id" name="property_id" required>
+                                <option value="" disabled selected>Select Address to Update...</option>
+                                {% for prop in properties %}
+                                    <option value="{{ prop.property_id }}">
+                                        {{ prop.address }} ({% if prop.owner_name %}{{ prop.owner_name }}{% else %}No Owner{% endif %})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="update_owner_name">New Owner Name</label>
+                            <input type="text" id="update_owner_name" name="owner_name" required placeholder="e.g. John Doe Jr.">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Ownership</button>
+                    </form>
+                </div>
+
+                <!-- Fixed Fact Table Properties Card -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        Neighborhood
+                        <span class="badge-read-only">Properties Fact Table</span>
+                    </h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Current Owner</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prop in properties %}
+                                    <tr>
+                                        <td><span class="address-badge">{{ prop.address }}</span></td>
+                                        <td><span class="owner-name">{% if prop.owner_name %}{{ prop.owner_name }}{% else %}<em>None</em>{% endif %}</span></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Database Fobs List -->
+            <div class="list-panel">
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                        </svg>
+                        Key Fobs Registry
+                    </h2>
+                    
+                    <div class="search-container">
+                        <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" class="search-input" id="searchBox" placeholder="Search by Fob ID, Address, or Owner..." onkeyup="filterFobs()">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="fobTable">
+                            <thead>
+                                <tr>
+                                    <th>Fob ID</th>
+                                    <th>Assigned Address</th>
+                                    <th>Inherited Owner</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if fobs %}
+                                    {% for fob in fobs %}
+                                        <tr>
+                                            <td><span class="fob-id-badge">{{ fob.fob_id }}</span></td>
+                                            <td><span class="address-badge">{{ fob.address }}</span></td>
+                                            <td><span class="owner-name">{% if fob.owner_name %}{{ fob.owner_name }}{% else %}<em>None</em>{% endif %}</span></td>
+                                            <td style="text-align: right;">
+                                                <form action="/fob/remove/{{ fob.fob_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete fob {{ fob.fob_id }}?');">
+                                                    <button type="submit" class="btn btn-danger-outline">Delete</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="no-data">No key fobs registered in the system.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Fob Replacement Logs (Metadata History) Card -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Fob Replacement Logs (Metadata History)
+                    </h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Log ID</th>
+                                    <th>Property Address</th>
+                                    <th>Replaced Fob ID</th>
+                                    <th>New Fob ID</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if replacement_logs %}
+                                    {% for log in replacement_logs %}
+                                        <tr>
+                                            <td><span class="fob-id-badge" style="background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.3);">#{{ log.replacement_id }}</span></td>
+                                            <td><span class="address-badge">{{ log.address }}</span></td>
+                                            <td><span class="fob-id-badge" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: rgba(239, 68, 68, 0.3);">{{ log.replaced_fob_id }}</span></td>
+                                            <td><span class="fob-id-badge" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3);">{{ log.new_fob_id }}</span></td>
+                                            <td><span class="timestamp">{{ log.replaced_at }}</span></td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="no-data">No replacement logs recorded.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replacement Modal -->
+    <div id="replacementModalBackdrop" class="modal-backdrop">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div id="modalTitle" class="modal-title">Fob Replacement Prompt</div>
+            <div id="modalMessage" class="modal-body">
+                This address already has registered fobs. Select which fob will be replaced:
+            </div>
+            <div id="modalOptions" class="modal-options">
+                <!-- Javascript will render options here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="toast toast-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- UI Scripts -->
+    <script>
+        // Inline raw JS data object of current fobs
+        const fobsData = [
+            {% for fob in fobs %}
+            { fob_id: {{ fob.fob_id }}, property_id: {{ fob.property_id }}, address: "{{ fob.address }}" },
+            {% endfor %}
+        ];
+
+        // Automatic fade out for toast messages
+        document.addEventListener('DOMContentLoaded', () => {
+            const toasts = document.querySelectorAll('.toast');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 4000);
+            });
+        });
+
+        // Intercept Fob Assignment form submission
+        function handleAssignSubmit(event) {
+            const propertySelect = document.getElementById('add_property_id');
+            const selectedPropId = parseInt(propertySelect.value);
+            const fobInput = document.getElementById('add_fob_id');
+            const newFobId = parseInt(fobInput.value);
+
+            if (isNaN(selectedPropId) || isNaN(newFobId)) {
+                return true; // Let standard validation handle it
+            }
+
+            // Get fobs currently assigned to this property
+            const matchingFobs = fobsData.filter(f => f.property_id === selectedPropId);
+
+            if (matchingFobs.length > 0) {
+                // Intercept the form submission to open the replacement prompt
+                event.preventDefault();
+                showReplacementModal(selectedPropId, newFobId, matchingFobs);
+                return false;
+            }
+            return true;
+        }
+
+        // Open replacement modal
+        function showReplacementModal(propertyId, newFobId, matchingFobs) {
+            const backdrop = document.getElementById('replacementModalBackdrop');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const optionsContainer = document.getElementById('modalOptions');
+            
+            // Clear options
+            optionsContainer.innerHTML = '';
+            
+            title.textContent = `Assigning Fob ${newFobId}`;
+            
+            // If address has reached maximum of 2 fobs, force replacement
+            if (matchingFobs.length >= 2) {
+                message.textContent = `This address has reached the maximum of 2 fobs. Choose which existing fob to replace (the chosen fob will be deleted):`;
+            } else {
+                message.textContent = `This address has 1 existing fob. You can choose to replace it or add this new fob directly:`;
+                
+                // Add "Add directly without replacing" option
+                const directBtn = document.createElement('button');
+                directBtn.type = 'button';
+                directBtn.className = 'modal-option-btn';
+                directBtn.style.borderLeft = "4px solid var(--success)";
+                directBtn.innerHTML = `<span>Add directly (No replacement)</span> <strong style="color:var(--success);">&rarr;</strong>`;
+                directBtn.onclick = () => {
+                    document.getElementById('replaced_fob_id').value = '';
+                    document.getElementById('assignFobForm').submit();
+                };
+                optionsContainer.appendChild(directBtn);
+            }
+            
+            // Add options for replacing each existing fob ID
+            matchingFobs.forEach(fob => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'modal-option-btn';
+                btn.style.borderLeft = "4px solid var(--danger)";
+                btn.innerHTML = `<span>Replace Fob <strong style="color:var(--secondary); font-family:monospace;">${fob.fob_id}</strong></span> <strong style="color:var(--danger);">&times;</strong>`;
+                btn.onclick = () => {
+                    document.getElementById('replaced_fob_id').value = fob.fob_id;
+                    document.getElementById('assignFobForm').submit();
+                };
+                optionsContainer.appendChild(btn);
+            });
+            
+            backdrop.classList.add('show');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('replacementModalBackdrop').classList.remove('show');
+        }
+
+        // Search Filter Logic
+        function filterFobs() {
+            const searchInput = document.getElementById('searchBox').value.toLowerCase();
+            const table = document.getElementById('fobTable');
+            const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            
+            for (let i = 0; i < trs.length; i++) {
+                const tr = trs[i];
+                if (tr.getElementsByClassName('no-data').length > 0) continue;
+                
+                const fobBadge = tr.getElementsByClassName('fob-id-badge')[0];
+                const addressBadge = tr.getElementsByClassName('address-badge')[0];
+                const ownerName = tr.getElementsByClassName('owner-name')[0];
+                
+                const fobIdText = fobBadge ? fobBadge.textContent || fobBadge.innerText : '';
+                const addressText = addressBadge ? addressBadge.textContent || addressBadge.innerText : '';
+                const ownerText = ownerName ? ownerName.textContent || ownerName.innerText : '';
+                
+                if (fobIdText.toLowerCase().indexOf(searchInput) > -1 || 
+                    addressText.toLowerCase().indexOf(searchInput) > -1 ||
+                    ownerText.toLowerCase().indexOf(searchInput) > -1) {
+                    tr.style.display = "";
+                } else {
+                    tr.style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
