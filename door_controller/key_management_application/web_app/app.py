@@ -1,10 +1,11 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.utils import log_info
 
 app = Flask(__name__)
-# Secret key is required for flash messaging.
+# Secret key is required for session and flash messaging.
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'beseen_secret_key_123!_change_me')
 
 # Lazy initialize FobDatabaseManager
@@ -16,19 +17,90 @@ def get_db_mgr():
         db_mgr = FobDatabaseManager()
     return db_mgr
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('login'))
+        if session.get('role') != 'admin':
+            flash("Unauthorized: Admin privilege required.", "danger")
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'username' in session:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        if not username or not password:
+            flash("Username and password are required.", "warning")
+            return render_template('login.html')
+            
+        try:
+            user = get_db_mgr().authenticate_user(username, password)
+            if user:
+                session['username'] = user['username']
+                session['role'] = user['role']
+                flash(f"Welcome back, {username}!", "success")
+                return redirect(url_for('index'))
+            else:
+                flash("Invalid username or password.", "danger")
+        except Exception as e:
+            log_info(f"Web UI Login Error: {e}")
+            flash(f"Database error during login: {e}", "danger")
+            
+    return render_template('login.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     try:
-        fobs = get_db_mgr().list_fobs()
-        properties = get_db_mgr().list_properties()
+        role = session.get('role')
+        fobs = get_db_mgr().list_fobs(role=role)
+        properties = get_db_mgr().list_properties(role=role)
         replacement_logs = get_db_mgr().list_replacement_logs()
-        return render_template('index.html', fobs=fobs, properties=properties, replacement_logs=replacement_logs)
+        audit_logs = get_db_mgr().list_audit_logs()
+        
+        role_properties = []
+        if role == 'admin':
+            role_properties = get_db_mgr().list_role_properties()
+            
+        return render_template(
+            'index.html',
+            fobs=fobs,
+            properties=properties,
+            replacement_logs=replacement_logs,
+            audit_logs=audit_logs,
+            role_properties=role_properties
+        )
     except Exception as e:
         log_info(f"Web UI Error: Failed to load index data. {e}")
         flash(f"Error loading data from database: {e}", "danger")
-        return render_template('index.html', fobs=[], properties=[], replacement_logs=[])
+        return render_template('index.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[], role_properties=[])
 
 @app.route('/fob/add', methods=['POST'])
+@login_required
 def add_fob():
     fob_id_str = request.form.get('fob_id', '').strip()
     property_id_str = request.form.get('property_id', '').strip()
@@ -54,7 +126,8 @@ def add_fob():
             return redirect(url_for('index'))
 
     try:
-        get_db_mgr().add_fob(fob_id, property_id, replaced_fob_id)
+        username = session.get('username', 'system')
+        get_db_mgr().add_fob(fob_id, property_id, replaced_fob_id, username=username)
         if replaced_fob_id:
             flash(f"Fob {fob_id} assigned successfully, replacing old Fob {replaced_fob_id}.", "success")
         else:
@@ -68,6 +141,7 @@ def add_fob():
     return redirect(url_for('index'))
 
 @app.route('/property/update_owner', methods=['POST'])
+@login_required
 def update_property_owner():
     property_id_str = request.form.get('property_id', '').strip()
     owner_name = request.form.get('owner_name', '').strip()
@@ -83,7 +157,8 @@ def update_property_owner():
         return redirect(url_for('index'))
         
     try:
-        updated = get_db_mgr().update_property_owner(property_id, owner_name)
+        username = session.get('username', 'system')
+        updated = get_db_mgr().update_property_owner(property_id, owner_name, username=username)
         if updated:
             flash(f"Property owner updated to '{owner_name}' successfully.", "success")
         else:
@@ -95,15 +170,61 @@ def update_property_owner():
     return redirect(url_for('index'))
 
 @app.route('/fob/remove/<int:fob_id>', methods=['POST'])
+@login_required
 def remove_fob(fob_id):
     try:
-        removed = get_db_mgr().remove_fob(fob_id)
+        username = session.get('username', 'system')
+        removed = get_db_mgr().remove_fob(fob_id, username=username)
         if removed:
             flash(f"Fob {fob_id} removed successfully.", "success")
         else:
             flash(f"Fob {fob_id} not found.", "warning")
     except Exception as e:
         log_info(f"Web UI Error: Failed to remove fob {fob_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+        
+    return redirect(url_for('index'))
+
+@app.route('/role/assign', methods=['POST'])
+@admin_required
+def assign_role_access():
+    role = request.form.get('role', '').strip()
+    property_id_str = request.form.get('property_id', '').strip()
+    
+    if not role or not property_id_str:
+        flash("Role and Address are required.", "warning")
+        return redirect(url_for('index'))
+        
+    try:
+        property_id = int(property_id_str)
+        get_db_mgr().assign_property_to_role(role, property_id, username=session.get('username'))
+        flash(f"Granted access to role '{role}' for selected address.", "success")
+    except ValueError:
+        flash("Property ID must be an integer.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to assign role access. {e}")
+        flash(f"Database error: {e}", "danger")
+        
+    return redirect(url_for('index'))
+
+@app.route('/role/unassign', methods=['POST'])
+@admin_required
+def unassign_role_access():
+    role = request.form.get('role', '').strip()
+    property_id_str = request.form.get('property_id', '').strip()
+    
+    if not role or not property_id_str:
+        flash("Role and Address are required.", "warning")
+        return redirect(url_for('index'))
+        
+    try:
+        property_id = int(property_id_str)
+        get_db_mgr().unassign_property_from_role(role, property_id, username=session.get('username'))
+        flash(f"Revoked access to role '{role}' for selected address.", "success")
+    except ValueError:
+        flash("Property ID must be an integer.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to unassign role access. {e}")
         flash(f"Database error: {e}", "danger")
         
     return redirect(url_for('index'))

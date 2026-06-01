@@ -120,6 +120,41 @@
             border-radius: 50%;
         }
 
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            background: var(--secondary);
+            color: white;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0 0.2rem;
+            transition: opacity 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            opacity: 0.8;
+        }
+
         /* Grid Layout */
         .dashboard-grid {
             display: grid;
@@ -570,9 +605,18 @@
                 <div class="logo-dot"></div>
                 <h1>BeSeen Door Controller</h1>
             </div>
-            <div class="status-badge">
-                <div class="status-dot"></div>
-                <span>Database Connected</span>
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    <span>Database Connected</span>
+                </div>
+                <div class="user-badge">
+                    <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{{ session.get('username', 'User') }}</span>
+                    <span class="user-role">{{ session.get('role', 'operator') }}</span>
+                    <form action="/logout" method="POST" style="display: inline; margin-left: 0.5rem;">
+                        <button type="submit" class="logout-btn">Logout</button>
+                    </form>
+                </div>
             </div>
         </header>
 
@@ -637,6 +681,75 @@
                     </form>
                 </div>
 
+                {% if session.get('role') == 'admin' %}
+                <!-- Role Access Control Card (Admin Only) -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Role Access Control
+                    </h2>
+                    <form action="/role/assign" method="POST" style="margin-bottom: 1.5rem;">
+                        <div class="form-group">
+                            <label for="assign_role_name">Select User Role</label>
+                            <select id="assign_role_name" name="role" required>
+                                <option value="" disabled selected>Select Role...</option>
+                                <option value="operator">operator</option>
+                                <option value="manager">manager</option>
+                                <option value="staff">staff</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="assign_role_property_id">Select Property Address</label>
+                            <select id="assign_role_property_id" name="property_id" required>
+                                <option value="" disabled selected>Select Address to Assign...</option>
+                                {% for prop in properties %}
+                                    <option value="{{ prop.property_id }}">
+                                        {{ prop.address }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Grant Role Access</button>
+                    </form>
+
+                    <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-secondary);">Active Role Mappings</h3>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Role</th>
+                                    <th>Address</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if role_properties %}
+                                    {% for mapping in role_properties %}
+                                        <tr>
+                                            <td><span class="user-role">{{ mapping.role }}</span></td>
+                                            <td><span class="address-badge">{{ mapping.address }}</span></td>
+                                            <td style="text-align: right;">
+                                                <form action="/role/unassign" method="POST" style="display:inline;">
+                                                    <input type="hidden" name="role" value="{{ mapping.role }}">
+                                                    <input type="hidden" name="property_id" value="{{ mapping.property_id }}">
+                                                    <button type="submit" class="btn btn-danger-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Revoke</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="no-data" style="padding: 1rem; font-size: 0.85rem;">No active role mappings.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Fixed Fact Table Properties Card -->
                 <div class="glass-card">
                     <h2>
@@ -667,8 +780,9 @@
                 </div>
             </div>
 
-            <!-- Right Panel: Database Fobs List -->
+            <!-- Right Panel: Database Fobs List & Logs -->
             <div class="list-panel">
+                <!-- Key Fobs Registry -->
                 <div class="glass-card">
                     <h2>
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -757,6 +871,45 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- User Audit Logs Card -->
+                <div class="glass-card">
+                    <h2>
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        User Action Audit Logs
+                    </h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if audit_logs %}
+                                    {% for log in audit_logs %}
+                                        <tr>
+                                            <td><span class="fob-id-badge" style="background: rgba(255, 255, 255, 0.05); color: #ffffff; border-color: rgba(255, 255, 255, 0.1);">{{ log.username }}</span></td>
+                                            <td><span class="owner-name" style="color: #818cf8;">{{ log.action }}</span></td>
+                                            <td><span style="font-size: 0.9rem; color: var(--text-secondary);">{{ log.details }}</span></td>
+                                            <td><span class="timestamp">{{ log.created_at }}</span></td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="no-data">No action history recorded yet.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
