@@ -44,41 +44,54 @@ class DataManager(key_fobs):
 
 
     def set_permissions(self, lst_permissions, record_id):
+        # Support both record_id as integer or list/tuple of integer
+        if isinstance(record_id, (list, tuple)):
+            rec_id = record_id[0]
+        else:
+            rec_id = record_id
+        
+        rec_id = int(rec_id)
+        
+        # Authenticate first
+        login_data = {
+            'username': self.username,
+            'pwd': self.password,
+            'logid': '20101222'
+        }
+        self.connect(login_data)
+        self.users_page()
+        
         url = self.url + '/ACT_ID_324'
-        # TO DO: Map Door / Controller combos to numeric values on Edit page
-        dct_doors = {1:24, 2:25, 3:26, 4:27}
-        # Compose data for permissions
-        # lst_permissions is a list of [door_no, permission]
-        # where door is an integer and permission is 0 or 1
-        data = []
-        for item in lst_permissions:
-            data.append(str(dct_doors[item[0]]), str(item[1]))
-        obj_fob = key_fobs(self.url, self.username, self.password)
-        response = obj_fob.navigate(data)
-        # Look up the Fob_ID
-        if response.status_code == 200:
-            for x in range(0, 20):
-                try:
-                    lst_perms = obj_fob.get_permissions_record(record_id[0])
-                    # Insert into database
-                    if lst_perms:
-                        edit_record = f"E{record_id[0] - 1}"
-                        save_record = f"S{record_id[0]-1}"
-                        data = {edit_record:'Edit'}
-                        #Call response object
-                        response = self.get_httpresponse(url, data)
-                        if response.status_code == 200:
-                            # data = [('24', '0'),
-                            #         ('25', '0'),
-                            #         ('26', '1'),
-                            #         ('27', '1'),
-                            data.append(('USXo', ''))
-                            data.append((save_record, 'Save'))
-                            response=self.get_httpresponse(url, data)
-                            return response
-
-                except Exception as e:
-                    raise e
+        edit_key = f"E{rec_id - 1}"
+        edit_data = {edit_key: 'Edit'}
+        
+        self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+        response = self.get_httpresponse(url, edit_data)
+        if not response or response.status_code != 200:
+            return response
+            
+        # Compile permission fields
+        # Support dict format or list format
+        if isinstance(lst_permissions, dict):
+            perms_iterable = lst_permissions.items()
+        else:
+            perms_iterable = lst_permissions
+            
+        dct_doors = {1: '24', 2: '25', 3: '26', 4: '27'}
+        save_data = []
+        for door_no, allow in perms_iterable:
+            door_field = dct_doors.get(int(door_no))
+            if door_field:
+                val = '1' if (allow is True or str(allow) in ('1', 'True', 'Allow', 'allow')) else '0'
+                save_data.append((door_field, val))
+                
+        save_key = f"S{rec_id - 1}"
+        save_data.append(('USXo', ''))
+        save_data.append((save_key, 'Save'))
+        
+        self.session.headers['Referer'] = self.url + '/ACT_ID_324'
+        response = self.get_httpresponse(url, save_data)
+        return response
 
     def del_fob(self, data, record_id):
         obj_fob = key_fobs(self.url, self.username, self.password)

@@ -16,9 +16,14 @@ setup(
             'list_fobs_simple=door_controller.tools.list_fobs_simple:main',
             'list_fobs=door_controller.tools.list_fobs_simple:main',
             'BeSeen_driver=door_controller.tools.BeSeen_driver:main',
-            'BeSeen_web=door_controller.key_management_application.web_app.app:main'
+            'BeSeen_web=door_controller.key_management_application.web_app.app:main',
+            'sync_controller=door_controller.key_management_application.synchronization:main'
         ]
     },
+    package_data={
+        'door_controller.key_management_application.web_app': ['templates/*.html'],
+    },
+    include_package_data=True,
     python_requires='>=3.8',
    # tools=['tools/get_recent_swipes.py'],
     url='',

@@ -1,3 +1,3 @@
 #!/bin/bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)
-python3 -m unittest discover tests
+my_venv/bin/python3 -m unittest discover tests
