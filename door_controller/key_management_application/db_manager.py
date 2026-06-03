@@ -3,7 +3,7 @@ from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
 from door_controller.common_lib.utils import load_config, log_info
 
-class FobDatabaseManager:
+.ownerclass FobDatabaseManager:
     def __init__(self, conn_str=None):
         if conn_str:
             self.conn_str = conn_str
@@ -126,20 +126,20 @@ class FobDatabaseManager:
         log_info(f"Database: Fetching all fobs. Filter role={role}")
         if role and role != 'admin':
             query = """
-                SELECT f.fob_id, p.property_id, p.address, o.owner_name, f.created_at, f.updated_at
-                FROM key_fobs.fobs f
+                SELECT f.fob_id, p.property_id, p.address, CONCAT(o.first_name, ' ', o.last_name) AS owner_name, f.created_at, f.updated_at
+                FROM key_fobs.keyfobs f
                 JOIN key_fobs.properties p ON f.property_id = p.property_id
-                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+                LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
                 WHERE p.property_id IN (SELECT property_id FROM key_fobs.role_properties WHERE role = %s)
                 ORDER BY f.fob_id ASC;
             """
             params = (role,)
         else:
             query = """
-                SELECT f.fob_id, p.property_id, p.address, o.owner_name, f.created_at, f.updated_at
-                FROM key_fobs.fobs f
+                SELECT f.fob_id, p.property_id, p.address, CONCAT(o.first_name, ' ', o.last_name) AS owner_name, f.created_at, f.updated_at
+                FROM key_fobs.keyfobs f
                 JOIN key_fobs.properties p ON f.property_id = p.property_id
-                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+                LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
                 ORDER BY f.fob_id ASC;
             """
             params = ()
@@ -156,18 +156,18 @@ class FobDatabaseManager:
         log_info(f"Database: Fetching all properties. Filter role={role}")
         if role and role != 'admin':
             query = """
-                SELECT p.property_id, p.address, o.owner_name
+                SELECT p.property_id, p.address, CONCAT(o.first_name, ' ', o.last_name) AS owner_name
                 FROM key_fobs.properties p
-                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+                LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
                 WHERE p.property_id IN (SELECT property_id FROM key_fobs.role_properties WHERE role = %s)
                 ORDER BY p.address ASC;
             """
             params = (role,)
         else:
             query = """
-                SELECT p.property_id, p.address, o.owner_name
+                SELECT p.property_id, p.address, CONCAT(o.first_name, ' ', o.last_name) AS owner_name
                 FROM key_fobs.properties p
-                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+                LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
                 ORDER BY p.address ASC;
             """
             params = ()
@@ -203,13 +203,13 @@ class FobDatabaseManager:
         with self._get_connection() as conn:
             with conn.cursor() as cur:
                 # 1. Verify new fob doesn't exist
-                cur.execute("SELECT 1 FROM key_fobs.fobs WHERE fob_id = %s;", (fob_id,))
+                cur.execute("SELECT 1 FROM key_fobs.keyfobs WHERE fob_id = %s;", (fob_id,))
                 if cur.fetchone():
                     raise ValueError(f"Fob ID {fob_id} already exists.")
                 
                 # 2. If replacement is requested, delete old fob and log replacement
                 if replaced_fob_id is not None:
-                    cur.execute("DELETE FROM key_fobs.fobs WHERE fob_id = %s;", (replaced_fob_id,))
+                    cur.execute("DELETE FROM key_fobs.keyfobs WHERE fob_id = %s;", (replaced_fob_id,))
                     cur.execute(
                         """
                         INSERT INTO key_fobs.fob_replacements (property_id, replaced_fob_id, new_fob_id)
@@ -226,7 +226,7 @@ class FobDatabaseManager:
                 # 3. Insert new fob
                 cur.execute(
                     """
-                    INSERT INTO key_fobs.fobs (fob_id, property_id)
+                    INSERT INTO key_fobs.keyfobs (fob_id, property_id)
                     VALUES (%s, %s);
                     """,
                     (fob_id, property_id)
@@ -245,7 +245,7 @@ class FobDatabaseManager:
         log_info(f"Database: Attempting to remove fob_id={fob_id} by user={username}")
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM key_fobs.fobs WHERE fob_id = %s;", (fob_id,))
+                cur.execute("DELETE FROM key_fobs.keyfobs WHERE fob_id = %s;", (fob_id,))
                 rowcount = cur.rowcount
                 if rowcount > 0:
                     self.log_audit_action(cur, username, "Remove Fob", f"Removed Fob {fob_id}")
@@ -264,7 +264,7 @@ class FobDatabaseManager:
         """
         log_info(f"Database: Updating owner of property_id={property_id} to '{owner_name}' by user={username}")
         query = """
-            INSERT INTO key_fobs.property_owners (property_id, owner_name, updated_at)
+            INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
             VALUES (%s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT (property_id) DO UPDATE
             SET owner_name = EXCLUDED.owner_name, updated_at = EXCLUDED.updated_at;
@@ -276,7 +276,7 @@ class FobDatabaseManager:
                 
                 # Trigger an update on the fobs' updated_at so that tracking triggers are aware of the trickle-down
                 fob_update_query = """
-                    UPDATE key_fobs.fobs
+                    UPDATE key_fobs.keyfobs
                     SET updated_at = CURRENT_TIMESTAMP
                     WHERE property_id = %s;
                 """

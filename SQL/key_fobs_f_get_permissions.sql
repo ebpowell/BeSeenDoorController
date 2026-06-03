@@ -30,7 +30,7 @@ END;
 $$;
 
 
-SELECT * FROM key_fobs.f_get_permissions(12345, '69.21.119.147/32', NOW(), CURRENT_DATE);
+--SELECT * FROM key_fobs.f_get_permissions(12345, '69.21.119.147/32', NOW(), CURRENT_DATE);
 
 
 
