@@ -1,0 +1,94 @@
+To connect a Google Sheet to a PostgreSQL database as a read-only data source, you have a few excellent options depending on your technical comfort level and security requirements. Because your database is **onsite** (on-premises), the biggest hurdle will be ensuring Google’s cloud servers can securely talk to your local network.
+
+Here are the three best ways to pull this off, ranked from easiest to most robust.
+
+---
+
+## Option 1: BigQuery Omni / Cloud SQL Federated Queries (Most Enterprise-Secure)
+
+If security is a high priority and you don't want to expose your onsite database directly to the public internet, using Google Cloud as a bridge is the gold standard.
+
+1. **The Bridge:** Set up a secure VPN or Google Cloud Interconnect from your onsite network to Google Cloud Platform (GCP).
+2. **The Connection:** Use **Cloud SQL Federated Queries** or **BigQuery Connection Service** to link BigQuery to your onsite Postgres instance.
+3. **The Sheet:** In Google Sheets, use the native **Data > Data connectors > Connect to BigQuery** feature.
+
+> 💡 **Why this is great:** It is incredibly secure, handles massive datasets easily, and Google Sheets has a built-in, native UI for BigQuery that requires zero coding for the end-user.
+
+---
+
+## Option 2: Apps Script with JDBC (The Direct, Code-Based Route)
+
+Google Apps Script has a built-in `Jdbc` service that can connect directly to PostgreSQL. You can write a short script that wipes the sheet and pulls fresh data whenever a button is clicked or on a time-based trigger (e.g., every hour).
+
+### 1. Whitelist Google's IP Addresses
+
+Because your database is onsite, your network administrator will need to open a port (usually `5432`) and whitelist Google's App Script IP address ranges so the request isn't blocked by your firewall.
+
+### 2. The Apps Script Code
+
+In your Google Sheet, go to **Extensions > Apps Script** and paste a script similar to this:
+
+```javascript
+function pullPostgresData() {
+  var conn = Jdbc.getConnection("jdbc:postgresql://YOUR_ONSITE_IP:5432/YOUR_DB_NAME", "YOUR_READONLY_USER", "YOUR_PASSWORD");
+  
+  // Select your data
+  var stmt = conn.createStatement();
+  var results = stmt.executeQuery("SELECT * FROM your_table LIMIT 1000");
+  
+  var metaData = results.getMetaData();
+  var numCols = metaData.getColumnCount();
+  
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  sheet.clear(); // Clear existing data
+  
+  // Add Headers
+  var headers = [];
+  for (var i = 1; i <= numCols; i++) {
+    headers.push(metaData.getColumnName(i));
+  }
+  sheet.appendRow(headers);
+  
+  // Add Rows
+  while (results.next()) {
+    var row = [];
+    for (var i = 1; i <= numCols; i++) {
+      row.push(results.getString(i));
+    }
+    sheet.appendRow(row);
+  }
+  
+  results.close();
+  stmt.close();
+  conn.close();
+}
+
+```
+
+---
+
+## Option 3: Third-Party Add-ons (The "No-Code" Route)
+
+If you don't want to manage code or GCP architecture, several reliable third-party marketplace tools specialize in this. They usually require installing a lightweight "agent" or gateway on your local network to securely tunnel the data without opening firewall ports.
+
+* **SeekWell / Kloudio:** Great for scheduling SQL queries to dump straight into Sheets.
+* **Coefficient / Supermetrics:** Highly polished user interfaces designed specifically for turning databases into live spreadsheet dashboards.
+
+---
+
+## 🔒 Crucial Security Best Practices
+
+Since this is an onsite "source of truth," protect it fiercely:
+
+* **Create a Dedicated DB User:** Never use a superuser account. Create a specific role in Postgres that only has `SELECT` privileges on the specific table or view you want to share.
+```sql
+CREATE USER google_sheets_ro WITH PASSWORD 'secure_password';
+GRANT CONNECT ON DATABASE your_db TO google_sheets_ro;
+GRANT SELECT ON TABLE your_table TO google_sheets_ro;
+
+```
+
+
+* **Use a Postgres View:** Instead of pointing Google Sheets directly to a raw table, point it to a `VIEW`. This allows you to pre-filter sensitive columns (like PII or internal IDs) and mask data before it ever leaves your local network.
+
+Which of these approaches fits best with your current network security policies?
