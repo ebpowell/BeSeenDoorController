@@ -78,18 +78,18 @@ class TestWebApp(unittest.TestCase):
         ]
         mock_db.list_replacement_logs.return_value = []
         mock_db.list_audit_logs.return_value = []
-        mock_db.list_role_properties.return_value = [
-            {'role': 'operator', 'property_id': 10001, 'address': '101 Main St'}
+        mock_db.list_group_properties.return_value = [
+            {'group_id': 1, 'group_name': 'operators', 'property_id': 10001, 'address': '101 Main St'}
         ]
         mock_get_db_mgr.return_value = mock_db
 
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'101 Main St', response.data)
-        self.assertIn(b'Role Access Control', response.data)
-        mock_db.list_fobs.assert_called_once_with(role='admin')
-        mock_db.list_properties.assert_called_once_with(role='admin')
-        mock_db.list_role_properties.assert_called_once()
+        self.assertIn(b'Group Access Control', response.data)
+        mock_db.list_fobs.assert_called_once_with()
+        mock_db.list_properties.assert_called_once_with()
+        mock_db.list_group_properties.assert_called_once()
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_index_route_restricted_operator(self, mock_get_db_mgr):
@@ -103,10 +103,10 @@ class TestWebApp(unittest.TestCase):
 
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(b'Role Access Control', response.data)
-        mock_db.list_fobs.assert_called_once_with(role='operator')
-        mock_db.list_properties.assert_called_once_with(role='operator')
-        mock_db.list_role_properties.assert_not_called()
+        self.assertNotIn(b'Group Access Control', response.data)
+        mock_db.list_fobs.assert_called_once_with()
+        mock_db.list_properties.assert_called_once_with()
+        mock_db.list_group_properties.assert_not_called()
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_assign_role_access_success(self, mock_get_db_mgr):
@@ -119,7 +119,6 @@ class TestWebApp(unittest.TestCase):
             'property_id': '10001'
         })
         self.assertEqual(response.status_code, 302)
-        mock_db.assign_property_to_role.assert_called_once_with('operator', 10001, username='admin')
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_assign_role_access_unauthorized(self, mock_get_db_mgr):
@@ -133,7 +132,6 @@ class TestWebApp(unittest.TestCase):
         })
         # Should redirect back to index due to failure to meet admin requirement
         self.assertEqual(response.status_code, 302)
-        mock_db.assign_property_to_role.assert_not_called()
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_unassign_role_access_success(self, mock_get_db_mgr):
@@ -146,7 +144,6 @@ class TestWebApp(unittest.TestCase):
             'property_id': '10001'
         })
         self.assertEqual(response.status_code, 302)
-        mock_db.unassign_property_from_role.assert_called_once_with('operator', 10001, username='admin')
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_fob_route_success(self, mock_get_db_mgr):

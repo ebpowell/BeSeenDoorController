@@ -77,14 +77,14 @@ def logout():
 def index():
     try:
         role = session.get('role')
-        fobs = get_db_mgr().list_fobs(role=role)
-        properties = get_db_mgr().list_properties(role=role)
+        fobs = get_db_mgr().list_fobs()
+        properties = get_db_mgr().list_properties()
         replacement_logs = get_db_mgr().list_replacement_logs()
         audit_logs = get_db_mgr().list_audit_logs()
         
         role_properties = []
         if role == 'admin':
-            role_properties = get_db_mgr().list_role_properties()
+            role_properties = get_db_mgr().list_group_properties()
             
         return render_template(
             'index.html',
@@ -188,45 +188,13 @@ def remove_fob(fob_id):
 @app.route('/role/assign', methods=['POST'])
 @admin_required
 def assign_role_access():
-    role = request.form.get('role', '').strip()
-    property_id_str = request.form.get('property_id', '').strip()
-    
-    if not role or not property_id_str:
-        flash("Role and Address are required.", "warning")
-        return redirect(url_for('index'))
-        
-    try:
-        property_id = int(property_id_str)
-        get_db_mgr().assign_property_to_role(role, property_id, username=session.get('username'))
-        flash(f"Granted access to role '{role}' for selected address.", "success")
-    except ValueError:
-        flash("Property ID must be an integer.", "warning")
-    except Exception as e:
-        log_info(f"Web UI Error: Failed to assign role access. {e}")
-        flash(f"Database error: {e}", "danger")
-        
+    flash("Role-based access control has been migrated to group-based control. Please use group management instead.", "info")
     return redirect(url_for('index'))
 
 @app.route('/role/unassign', methods=['POST'])
 @admin_required
 def unassign_role_access():
-    role = request.form.get('role', '').strip()
-    property_id_str = request.form.get('property_id', '').strip()
-    
-    if not role or not property_id_str:
-        flash("Role and Address are required.", "warning")
-        return redirect(url_for('index'))
-        
-    try:
-        property_id = int(property_id_str)
-        get_db_mgr().unassign_property_from_role(role, property_id, username=session.get('username'))
-        flash(f"Revoked access to role '{role}' for selected address.", "success")
-    except ValueError:
-        flash("Property ID must be an integer.", "warning")
-    except Exception as e:
-        log_info(f"Web UI Error: Failed to unassign role access. {e}")
-        flash(f"Database error: {e}", "danger")
-        
+    flash("Role-based access control has been migrated to group-based control. Please use group management instead.", "info")
     return redirect(url_for('index'))
 
 def main():
