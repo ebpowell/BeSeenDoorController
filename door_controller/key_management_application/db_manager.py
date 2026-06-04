@@ -3,7 +3,7 @@ from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
 from door_controller.common_lib.utils import load_config, log_info
 
-.ownerclass FobDatabaseManager:
+class FobDatabaseManager:
     def __init__(self, conn_str=None):
         if conn_str:
             self.conn_str = conn_str
