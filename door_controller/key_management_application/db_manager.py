@@ -61,9 +61,9 @@ class FobDatabaseManager:
 
     def list_group_properties(self, group_id=None):
         """
-        List properties associated with groups and their access permissions.
+        List properties associated with groups.
         Optionally filter by specific group_id.
-        Returns group name, property address, and group permissions details.
+        Returns group_id, group_name, property_id, and property address.
         """
         log_info(f"Database: Fetching group-property mappings. Filter group_id={group_id}")
         
@@ -71,31 +71,23 @@ class FobDatabaseManager:
             query = """
                 SELECT 
                     g.group_id, g.name AS group_name, 
-                    p.property_id, p.address,
-                    gp.perm_id, gp.door_id, gp.allow,
-                    gp.start_date, gp.end_date,
-                    gp.start_time, gp.end_time
+                    p.property_id, p.address
                 FROM key_fobs.groups g
-                JOIN key_fobs.group_permissions gp ON g.group_id = gp.group_id
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
                 WHERE g.group_id = %s
-                ORDER BY p.address ASC, gp.door_id ASC;
+                ORDER BY p.address ASC;
             """
             params = (group_id,)
         else:
             query = """
                 SELECT 
                     g.group_id, g.name AS group_name, 
-                    p.property_id, p.address,
-                    gp.perm_id, gp.door_id, gp.allow,
-                    gp.start_date, gp.end_date,
-                    gp.start_time, gp.end_time
+                    p.property_id, p.address
                 FROM key_fobs.groups g
-                JOIN key_fobs.group_permissions gp ON g.group_id = gp.group_id
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
-                ORDER BY g.name ASC, p.address ASC, gp.door_id ASC;
+                ORDER BY g.name ASC, p.address ASC;
             """
             params = ()
         
@@ -376,6 +368,18 @@ class FobDatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query)
                 return cur.fetchall()
+
+    def get_group_id_by_name(self, name):
+        """
+        Get the group_id for a given group name.
+        """
+        log_info(f"Database: Finding group_id for name '{name}'")
+        query = "SELECT group_id FROM key_fobs.groups WHERE name = %s;"
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (name,))
+                row = cur.fetchone()
+                return row[0] if row else None
 
     def get_group_permissions(self, group_id):
         """

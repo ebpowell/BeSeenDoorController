@@ -682,27 +682,27 @@
                 </div>
 
                 {% if session.get('role') == 'admin' %}
-                <!-- Role Access Control Card (Admin Only) -->
+                <!-- Group Access Control Card (Admin Only) -->
                 <div class="glass-card">
                     <h2>
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                         </svg>
-                        Role Access Control
+                        Group Access Control
                     </h2>
-                    <form action="/role/assign" method="POST" style="margin-bottom: 1.5rem;">
+                    <form action="/group/assign" method="POST" style="margin-bottom: 1.5rem;">
                         <div class="form-group">
-                            <label for="assign_role_name">Select User Role</label>
-                            <select id="assign_role_name" name="role" required>
-                                <option value="" disabled selected>Select Role...</option>
-                                <option value="operator">operator</option>
-                                <option value="manager">manager</option>
-                                <option value="staff">staff</option>
+                            <label for="assign_group_id">Select Group</label>
+                            <select id="assign_group_id" name="group_id" required>
+                                <option value="" disabled selected>Select Group...</option>
+                                {% for group in groups %}
+                                    <option value="{{ group.group_id }}">{{ group.name }}</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="assign_role_property_id">Select Property Address</label>
-                            <select id="assign_role_property_id" name="property_id" required>
+                            <label for="assign_group_property_id">Select Property Address</label>
+                            <select id="assign_group_property_id" name="property_id" required>
                                 <option value="" disabled selected>Select Address to Assign...</option>
                                 {% for prop in properties %}
                                     <option value="{{ prop.property_id }}">
@@ -711,15 +711,15 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary">Grant Role Access</button>
+                        <button type="submit" class="btn btn-primary">Grant Group Access</button>
                     </form>
 
-                    <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-secondary);">Active Role Mappings</h3>
+                    <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-secondary);">Active Group Mappings</h3>
                     <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Role</th>
+                                    <th>Group</th>
                                     <th>Address</th>
                                     <th style="text-align: right;">Action</th>
                                 </tr>
@@ -728,11 +728,11 @@
                                 {% if role_properties %}
                                     {% for mapping in role_properties %}
                                         <tr>
-                                            <td><span class="user-role">{{ mapping.role }}</span></td>
+                                            <td><span class="user-role">{{ mapping.group_name }}</span></td>
                                             <td><span class="address-badge">{{ mapping.address }}</span></td>
                                             <td style="text-align: right;">
-                                                <form action="/role/unassign" method="POST" style="display:inline;">
-                                                    <input type="hidden" name="role" value="{{ mapping.role }}">
+                                                <form action="/group/unassign" method="POST" style="display:inline;">
+                                                    <input type="hidden" name="group_id" value="{{ mapping.group_id }}">
                                                     <input type="hidden" name="property_id" value="{{ mapping.property_id }}">
                                                     <button type="submit" class="btn btn-danger-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Revoke</button>
                                                 </form>
@@ -741,7 +741,7 @@
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="3" class="no-data" style="padding: 1rem; font-size: 0.85rem;">No active role mappings.</td>
+                                        <td colspan="3" class="no-data" style="padding: 1rem; font-size: 0.85rem;">No active group mappings.</td>
                                     </tr>
                                 {% endif %}
                             </tbody>

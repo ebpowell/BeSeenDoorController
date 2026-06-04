@@ -77,14 +77,20 @@ def logout():
 def index():
     try:
         role = session.get('role')
-        fobs = get_db_mgr().list_fobs()
-        properties = get_db_mgr().list_properties()
+        group_id = None
+        if role and role != 'admin':
+            group_id = get_db_mgr().get_group_id_by_name(role) or -1
+            
+        fobs = get_db_mgr().list_fobs(group_id=group_id)
+        properties = get_db_mgr().list_properties(group_id=group_id)
         replacement_logs = get_db_mgr().list_replacement_logs()
         audit_logs = get_db_mgr().list_audit_logs()
         
+        groups = []
         role_properties = []
         if role == 'admin':
             role_properties = get_db_mgr().list_group_properties()
+            groups = get_db_mgr().list_groups()
             
         return render_template(
             'index.html',
@@ -92,12 +98,13 @@ def index():
             properties=properties,
             replacement_logs=replacement_logs,
             audit_logs=audit_logs,
-            role_properties=role_properties
+            role_properties=role_properties,
+            groups=groups
         )
     except Exception as e:
         log_info(f"Web UI Error: Failed to load index data. {e}")
         flash(f"Error loading data from database: {e}", "danger")
-        return render_template('index.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[], role_properties=[])
+        return render_template('index.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[], role_properties=[], groups=[])
 
 @app.route('/fob/add', methods=['POST'])
 @login_required
@@ -185,16 +192,50 @@ def remove_fob(fob_id):
         
     return redirect(url_for('index'))
 
-@app.route('/role/assign', methods=['POST'])
+@app.route('/group/assign', methods=['POST'])
 @admin_required
-def assign_role_access():
-    flash("Role-based access control has been migrated to group-based control. Please use group management instead.", "info")
+def assign_group_access():
+    group_id_str = request.form.get('group_id', '').strip()
+    property_id_str = request.form.get('property_id', '').strip()
+
+    if not group_id_str or not property_id_str:
+        flash("Group and Address are required.", "warning")
+        return redirect(url_for('index'))
+
+    try:
+        group_id = int(group_id_str)
+        property_id = int(property_id_str)
+        get_db_mgr().assign_property_to_group(group_id, property_id, username=session.get('username'))
+        flash("Granted access to group for selected address.", "success")
+    except ValueError:
+        flash("Group ID and Property ID must be integers.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to assign group access. {e}")
+        flash(f"Database error: {e}", "danger")
+
     return redirect(url_for('index'))
 
-@app.route('/role/unassign', methods=['POST'])
+@app.route('/group/unassign', methods=['POST'])
 @admin_required
-def unassign_role_access():
-    flash("Role-based access control has been migrated to group-based control. Please use group management instead.", "info")
+def unassign_group_access():
+    group_id_str = request.form.get('group_id', '').strip()
+    property_id_str = request.form.get('property_id', '').strip()
+
+    if not group_id_str or not property_id_str:
+        flash("Group and Address are required.", "warning")
+        return redirect(url_for('index'))
+
+    try:
+        group_id = int(group_id_str)
+        property_id = int(property_id_str)
+        get_db_mgr().unassign_property_from_group(group_id, property_id, username=session.get('username'))
+        flash("Revoked access to group for selected address.", "success")
+    except ValueError:
+        flash("Group ID and Property ID must be integers.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to unassign group access. {e}")
+        flash(f"Database error: {e}", "danger")
+
     return redirect(url_for('index'))
 
 def main():

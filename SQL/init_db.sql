@@ -14,6 +14,9 @@ DROP TABLE IF EXISTS key_fobs.fob_replacements CASCADE;
 DROP TABLE IF EXISTS key_fobs.users CASCADE;
 DROP TABLE IF EXISTS key_fobs.audit_logs CASCADE;
 DROP TABLE IF EXISTS key_fobs.role_properties CASCADE;
+DROP TABLE IF EXISTS key_fobs.groups CASCADE;
+DROP TABLE IF EXISTS key_fobs.group_permissions CASCADE;
+DROP TABLE IF EXISTS key_fobs.property_group_permissions CASCADE;
 
 -- Create key_fobs.properties table (Fixed Fact Table)
 CREATE TABLE key_fobs.properties (
@@ -54,11 +57,30 @@ CREATE TABLE key_fobs.users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create key_fobs.role_properties table
-CREATE TABLE key_fobs.role_properties (
-    role VARCHAR(50) NOT NULL,
+-- Create key_fobs.groups table
+CREATE TABLE key_fobs.groups (
+    group_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
+);
+
+-- Create key_fobs.group_permissions table
+CREATE TABLE key_fobs.group_permissions (
+    perm_id SERIAL PRIMARY KEY,
+    start_date DATE,
+    end_date DATE,
+    start_time TIME,
+    end_time TIME,
+    door_id INT,
+    allow BOOLEAN,
+    group_id INT REFERENCES key_fobs.groups(group_id) ON DELETE CASCADE
+);
+
+-- Create key_fobs.property_group_permissions table
+CREATE TABLE key_fobs.property_group_permissions (
+    prop_grp_id SERIAL PRIMARY KEY,
     property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
-    PRIMARY KEY (role, property_id)
+    group_id INT NOT NULL REFERENCES key_fobs.groups(group_id) ON DELETE CASCADE,
+    UNIQUE (group_id, property_id)
 );
 
 -- Create key_fobs.audit_logs table
@@ -215,7 +237,14 @@ INSERT INTO key_fobs.users (username, password_hash, role) VALUES
 ('operator1', 'scrypt:32768:8:1$ZVaLpzN1RXIy1tU9$b27d5ceffc458b36245d348a8ac9129ab46f0548559c13e35da3f8f48e8355a548aaa256f096e2fd5e5309f6bf5359e6adbaf49114a3f5f5acd2608dbaa46147', 'operator')
 ON CONFLICT (username) DO NOTHING;
 
--- Seed initial role properties mappings (operator has access to property 10001 - 101 Wentworth Ave)
-INSERT INTO key_fobs.role_properties (role, property_id) VALUES
-('operator', 10001)
-ON CONFLICT (role, property_id) DO NOTHING;
+-- Seed default groups
+INSERT INTO key_fobs.groups (group_id, name) VALUES
+(1, 'operator'),
+(2, 'manager'),
+(3, 'staff')
+ON CONFLICT (group_id) DO NOTHING;
+
+-- Seed initial property group permissions mappings (operator has access to property 10001 - 101 Wentworth Ave)
+INSERT INTO key_fobs.property_group_permissions (property_id, group_id) VALUES
+(10001, 1)
+ON CONFLICT DO NOTHING;
