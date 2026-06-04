@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZDl46PCdkryVDzjFgFtQwdH4qjLytXEo48cVOyUniWtoKAqKF0CZnhIy8rRLlwO
+\restrict L2PsvOLtofMpiH8db3KrAlruqPnOf5Ceruoee1O8KHMz8kdmIyA9b2HytGLlNUG
 
 -- Dumped from database version 16.14
 -- Dumped by pg_dump version 18.4 (Ubuntu 18.4-0ubuntu0.26.04.1)
@@ -86,6 +86,78 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
+
+--
+-- Name: f_get_acl_changes(timestamp without time zone, timestamp without time zone); Type: FUNCTION; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE FUNCTION key_fobs.f_get_acl_changes(check_now timestamp without time zone, check_future timestamp without time zone) RETURNS TABLE(fob_id integer, door_id integer, controller_ip cidr, old_allow boolean, new_allow boolean, change_type text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    WITH acl_at_start AS (
+        SELECT v.fob_id, v.door_id, v.controller_ip, v.allow
+        FROM key_fobs.vint_acl_data v
+        WHERE check_now::time BETWEEN v.start_time AND v.end_time
+          AND check_now::date BETWEEN v.start_date AND v.end_date
+    ),
+    acl_at_future AS (
+        SELECT v.fob_id, v.door_id, v.controller_ip, v.allow
+        FROM key_fobs.vint_acl_data v
+        WHERE check_future::time BETWEEN v.start_time AND v.end_time
+          AND check_future::date BETWEEN v.start_date AND v.end_date
+    )
+    SELECT 
+        COALESCE(s.fob_id, f.fob_id) AS fob_id,
+        COALESCE(s.door_id, f.door_id) AS door_id,
+        COALESCE(s.controller_ip, f.controller_ip) AS controller_ip,
+        s.allow AS old_allow,
+        f.allow AS new_allow,
+        CASE 
+            WHEN s.fob_id IS NULL THEN 'ADDED'
+            WHEN f.fob_id IS NULL THEN 'REMOVED'
+            WHEN s.allow != f.allow THEN 'TOGGLED'
+            ELSE 'NO_CHANGE'
+        END AS change_type
+    FROM acl_at_start s
+    FULL OUTER JOIN acl_at_future f 
+        ON s.fob_id = f.fob_id 
+        AND s.door_id = f.door_id 
+        AND s.controller_ip = f.controller_ip
+    WHERE (s.allow IS DISTINCT FROM f.allow); -- Only return actual changes
+END;
+$$;
+
+
+ALTER FUNCTION key_fobs.f_get_acl_changes(check_now timestamp without time zone, check_future timestamp without time zone) OWNER TO wentworth_user;
+
+--
+-- Name: f_get_permissions(integer, cidr, time without time zone, date); Type: FUNCTION; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE FUNCTION key_fobs.f_get_permissions(p_fob_id integer, p_controller_ip cidr, p_the_time time without time zone, p_the_date date) RETURNS TABLE(door_no integer, allow integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        vad.door_no::INT, 
+        vad.allow::INT
+    FROM 
+        key_fobs.vint_acl_data vad
+    WHERE 
+        vad.fob_id = p_fob_id
+        AND vad.controller_ip = p_controller_ip
+        AND p_the_time::time > vad.start_time::time
+        AND p_the_time::time < vad.end_time::time
+        AND p_the_date > vad.start_date 
+        AND p_the_date < vad.end_date;
+END;
+$$;
+
+
+ALTER FUNCTION key_fobs.f_get_permissions(p_fob_id integer, p_controller_ip cidr, p_the_time time without time zone, p_the_date date) OWNER TO wentworth_user;
 
 SET default_tablespace = '';
 
@@ -341,7 +413,9 @@ ALTER TABLE key_fobs.groups OWNER TO wentworth_user;
 CREATE TABLE key_fobs.keyfobs (
     keyfob_id integer NOT NULL,
     property_id integer NOT NULL,
-    fob_id integer NOT NULL
+    fob_id integer NOT NULL,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
 );
 
 
@@ -355,7 +429,8 @@ CREATE TABLE key_fobs.owners (
     owner_id integer NOT NULL,
     first_name character varying,
     last_name character varying,
-    property_id integer NOT NULL
+    property_id integer NOT NULL,
+    updated_at timestamp with time zone
 );
 
 
@@ -686,6 +761,80 @@ ALTER SEQUENCE finances.budget_categories_values_hist_record_id_seq OWNER TO wen
 --
 
 ALTER SEQUENCE finances.budget_categories_values_hist_record_id_seq OWNED BY finances.budget_categories_values_hist.record_id;
+
+
+--
+-- Name: audit_logs; Type: TABLE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE TABLE key_fobs.audit_logs (
+    log_id integer NOT NULL,
+    username character varying(50) NOT NULL,
+    action character varying(100) NOT NULL,
+    details text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE key_fobs.audit_logs OWNER TO wentworth_user;
+
+--
+-- Name: audit_logs_log_id_seq; Type: SEQUENCE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE SEQUENCE key_fobs.audit_logs_log_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE key_fobs.audit_logs_log_id_seq OWNER TO wentworth_user;
+
+--
+-- Name: audit_logs_log_id_seq; Type: SEQUENCE OWNED BY; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER SEQUENCE key_fobs.audit_logs_log_id_seq OWNED BY key_fobs.audit_logs.log_id;
+
+
+--
+-- Name: fob_replacements; Type: TABLE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE TABLE key_fobs.fob_replacements (
+    replacement_id integer NOT NULL,
+    property_id integer NOT NULL,
+    replaced_fob_id integer NOT NULL,
+    new_fob_id integer NOT NULL,
+    replaced_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE key_fobs.fob_replacements OWNER TO wentworth_user;
+
+--
+-- Name: fob_replacements_replacement_id_seq; Type: SEQUENCE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE SEQUENCE key_fobs.fob_replacements_replacement_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE key_fobs.fob_replacements_replacement_id_seq OWNER TO wentworth_user;
+
+--
+-- Name: fob_replacements_replacement_id_seq; Type: SEQUENCE OWNED BY; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER SEQUENCE key_fobs.fob_replacements_replacement_id_seq OWNED BY key_fobs.fob_replacements.replacement_id;
 
 
 --
@@ -1252,6 +1401,20 @@ ALTER TABLE ONLY finances.budget_categories_values_hist ALTER COLUMN record_id S
 
 
 --
+-- Name: audit_logs log_id; Type: DEFAULT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.audit_logs ALTER COLUMN log_id SET DEFAULT nextval('key_fobs.audit_logs_log_id_seq'::regclass);
+
+
+--
+-- Name: fob_replacements replacement_id; Type: DEFAULT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.fob_replacements ALTER COLUMN replacement_id SET DEFAULT nextval('key_fobs.fob_replacements_replacement_id_seq'::regclass);
+
+
+--
 -- Name: users user_id; Type: DEFAULT; Schema: key_fobs; Owner: wentworth_user
 --
 
@@ -1311,6 +1474,70 @@ ALTER TABLE ONLY finances.budget_categories_values_hist
 
 
 --
+-- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.audit_logs
+    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (log_id);
+
+
+--
+-- Name: fob_replacements fob_replacements_pkey; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.fob_replacements
+    ADD CONSTRAINT fob_replacements_pkey PRIMARY KEY (replacement_id);
+
+
+--
+-- Name: group_permissions group_permissions_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.group_permissions
+    ADD CONSTRAINT group_permissions_pk PRIMARY KEY (perm_id);
+
+
+--
+-- Name: groups groups_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.groups
+    ADD CONSTRAINT groups_pk PRIMARY KEY (group_id);
+
+
+--
+-- Name: keyfobs keyfobs_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.keyfobs
+    ADD CONSTRAINT keyfobs_pk PRIMARY KEY (fob_id);
+
+
+--
+-- Name: owners owners_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.owners
+    ADD CONSTRAINT owners_pk PRIMARY KEY (owner_id);
+
+
+--
+-- Name: properties properties_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.properties
+    ADD CONSTRAINT properties_pk PRIMARY KEY (property_id);
+
+
+--
+-- Name: property_group_permissions property_group_permissions_pk; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.property_group_permissions
+    ADD CONSTRAINT property_group_permissions_pk PRIMARY KEY (prop_grp_id);
+
+
+--
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
 --
 
@@ -1351,8 +1578,16 @@ ALTER TABLE ONLY public.pool_events
 
 
 --
+-- Name: fob_replacements fob_replacements_property_id_fkey; Type: FK CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.fob_replacements
+    ADD CONSTRAINT fob_replacements_property_id_fkey FOREIGN KEY (property_id) REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZDl46PCdkryVDzjFgFtQwdH4qjLytXEo48cVOyUniWtoKAqKF0CZnhIy8rRLlwO
+\unrestrict L2PsvOLtofMpiH8db3KrAlruqPnOf5Ceruoee1O8KHMz8kdmIyA9b2HytGLlNUG
 
