@@ -1,0 +1,163 @@
+import os
+import json
+from datetime import datetime, timedelta
+from flask import Flask, jsonify, request
+import stripe
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+app = Flask(__name__)
+
+# Configuration (Use environment variables in production!)
+STRIPE_API_KEY = "sk_test_..."
+STRIPE_WEBHOOK_SECRET = "whsec_..."
+CALENDAR_ID = "your_business_calendar_id@gmail.com" # Or 'primary' if the service account owns it
+GOOGLE_SERVICE_ACCOUNT_FILE = "service_account.json"
+
+stripe.api_key = STRIPE_API_KEY
+
+# Google Calendar API Setup
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+creds = service_account.Credentials.from_service_account_file(
+    GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES
+)
+calendar_service = build('calendar', 'v3', credentials=creds)
+
+
+# ==========================================
+# STEP 1: Create a Payment Session
+# ==========================================
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout():
+    """
+    Triggered when user selects a time slot and clicks 'Pay & Book'.
+    We pass the appointment details into Stripe metadata so we can 
+    retrieve them after payment succeeds.
+    """
+    try:
+        data = request.json
+        customer_email = data['email']
+        customer_name = data['name']
+        start_time = data['start_time'] # Expecting ISO format: "2026-06-10T14:00:00"
+        
+        # Metadata allows us to pass booking info safely through Stripe
+        booking_metadata = {
+            "customer_name": customer_name,
+            "customer_email": customer_email,
+            "start_time": start_time,
+            "duration_minutes": 60 
+        }
+
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            customer_email=customer_email,
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': f'Consultation with YourBusiness ({customer_name})',
+                    },
+                    'unit_amount': 5000, # $50.00
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            metadata=booking_metadata,
+            success_url='https://yourwebsite.com/success?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url='https://yourwebsite.com/cancel',
+        )
+        return jsonify({'url': checkout_session.url})
+        
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+
+
+# ==========================================
+# STEP 2: Handle Successful Payment (Webhook)
+# ==========================================
+@app.route('/stripe-webhook', methods=['POST'])
+def stripe_webhook():
+    """
+    Stripe calls this endpoint asynchronously when the payment goes through.
+    """
+    payload = request.data
+    sig_header = request.headers.get('HTTP_STRIPE_SIGNATURE')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except (ValueError, stripe.error.SignatureVerificationError):
+        return 'Invalid payload/signature', 400
+
+    # Handle the checkout.session.completed event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        
+        # Retrieve the booking details we tucked away in Step 1
+        booking_info = session['metadata']
+        
+        # Execute the Google Calendar Injection
+        book_google_calendar_event(booking_info)
+
+    return 'Success', 200
+
+
+# ==========================================
+# STEP 3: Inject Event into Google Calendar
+# ==========================================
+def book_google_calendar_event(booking_info):
+    """
+    Interacts with the Google Calendar API via the Service Account
+    """
+    start_dt = datetime.fromisoformat(booking_info['start_time'])
+    end_dt = start_dt + timedelta(minutes=int(booking_info['duration_minutes']))
+    
+    # Format times back to strings with explicit timezones (e.g., UTC or local)
+    # Adjust 'America/New_York' to your business's timezone
+    timezone = "America/New_York" 
+    
+    event_body = {
+        'summary': f"Appointment: {booking_info['customer_name']}",
+        'description': f"Paid Consultation booked via Web App. Email: {booking_info['customer_email']}",
+        'start': {
+            'dateTime': start_dt.isoformat(),
+            'timeZone': timezone,
+        },
+        'end': {
+            'dateTime': end_dt.isoformat(),
+            'timeZone': timezone,
+        },
+        # Automatically invites the customer so they get a calendar invite
+        'attendees': [
+            {'email': booking_info['customer_email']}
+        ],
+        # Optional: Generate a Google Meet link automatically
+        'conferenceData': {
+            'createRequest': {
+                'requestId': f"meet-{int(datetime.now().timestamp())}",
+                'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+            }
+        },
+        'sendUpdates': 'all' # Sends notification emails to attendees
+    }
+
+    try:
+        created_event = calendar_service.events().insert(
+            calendarId=CALENDAR_ID,
+            body=event_body,
+            conferenceDataVersion=1 # Enables Google Meet creation
+        ).execute()
+        
+        print(f"Event successfully created! Link: {created_event.get('htmlLink')}")
+        
+        # CRITICAL: Save created_event['id'] to your local DB here. 
+        # If the user cancels/reschedules later, you need this ID to edit/delete it.
+        
+    except Exception as e:
+        print(f"Failed to create Google Calendar event: {e}")
+        # Note: In production, log this heavily and send an internal alert.
+        # The customer was charged, but the calendar invite failed.
+
+if __name__ == '__main__':
+    app.run(port=4242, debug=True)
