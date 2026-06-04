@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Fob Management{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Panel: Action Forms -->
+    <div class="forms-panel">
+        <!-- Add Fob Card -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Assign Key Fob
+            </h2>
+            <form id="assignFobForm" action="/fob/add" method="POST" onsubmit="return handleAssignSubmit(event)">
+                <input type="hidden" id="replaced_fob_id" name="replaced_fob_id" value="">
+                
+                <div class="form-group">
+                    <label for="add_fob_id">Fob ID (Integer)</label>
+                    <input type="number" id="add_fob_id" name="fob_id" required placeholder="e.g. 5012">
+                </div>
+                <div class="form-group">
+                    <label for="add_property_id">Property Address (Assignee)</label>
+                    <select id="add_property_id" name="property_id" required>
+                        <option value="" disabled selected>Select an Address...</option>
+                        {% for prop in properties %}
+                            <option value="{{ prop.property_id }}">
+                                {{ prop.address }} ({% if prop.owner_name %}{{ prop.owner_name }}{% else %}No Owner{% endif %})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Assign Fob</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Panel: Database Fobs List & Logs -->
+    <div class="list-panel">
+        <!-- Key Fobs Registry -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                </svg>
+                Key Fobs Registry
+            </h2>
+            
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input type="text" class="search-input" id="searchBox" placeholder="Search by Fob ID, Address, or Owner..." onkeyup="filterFobs()">
+            </div>
+
+            <div class="table-responsive">
+                <table id="fobTable">
+                    <thead>
+                        <tr>
+                            <th>Fob ID</th>
+                            <th>Assigned Address</th>
+                            <th>Inherited Owner</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if fobs %}
+                            {% for fob in fobs %}
+                                <tr>
+                                    <td><span class="fob-id-badge">{{ fob.fob_id }}</span></td>
+                                    <td><span class="address-badge">{{ fob.address }}</span></td>
+                                    <td><span class="owner-name">{% if fob.owner_name %}{{ fob.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td style="text-align: right;">
+                                        <form action="/fob/remove/{{ fob.fob_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete fob {{ fob.fob_id }}?');">
+                                            <button type="submit" class="btn btn-danger-outline">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="no-data">No fobs registered.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Fob Replacement Logs (Metadata History) Card -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Fob Replacement Logs (Metadata History)
+            </h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Log ID</th>
+                            <th>Property Address</th>
+                            <th>Replaced Fob ID</th>
+                            <th>New Fob ID</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if replacement_logs %}
+                            {% for log in replacement_logs %}
+                                <tr>
+                                    <td>{{ log.replacement_id }}</td>
+                                    <td><span class="address-badge">{{ log.address }}</span></td>
+                                    <td><span class="fob-id-badge">{{ log.replaced_fob_id }}</span></td>
+                                    <td><span class="fob-id-badge">{{ log.new_fob_id }}</span></td>
+                                    <td class="timestamp">{{ log.replaced_at.strftime('%Y-%m-%d %H:%M:%S') if log.replaced_at else 'N/A' }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="no-data">No replacement logs recorded.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- User Audit Logs Card -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                User Action Audit Logs
+            </h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if audit_logs %}
+                            {% for log in audit_logs %}
+                                <tr>
+                                    <td><strong>{{ log.username }}</strong></td>
+                                    <td>{{ log.action }}</td>
+                                    <td>{{ log.details }}</td>
+                                    <td class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="no-data">No action history recorded yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Replacement Modal -->
+<div id="replacementModalBackdrop" class="modal-backdrop">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div id="modalTitle" class="modal-title">Fob Replacement Prompt</div>
+        <div id="modalMessage" class="modal-body">
+            This address already has registered fobs. Select which fob will be replaced:
+        </div>
+        <div id="modalOptions" class="modal-options">
+            <!-- Javascript will render options here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Inline raw JS data object of current fobs
+    const fobsData = [
+        {% for fob in fobs %}
+        { fob_id: {{ fob.fob_id }}, property_id: {{ fob.property_id }}, address: "{{ fob.address }}" },
+        {% endfor %}
+    ];
+
+    // Intercept Fob Assignment form submission
+    function handleAssignSubmit(event) {
+        const propertySelect = document.getElementById('add_property_id');
+        const selectedPropId = parseInt(propertySelect.value);
+        const fobInput = document.getElementById('add_fob_id');
+        const newFobId = parseInt(fobInput.value);
+
+        if (isNaN(selectedPropId) || isNaN(newFobId)) {
+            return true; // Let standard validation handle it
+        }
+
+        // Get fobs currently assigned to this property
+        const matchingFobs = fobsData.filter(f => f.property_id === selectedPropId);
+
+        if (matchingFobs.length > 0) {
+            // Intercept the form submission to open the replacement prompt
+            event.preventDefault();
+            showReplacementModal(selectedPropId, newFobId, matchingFobs);
+            return false;
+        }
+        return true;
+    }
+
+    // Open replacement modal
+    function showReplacementModal(propertyId, newFobId, matchingFobs) {
+        const backdrop = document.getElementById('replacementModalBackdrop');
+        const title = document.getElementById('modalTitle');
+        const message = document.getElementById('modalMessage');
+        const optionsContainer = document.getElementById('modalOptions');
+        
+        // Clear options
+        optionsContainer.innerHTML = '';
+        
+        title.textContent = `Assigning Fob ${newFobId}`;
+        
+        // If address has reached maximum of 2 fobs, force replacement
+        if (matchingFobs.length >= 2) {
+            message.textContent = `This address has reached the maximum of 2 fobs. Choose which existing fob to replace (the chosen fob will be deleted):`;
+        } else {
+            message.textContent = `This address has 1 existing fob. You can choose to replace it or add this new fob directly:`;
+            
+            // Add "Add directly without replacing" option
+            const directBtn = document.createElement('button');
+            directBtn.type = 'button';
+            directBtn.className = 'modal-option-btn';
+            directBtn.style.borderLeft = "4px solid var(--success)";
+            directBtn.innerHTML = `<span>Add directly (No replacement)</span> <strong style="color:var(--success);">&rarr;</strong>`;
+            directBtn.onclick = () => {
+                document.getElementById('replaced_fob_id').value = '';
+                document.getElementById('assignFobForm').submit();
+            };
+            optionsContainer.appendChild(directBtn);
+        }
+        
+        // Add options for replacing each existing fob ID
+        matchingFobs.forEach(fob => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'modal-option-btn';
+            btn.style.borderLeft = "4px solid var(--danger)";
+            btn.innerHTML = `<span>Replace Fob <strong style="color:var(--secondary); font-family:monospace;">${fob.fob_id}</strong></span> <strong style="color:var(--danger);">&times;</strong>`;
+            btn.onclick = () => {
+                document.getElementById('replaced_fob_id').value = fob.fob_id;
+                document.getElementById('assignFobForm').submit();
+            };
+            optionsContainer.appendChild(btn);
+        });
+        
+        backdrop.classList.add('show');
+    }
+
+    // Close modal
+    function closeModal() {
+        document.getElementById('replacementModalBackdrop').classList.remove('show');
+    }
+
+    // Search Filter Logic
+    function filterFobs() {
+        const searchInput = document.getElementById('searchBox').value.toLowerCase();
+        const table = document.getElementById('fobTable');
+        const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < trs.length; i++) {
+            const tr = trs[i];
+            if (tr.getElementsByClassName('no-data').length > 0) continue;
+            
+            const fobBadge = tr.getElementsByClassName('fob-id-badge')[0];
+            const addressBadge = tr.getElementsByClassName('address-badge')[0];
+            const ownerName = tr.getElementsByClassName('owner-name')[0];
+            
+            const fobIdText = fobBadge ? fobBadge.textContent || fobBadge.innerText : '';
+            const addressText = addressBadge ? addressBadge.textContent || addressBadge.innerText : '';
+            const ownerText = ownerName ? ownerName.textContent || ownerName.innerText : '';
+            
+            if (fobIdText.toLowerCase().indexOf(searchInput) > -1 || 
+                addressText.toLowerCase().indexOf(searchInput) > -1 ||
+                ownerText.toLowerCase().indexOf(searchInput) > -1) {
+                tr.style.display = "";
+            } else {
+                tr.style.display = "none";
+            }
+        }
+    }
+</script>
+{% endblock %}

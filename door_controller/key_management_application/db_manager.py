@@ -63,7 +63,7 @@ class FobDatabaseManager:
         """
         List properties associated with groups.
         Optionally filter by specific group_id.
-        Returns group_id, group_name, property_id, and property address.
+        Returns group_id, group_name, property_id, property address, and owner name.
         """
         log_info(f"Database: Fetching group-property mappings. Filter group_id={group_id}")
         
@@ -71,10 +71,12 @@ class FobDatabaseManager:
             query = """
                 SELECT 
                     g.group_id, g.name AS group_name, 
-                    p.property_id, p.address
+                    p.property_id, p.address,
+                    o.owner_name
                 FROM key_fobs.groups g
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
+                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
                 WHERE g.group_id = %s
                 ORDER BY p.address ASC;
             """
@@ -83,10 +85,12 @@ class FobDatabaseManager:
             query = """
                 SELECT 
                     g.group_id, g.name AS group_name, 
-                    p.property_id, p.address
+                    p.property_id, p.address,
+                    o.owner_name
                 FROM key_fobs.groups g
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
+                LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
                 ORDER BY g.name ASC, p.address ASC;
             """
             params = ()

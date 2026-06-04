@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Group Management{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Panel: Action Forms -->
+    <div class="forms-panel">
+        <!-- Group Access Control Card (Admin Only) -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                Group Access Control
+            </h2>
+            <form action="/group/assign" method="POST" style="margin-bottom: 1.5rem;">
+                <div class="form-group">
+                    <label for="assign_group_id">Select Group</label>
+                    <select id="assign_group_id" name="group_id" required>
+                        <option value="" disabled selected>Select Group...</option>
+                        {% for group in groups %}
+                            <option value="{{ group.group_id }}">{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="assign_group_property_id">Select Property Address</label>
+                    <select id="assign_group_property_id" name="property_id" required>
+                        <option value="" disabled selected>Select Address to Assign...</option>
+                        {% for prop in properties %}
+                            <option value="{{ prop.property_id }}">
+                                {{ prop.address }} ({% if prop.owner_name %}{{ prop.owner_name }}{% else %}No Owner{% endif %})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Grant Group Access</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Panel: Database List -->
+    <div class="list-panel">
+        <!-- Active Group Mappings Card -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                Active Group Mappings
+            </h2>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Address</th>
+                            <th>Owner Full Name</th>
+                            <th>Last Name</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if role_properties %}
+                            {% for mapping in role_properties %}
+                                <tr>
+                                    <td><span class="user-role">{{ mapping.group_name }}</span></td>
+                                    <td><span class="address-badge">{{ mapping.address }}</span></td>
+                                    <td><span class="owner-name">{% if mapping.owner_name %}{{ mapping.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td>
+                                        <strong>
+                                            {% if mapping.owner_name and mapping.owner_name.split() %}
+                                                {{ mapping.owner_name.split()[-1] }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </strong>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <form action="/group/unassign" method="POST" style="display:inline;">
+                                            <input type="hidden" name="group_id" value="{{ mapping.group_id }}">
+                                            <input type="hidden" name="property_id" value="{{ mapping.property_id }}">
+                                            <button type="submit" class="btn btn-danger-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Revoke</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="no-data" style="padding: 2rem; font-size: 0.85rem;">No active group mappings.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- User Audit Logs Card -->
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                User Action Audit Logs
+            </h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if audit_logs %}
+                            {% for log in audit_logs %}
+                                <tr>
+                                    <td><strong>{{ log.username }}</strong></td>
+                                    <td>{{ log.action }}</td>
+                                    <td>{{ log.details }}</td>
+                                    <td class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="no-data">No action history recorded yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

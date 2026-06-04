@@ -75,6 +75,11 @@ def logout():
 @app.route('/')
 @login_required
 def index():
+    return redirect(url_for('fobs'))
+
+@app.route('/fobs')
+@login_required
+def fobs():
     try:
         role = session.get('role')
         group_id = None
@@ -86,25 +91,60 @@ def index():
         replacement_logs = get_db_mgr().list_replacement_logs()
         audit_logs = get_db_mgr().list_audit_logs()
         
-        groups = []
-        role_properties = []
-        if role == 'admin':
-            role_properties = get_db_mgr().list_group_properties()
-            groups = get_db_mgr().list_groups()
-            
         return render_template(
-            'index.html',
+            'fobs.html',
             fobs=fobs,
             properties=properties,
             replacement_logs=replacement_logs,
-            audit_logs=audit_logs,
-            role_properties=role_properties,
-            groups=groups
+            audit_logs=audit_logs
         )
     except Exception as e:
-        log_info(f"Web UI Error: Failed to load index data. {e}")
+        log_info(f"Web UI Error: Failed to load fobs data. {e}")
         flash(f"Error loading data from database: {e}", "danger")
-        return render_template('index.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[], role_properties=[], groups=[])
+        return render_template('fobs.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[])
+
+@app.route('/ownership')
+@login_required
+def ownership():
+    try:
+        role = session.get('role')
+        group_id = None
+        if role and role != 'admin':
+            group_id = get_db_mgr().get_group_id_by_name(role) or -1
+            
+        properties = get_db_mgr().list_properties(group_id=group_id)
+        audit_logs = get_db_mgr().list_audit_logs()
+        
+        return render_template(
+            'ownership.html',
+            properties=properties,
+            audit_logs=audit_logs
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load ownership data. {e}")
+        flash(f"Error loading data from database: {e}", "danger")
+        return render_template('ownership.html', properties=[], audit_logs=[])
+
+@app.route('/groups')
+@admin_required
+def groups():
+    try:
+        role_properties = get_db_mgr().list_group_properties()
+        groups_list = get_db_mgr().list_groups()
+        properties = get_db_mgr().list_properties()
+        audit_logs = get_db_mgr().list_audit_logs()
+        
+        return render_template(
+            'groups.html',
+            role_properties=role_properties,
+            groups=groups_list,
+            properties=properties,
+            audit_logs=audit_logs
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load groups data. {e}")
+        flash(f"Error loading data from database: {e}", "danger")
+        return render_template('groups.html', role_properties=[], groups=[], properties=[], audit_logs=[])
 
 @app.route('/fob/add', methods=['POST'])
 @login_required
@@ -115,14 +155,14 @@ def add_fob():
     
     if not fob_id_str or not property_id_str:
         flash("Fob ID and Address selection are required.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('fobs'))
     
     try:
         fob_id = int(fob_id_str)
         property_id = int(property_id_str)
     except ValueError:
         flash("Fob ID and Property ID must be valid integers.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('fobs'))
         
     replaced_fob_id = None
     if replaced_fob_id_str:
@@ -130,7 +170,7 @@ def add_fob():
             replaced_fob_id = int(replaced_fob_id_str)
         except ValueError:
             flash("Replaced Fob ID must be a valid integer.", "warning")
-            return redirect(url_for('index'))
+            return redirect(url_for('fobs'))
 
     try:
         username = session.get('username', 'system')
@@ -145,7 +185,7 @@ def add_fob():
         log_info(f"Web UI Error: Failed to add fob {fob_id}. {e}")
         flash(f"Database error: {e}", "danger")
         
-    return redirect(url_for('index'))
+    return redirect(url_for('fobs'))
 
 @app.route('/property/update_owner', methods=['POST'])
 @login_required
@@ -155,13 +195,13 @@ def update_property_owner():
     
     if not property_id_str or not owner_name:
         flash("Address and Owner Name are required.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('ownership'))
         
     try:
         property_id = int(property_id_str)
     except ValueError:
         flash("Property ID must be a valid integer.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('ownership'))
         
     try:
         username = session.get('username', 'system')
@@ -174,7 +214,7 @@ def update_property_owner():
         log_info(f"Web UI Error: Failed to update property {property_id} owner. {e}")
         flash(f"Database error: {e}", "danger")
         
-    return redirect(url_for('index'))
+    return redirect(url_for('ownership'))
 
 @app.route('/fob/remove/<int:fob_id>', methods=['POST'])
 @login_required
@@ -190,7 +230,7 @@ def remove_fob(fob_id):
         log_info(f"Web UI Error: Failed to remove fob {fob_id}. {e}")
         flash(f"Database error: {e}", "danger")
         
-    return redirect(url_for('index'))
+    return redirect(url_for('fobs'))
 
 @app.route('/group/assign', methods=['POST'])
 @admin_required
@@ -200,7 +240,7 @@ def assign_group_access():
 
     if not group_id_str or not property_id_str:
         flash("Group and Address are required.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('groups'))
 
     try:
         group_id = int(group_id_str)
@@ -213,7 +253,7 @@ def assign_group_access():
         log_info(f"Web UI Error: Failed to assign group access. {e}")
         flash(f"Database error: {e}", "danger")
 
-    return redirect(url_for('index'))
+    return redirect(url_for('groups'))
 
 @app.route('/group/unassign', methods=['POST'])
 @admin_required
@@ -223,7 +263,7 @@ def unassign_group_access():
 
     if not group_id_str or not property_id_str:
         flash("Group and Address are required.", "warning")
-        return redirect(url_for('index'))
+        return redirect(url_for('groups'))
 
     try:
         group_id = int(group_id_str)
@@ -236,7 +276,7 @@ def unassign_group_access():
         log_info(f"Web UI Error: Failed to unassign group access. {e}")
         flash(f"Database error: {e}", "danger")
 
-    return redirect(url_for('index'))
+    return redirect(url_for('groups'))
 
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")

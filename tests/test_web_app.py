@@ -67,7 +67,14 @@ class TestWebApp(unittest.TestCase):
             self.assertNotIn('username', sess)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
-    def test_index_route_admin(self, mock_get_db_mgr):
+    def test_index_redirects_to_fobs(self, mock_get_db_mgr):
+        self.set_logged_in()
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith('/fobs'))
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_fobs_route_admin(self, mock_get_db_mgr):
         self.set_logged_in(username='admin', role='admin')
         mock_db = MagicMock()
         mock_db.list_fobs.return_value = [
@@ -78,23 +85,17 @@ class TestWebApp(unittest.TestCase):
         ]
         mock_db.list_replacement_logs.return_value = []
         mock_db.list_audit_logs.return_value = []
-        mock_db.list_group_properties.return_value = [
-            {'group_id': 1, 'group_name': 'operators', 'property_id': 10001, 'address': '101 Main St'}
-        ]
-        mock_db.list_groups.return_value = []
         mock_get_db_mgr.return_value = mock_db
 
-        response = self.client.get('/')
+        response = self.client.get('/fobs')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'101 Main St', response.data)
-        self.assertIn(b'Group Access Control', response.data)
+        self.assertIn(b'Assign Key Fob', response.data)
         mock_db.list_fobs.assert_called_once_with(group_id=None)
         mock_db.list_properties.assert_called_once_with(group_id=None)
-        mock_db.list_group_properties.assert_called_once()
-        mock_db.list_groups.assert_called_once()
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
-    def test_index_route_restricted_operator(self, mock_get_db_mgr):
+    def test_fobs_route_restricted_operator(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1', role='operator')
         mock_db = MagicMock()
         mock_db.get_group_id_by_name.return_value = 1
@@ -104,13 +105,55 @@ class TestWebApp(unittest.TestCase):
         mock_db.list_audit_logs.return_value = []
         mock_get_db_mgr.return_value = mock_db
 
-        response = self.client.get('/')
+        response = self.client.get('/fobs')
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b'Group Access Control', response.data)
         mock_db.get_group_id_by_name.assert_called_once_with('operator')
         mock_db.list_fobs.assert_called_once_with(group_id=1)
         mock_db.list_properties.assert_called_once_with(group_id=1)
-        mock_db.list_group_properties.assert_not_called()
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_ownership_route(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin', role='admin')
+        mock_db = MagicMock()
+        mock_db.list_properties.return_value = [
+            {'property_id': 10001, 'address': '101 Main St', 'owner_name': 'John Doe'}
+        ]
+        mock_db.list_audit_logs.return_value = []
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/ownership')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Update Property Owner', response.data)
+        self.assertIn(b'101 Main St', response.data)
+        mock_db.list_properties.assert_called_once_with(group_id=None)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_groups_route_admin(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin', role='admin')
+        mock_db = MagicMock()
+        mock_db.list_group_properties.return_value = [
+            {'group_id': 1, 'group_name': 'operators', 'property_id': 10001, 'address': '101 Main St', 'owner_name': 'John Doe'}
+        ]
+        mock_db.list_groups.return_value = [
+            {'group_id': 1, 'name': 'operators'}
+        ]
+        mock_db.list_properties.return_value = []
+        mock_db.list_audit_logs.return_value = []
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/groups')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Group Access Control', response.data)
+        self.assertIn(b'Active Group Mappings', response.data)
+        mock_db.list_group_properties.assert_called_once()
+        mock_db.list_groups.assert_called_once()
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_groups_route_operator_unauthorized(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1', role='operator')
+        response = self.client.get('/groups')
+        self.assertEqual(response.status_code, 302)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_assign_group_access_success(self, mock_get_db_mgr):
@@ -135,7 +178,6 @@ class TestWebApp(unittest.TestCase):
             'group_id': '1',
             'property_id': '10001'
         })
-        # Should redirect back to index due to failure to meet admin requirement
         self.assertEqual(response.status_code, 302)
         mock_db.assign_property_to_group.assert_not_called()
 
