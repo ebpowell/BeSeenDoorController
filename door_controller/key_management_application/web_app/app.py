@@ -26,14 +26,14 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def admin_required(f):
+def secretary_or_sysadmin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'username' not in session:
             flash("Please log in to access this page.", "warning")
             return redirect(url_for('login'))
-        if session.get('role') != 'admin':
-            flash("Unauthorized: Admin privilege required.", "danger")
+        if session.get('role') not in ['Secretary', 'SysAdmin']:
+            flash("Unauthorized: Secretary or SysAdmin privilege required.", "danger")
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
@@ -83,8 +83,8 @@ def fobs():
     try:
         role = session.get('role')
         group_id = None
-        if role and role != 'admin':
-            group_id = get_db_mgr().get_group_id_by_name(role) or -1
+        if role == 'ManagementCo':
+            group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
             
         fobs = get_db_mgr().list_fobs(group_id=group_id)
         properties = get_db_mgr().list_properties(group_id=group_id)
@@ -104,13 +104,13 @@ def fobs():
         return render_template('fobs.html', fobs=[], properties=[], replacement_logs=[], audit_logs=[])
 
 @app.route('/ownership')
-@login_required
+@secretary_or_sysadmin_required
 def ownership():
     try:
         role = session.get('role')
         group_id = None
-        if role and role != 'admin':
-            group_id = get_db_mgr().get_group_id_by_name(role) or -1
+        if role == 'ManagementCo':
+            group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
             
         properties = get_db_mgr().list_properties(group_id=group_id)
         audit_logs = get_db_mgr().list_audit_logs()
@@ -126,7 +126,7 @@ def ownership():
         return render_template('ownership.html', properties=[], audit_logs=[])
 
 @app.route('/groups')
-@admin_required
+@secretary_or_sysadmin_required
 def groups():
     try:
         role_properties = get_db_mgr().list_group_properties()
@@ -188,7 +188,7 @@ def add_fob():
     return redirect(url_for('fobs'))
 
 @app.route('/property/update_owner', methods=['POST'])
-@login_required
+@secretary_or_sysadmin_required
 def update_property_owner():
     property_id_str = request.form.get('property_id', '').strip()
     owner_name = request.form.get('owner_name', '').strip()
@@ -233,7 +233,7 @@ def remove_fob(fob_id):
     return redirect(url_for('fobs'))
 
 @app.route('/group/assign', methods=['POST'])
-@admin_required
+@secretary_or_sysadmin_required
 def assign_group_access():
     group_id_str = request.form.get('group_id', '').strip()
     property_id_str = request.form.get('property_id', '').strip()
@@ -256,7 +256,7 @@ def assign_group_access():
     return redirect(url_for('groups'))
 
 @app.route('/group/unassign', methods=['POST'])
-@admin_required
+@secretary_or_sysadmin_required
 def unassign_group_access():
     group_id_str = request.form.get('group_id', '').strip()
     property_id_str = request.form.get('property_id', '').strip()

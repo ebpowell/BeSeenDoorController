@@ -45,3 +45,10 @@ src/main/resources/dist/*
 /bin/
 .DS_Store
 /src/main/kotlin/com/sourcegraph/cody/agent/protocol_generated/*
+
+# Python
+__pycache__/
+*.pyc
+*$py.class
+.venv/
+my_venv/

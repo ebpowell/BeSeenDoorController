@@ -642,7 +642,7 @@
                 </div>
                 <div class="user-badge">
                     <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">{{ session.get('username', 'guest') }}</span>
-                    <span class="user-role">{{ session.get('role', 'operator') }}</span>
+                    <span class="user-role">{{ session.get('role', 'ManagementCo') }}</span>
                     <form action="/logout" method="POST" style="display: inline; margin-left: 0.5rem;">
                         <button type="submit" class="logout-btn">Logout</button>
                     </form>
@@ -655,10 +655,10 @@
             <a href="{{ url_for('fobs') }}" class="nav-tab {% if request.path == url_for('fobs') or request.path == '/' %}active{% endif %}">
                 Fob Management
             </a>
+            {% if session.get('role') in ['Secretary', 'SysAdmin'] %}
             <a href="{{ url_for('ownership') }}" class="nav-tab {% if request.path == url_for('ownership') %}active{% endif %}">
                 Ownership Management
             </a>
-            {% if session.get('role') == 'admin' %}
             <a href="{{ url_for('groups') }}" class="nav-tab {% if request.path == url_for('groups') %}active{% endif %}">
                 Group Access Control
             </a>

@@ -28,10 +28,13 @@ If you wish to run the Flask application directly in your host environment using
 ---
 
 ## Default Credentials
-- **Administrator Role** (Full access, role mappings administration):
+- **SysAdmin Role** (Full access, group mappings administration):
   - **Username**: `admin`
   - **Password**: `admin123`
-- **Operator Role** (Restricted read/write access to assigned addresses only):
+- **Secretary Role** (Full access, group mappings and ownership administration):
+  - **Username**: `secretary1`
+  - **Password**: `secretary123`
+- **ManagementCo Role** (Restricted access to assigned group addresses only):
   - **Username**: `operator1`
   - **Password**: `operator123`
 

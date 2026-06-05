@@ -53,7 +53,7 @@ CREATE TABLE key_fobs.users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'operator',
+    role VARCHAR(20) DEFAULT 'ManagementCo',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -227,24 +227,29 @@ INSERT INTO key_fobs.vint_acl_data (fob_id, door_id, door_no, controller_ip, all
 (1003, 1, 1, '69.21.119.148/32', TRUE)
 ON CONFLICT (fob_id, door_id, controller_ip) DO NOTHING;
 
--- Seed default admin user
+-- Seed default SysAdmin user
 INSERT INTO key_fobs.users (username, password_hash, role) VALUES
-('admin', 'scrypt:32768:8:1$UDYUXN3FvmA7ycHA$bf9b6642937663d449b6ad4fefb75d3cb64cf3827465a1504a61327fbc621f6366df1fe5cc802e51bbd7c003bd59a71e862ab7a0e7b7aefad8cbe96def8cb75c', 'admin')
+('admin', 'scrypt:32768:8:1$UDYUXN3FvmA7ycHA$bf9b6642937663d449b6ad4fefb75d3cb64cf3827465a1504a61327fbc621f6366df1fe5cc802e51bbd7c003bd59a71e862ab7a0e7b7aefad8cbe96def8cb75c', 'SysAdmin')
 ON CONFLICT (username) DO NOTHING;
 
--- Seed default operator user
+-- Seed default ManagementCo user
 INSERT INTO key_fobs.users (username, password_hash, role) VALUES
-('operator1', 'scrypt:32768:8:1$ZVaLpzN1RXIy1tU9$b27d5ceffc458b36245d348a8ac9129ab46f0548559c13e35da3f8f48e8355a548aaa256f096e2fd5e5309f6bf5359e6adbaf49114a3f5f5acd2608dbaa46147', 'operator')
+('operator1', 'scrypt:32768:8:1$ZVaLpzN1RXIy1tU9$b27d5ceffc458b36245d348a8ac9129ab46f0548559c13e35da3f8f48e8355a548aaa256f096e2fd5e5309f6bf5359e6adbaf49114a3f5f5acd2608dbaa46147', 'ManagementCo')
+ON CONFLICT (username) DO NOTHING;
+
+-- Seed default Secretary user
+INSERT INTO key_fobs.users (username, password_hash, role) VALUES
+('secretary1', 'scrypt:32768:8:1$OXHMh3mcsjXjh3Ao$f03cc7cf93913694a180c9c2b444904769012a7fdceae0289e4fe1b6da0a1dc6c88f5592c76a2a5ca9d0f8bbf50162add0ddc4e7ef954758f5fecee8be5fe905', 'Secretary')
 ON CONFLICT (username) DO NOTHING;
 
 -- Seed default groups
 INSERT INTO key_fobs.groups (group_id, name) VALUES
-(1, 'operator'),
-(2, 'manager'),
-(3, 'staff')
+(1, 'ManagementCo'),
+(2, 'Secretary'),
+(3, 'SysAdmin')
 ON CONFLICT (group_id) DO NOTHING;
 
--- Seed initial property group permissions mappings (operator has access to property 10001 - 101 Wentworth Ave)
+-- Seed initial property group permissions mappings (ManagementCo has access to property 10001 - 101 Wentworth Ave)
 INSERT INTO key_fobs.property_group_permissions (property_id, group_id) VALUES
 (10001, 1)
 ON CONFLICT DO NOTHING;
