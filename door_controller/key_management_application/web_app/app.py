@@ -83,8 +83,8 @@ def fobs():
     try:
         role = session.get('role')
         group_id = None
-        if role == 'ManagementCo':
-            group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
+        # if role == 'ManagementCo':
+            # group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
             
         fobs = get_db_mgr().list_fobs(group_id=group_id)
         properties = get_db_mgr().list_properties(group_id=group_id)
@@ -109,8 +109,8 @@ def ownership():
     try:
         role = session.get('role')
         group_id = None
-        if role == 'ManagementCo':
-            group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
+        # if role == 'ManagementCo':
+            # group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
             
         properties = get_db_mgr().list_properties(group_id=group_id)
         audit_logs = get_db_mgr().list_audit_logs()
