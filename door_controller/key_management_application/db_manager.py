@@ -72,7 +72,7 @@ class FobDatabaseManager:
                 SELECT 
                     g.group_id, g.name AS group_name, 
                     p.property_id, p.address,
-                    o.owner_name
+                    concat(o.first_name, ' ', o.last_name) AS owner_name
                 FROM key_fobs.groups g
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
@@ -86,7 +86,7 @@ class FobDatabaseManager:
                 SELECT 
                     g.group_id, g.name AS group_name, 
                     p.property_id, p.address,
-                    o.owner_name
+                    concat(o.first_name, ' ', o.last_name) AS owner_name
                 FROM key_fobs.groups g
                 JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
                 JOIN key_fobs.properties p ON pgp.property_id = p.property_id
@@ -333,7 +333,7 @@ class FobDatabaseManager:
         Update (upsert) the owner of a property. All fobs under this property
         will inherit the new owner. Returns True on success.
         """
-        log_info(f"Database: Updating owner of property_id={property_id} to '{owner_name}' by user={username}")
+        log_info(f"Database: Updating owner of property_iowner_named={property_id} to '{owner_name}' by user={username}")
         query = """
             INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
             VALUES (%s, %s, CURRENT_TIMESTAMP)
