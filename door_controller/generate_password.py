@@ -13,7 +13,7 @@ def generate_hashed_password(plain_password):
 
 
 if __name__ == "__main__":
-    plain_password = "ww_operator123" 
+    plain_password = "randy1" 
     hashed_password = generate_hashed_password(plain_password)
     # 3. How to verify the password later (e.g., during login)
     is_correct = check_password_hash(hashed_password, plain_password)  # This should return True
