@@ -334,15 +334,17 @@ class FobDatabaseManager:
         will inherit the new owner. Returns True on success.
         """
         log_info(f"Database: Updating owner of property_iowner_named={property_id} to '{owner_name}' by user={username}")
-        query = """
-            INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
-            VALUES (%s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (property_id) DO UPDATE
-            SET owner_name = EXCLUDED.owner_name, updated_at = EXCLUDED.updated_at;
-        """
+        # query = """
+        #     INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
+        #     VALUES (%s, %s, CURRENT_TIMESTAMP)
+        #     ON CONFLICT (property_id) DO UPDATE
+        #     SET owner_name = EXCLUDED.owner_name, updated_at = EXCLUDED.updated_at;
+        # """
+        last_name, first_name = (owner_name.split(' ', 1) + [""])[:2]  # Simple split for first and last name
+        query = "UPDATE key_fobs.owners SET last_name = %s, first_name = %s, updated_at = CURRENT_TIMESTAMP WHERE property_id = %s;"
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (property_id, owner_name))
+                cur.execute(query, (last_name, first_name, property_id))
                 rowcount = cur.rowcount
                 
                 # Trigger an update on the fobs' updated_at so that tracking triggers are aware of the trickle-down
