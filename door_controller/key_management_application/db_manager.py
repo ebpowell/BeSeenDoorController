@@ -22,7 +22,7 @@ class FobDatabaseManager:
         Returns a dict with username and role, or None if authentication fails.
         """
         log_info(f"Database: Authenticating user '{username}'")
-        query = "SELECT password_hash, role FROM key_fobs.users WHERE username = %s;"
+        query = "SELECT password_hash, role FROM webgui.users WHERE username = %s;"
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (username,))
