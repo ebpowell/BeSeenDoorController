@@ -60,9 +60,9 @@ COPY --from=builder /usr/local/bin/get_foblist_from_controller /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs_simple /usr/local/bin/
 COPY --from=builder /usr/local/bin/list_fobs /usr/local/bin/
 COPY --from=builder /usr/local/bin/BeSeen_driver /usr/local/bin/
-COPY --from=builder /usr/local/bin/BeSeen_web /usr/local/bin/
+# COPY --from=builder /usr/local/bin/BeSeen_web /usr/local/bin/
 # Expose the port your application listens on
-EXPOSE 5000
+# EXPOSE 5000
 
 # Command to run your application
 # Define a default command if the container is run without arguments
