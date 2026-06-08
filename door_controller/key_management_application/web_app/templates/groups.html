@@ -50,8 +50,14 @@
                 </svg>
                 Active Group Mappings
             </h2>
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input type="text" class="search-input" id="searchBox" placeholder="Search by name, group, or address..." onkeyup="filterGroups()">
+            </div>
             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                <table>
+                <table id="groupMappingsTable">
                     <thead>
                         <tr>
                             <th>Group</th>
@@ -135,4 +141,35 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function filterGroups() {
+        const searchInput = document.getElementById('searchBox').value.toLowerCase();
+        const table = document.getElementById('groupMappingsTable');
+        const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < trs.length; i++) {
+            const tr = trs[i];
+            if (tr.getElementsByClassName('no-data').length > 0) continue;
+            
+            const groupNameBadge = tr.getElementsByClassName('user-role')[0];
+            const addressBadge = tr.getElementsByClassName('address-badge')[0];
+            const ownerName = tr.getElementsByClassName('owner-name')[0];
+            
+            const groupText = groupNameBadge ? groupNameBadge.textContent || groupNameBadge.innerText : '';
+            const addressText = addressBadge ? addressBadge.textContent || addressBadge.innerText : '';
+            const ownerText = ownerName ? ownerName.textContent || ownerName.innerText : '';
+            
+            if (groupText.toLowerCase().indexOf(searchInput) > -1 || 
+                addressText.toLowerCase().indexOf(searchInput) > -1 ||
+                ownerText.toLowerCase().indexOf(searchInput) > -1) {
+                tr.style.display = "";
+            } else {
+                tr.style.display = "none";
+            }
+        }
+    }
+</script>
 {% endblock %}

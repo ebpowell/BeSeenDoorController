@@ -48,11 +48,19 @@
                 Key Fobs Registry
             </h2>
             
-            <div class="search-container">
-                <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                <input type="text" class="search-input" id="searchBox" placeholder="Search by Fob ID, Address, or Owner..." onkeyup="filterFobs()">
+            <div class="search-flex-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <div class="search-container" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                    <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" class="search-input" id="searchBox" placeholder="Search by Address or Owner..." onkeyup="filterFobs()">
+                </div>
+                <div class="search-container" style="flex: 0 0 250px; min-width: 150px; margin-bottom: 0;">
+                    <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9a3 3 0 11-6 0 3 3 0 016 0zm0 0H21m-6 0v2.5M19 11V14"></path>
+                    </svg>
+                    <input type="number" class="search-input" id="searchFobId" placeholder="Search by Fob ID..." onkeyup="filterFobs()">
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -272,7 +280,8 @@
 
     // Search Filter Logic
     function filterFobs() {
-        const searchInput = document.getElementById('searchBox').value.toLowerCase();
+        const searchText = document.getElementById('searchBox').value.toLowerCase();
+        const searchFobId = document.getElementById('searchFobId').value.trim();
         const table = document.getElementById('fobTable');
         const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
         
@@ -284,13 +293,23 @@
             const addressBadge = tr.getElementsByClassName('address-badge')[0];
             const ownerName = tr.getElementsByClassName('owner-name')[0];
             
-            const fobIdText = fobBadge ? fobBadge.textContent || fobBadge.innerText : '';
+            const fobIdText = fobBadge ? (fobBadge.textContent || fobBadge.innerText).trim() : '';
             const addressText = addressBadge ? addressBadge.textContent || addressBadge.innerText : '';
             const ownerText = ownerName ? ownerName.textContent || ownerName.innerText : '';
             
-            if (fobIdText.toLowerCase().indexOf(searchInput) > -1 || 
-                addressText.toLowerCase().indexOf(searchInput) > -1 ||
-                ownerText.toLowerCase().indexOf(searchInput) > -1) {
+            let matchesSearch = true;
+            let matchesFobId = true;
+            
+            if (searchText) {
+                matchesSearch = addressText.toLowerCase().indexOf(searchText) > -1 ||
+                                ownerText.toLowerCase().indexOf(searchText) > -1;
+            }
+            
+            if (searchFobId) {
+                matchesFobId = fobIdText === searchFobId || fobIdText.indexOf(searchFobId) > -1;
+            }
+            
+            if (matchesSearch && matchesFobId) {
                 tr.style.display = "";
             } else {
                 tr.style.display = "none";
