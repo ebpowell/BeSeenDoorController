@@ -27,19 +27,6 @@ If you wish to run the Flask application directly in your host environment using
 
 ---
 
-## Default Credentials
-- **SysAdmin Role** (Full access, group mappings administration):
-  - **Username**: `admin`
-  - **Password**: `admin123`
-- **Secretary Role** (Full access, group mappings and ownership administration):
-  - **Username**: `secretary1`
-  - **Password**: `secretary123`
-- **ManagementCo Role** (Restricted access to assigned group addresses only):
-  - **Username**: `operator1`
-  - **Password**: `operator123`
-
----
-
 ## CLI & Background Tasks
 
 ### Pulling Swipes and ACL Information
@@ -63,8 +50,4 @@ Add the following line to your crontab:
 ```cron
 */15 * * * * cd /opt/scripts/BeSeenDoorController && docker compose -f docker-compose.yaml run doorcontroller get_swipes > /dev/null 2>&1
 ```
-
-### Default Passwords
-Admin: ww_admin123
-Operator: ww_operator123
 
