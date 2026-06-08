@@ -1,0 +1,52 @@
+# Stage 1: Builder
+FROM python:3.10-slim-buster AS builder
+
+# Set environment variables for Python in the container
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip
+
+# Copy the Python package source code and setup.py
+COPY door_controller /app/door_controller
+COPY setup.py /app/setup.py
+
+# Install the package using setuptools
+RUN pip install --no-cache-dir .
+
+# Stage 2: Production Runtime
+FROM python:3.10-slim-buster
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Create a non-root user for security and create necessary folders
+RUN adduser --system --group doorcontroller && \
+    mkdir -p /app/data /app/config /app/log && \
+    chown -R doorcontroller:doorcontroller /app
+
+# Switch to the non-root user
+USER doorcontroller
+
+# Copy the installed Python dependencies and package from the builder
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+
+# Copy each console script individually
+COPY --from=builder /usr/local/bin/get_swipes /usr/local/bin/
+COPY --from=builder /usr/local/bin/get_acl_from_controller /usr/local/bin/
+COPY --from=builder /usr/local/bin/get_foblist_from_controller /usr/local/bin/
+COPY --from=builder /usr/local/bin/list_fobs_simple /usr/local/bin/
+COPY --from=builder /usr/local/bin/list_fobs /usr/local/bin/
+COPY --from=builder /usr/local/bin/BeSeen_driver /usr/local/bin/
+COPY --from=builder /usr/local/bin/sync_controller /usr/local/bin/
+
+# Default command for user guidance/informational output when run without arguments
+CMD ["echo", "Ready. Run CLI tools: get_swipes, get_acl_from_controller, get_foblist_from_controller, list_fobs, list_fobs_simple, BeSeen_driver, or sync_controller"]

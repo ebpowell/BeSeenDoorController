@@ -1,7 +1,7 @@
 services:
   keymanagement:
-    image: keymanagement:latest
-    container_name: doorcontroller
+    image: ghcr.io/ebpowell/BeSeenDoorController/key-management-app:latest
+    container_name: keymanagement
     restart: unless-stopped
     volumes:
       - /opt/data/door_controller/data:/app/data
@@ -33,8 +33,8 @@ services:
       - postgres
 
   doorcontroller:
-    image: door_controller:latest
-    container_name: doorcontroller
+    image: ghcr.io/ebpowell/BeSeenDoorController/cli-synch-tools:latest
+    container_name: cli-synch-tools
     restart: unless-stopped
     volumes:
       - /opt/data/door_controller/data:/app/data
@@ -64,6 +64,7 @@ services:
     depends_on:
       - postgres
 
+
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -76,4 +77,4 @@ services:
     environment:
       - POSTGRES_PASSWORD=s3cret
       - POSTGRES_USER=ebpowell
-      - POSTGRES_DB=itsd_analysis  
+      - POSTGRES_DB=wntworth_db  
