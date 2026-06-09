@@ -26,11 +26,13 @@ jobs:
       matrix:
         include:
           - name: CLI Synchronization Tools
-            dockerfile: door_controller/cli_synch_tools/Dockerfile
+            # dockerfile: door_controller/cli_synch_tools/Dockerfile
+            dockerfile:  ${{ github.repository }}/Dockerfile.cli-tools
             image_name: cli-synch-tools
             context: .
           - name: Key Management Application
-            dockerfile: door_controller/key_management_application/Dockerfile
+            # dockerfile: door_controller/key_management_application/Dockerfile
+            dockerfile: ${{ github.repository }}/Dockerfile.key-magmt-app
             image_name: key-management-app
             context: .
 
