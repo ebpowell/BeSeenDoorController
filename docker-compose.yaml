@@ -48,15 +48,16 @@ services:
       - postgres
 
   postgres:
-    image: postgres:latest
+    image: postgres:16-alpine
     container_name: postgres
     restart: always
     ports:
       - 5432:5432
     volumes:
-      - /opt/postgresql:/var/lib/postgresql
-      - ./init:/docker-entrypoint-initdb.d/
+      - /mnt/sda1/postgresql:/var/lib/postgresql/data
+#      - /opt/postgresql:/var/lib/postgresql
+#      - ./init:/docker-entrypoint-initdb.d/
     environment:
-      - POSTGRES_PASSWORD=s3cret
-      - POSTGRES_USER=ebpowell
+      - POSTGRES_PASSWORD=ww_s3cret
+      - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
