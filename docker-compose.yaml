@@ -1,7 +1,7 @@
 services:
   keymanagement:
-    image: key-management-app:latest
-    # image: ghcr.io/ebpowell/BeSeenDoorController/key-management-app:latest
+    #image: key-management-app:latest
+    image: ghcr.io/ebpowell/BeSeenDoorController/key-management-app:latest
     container_name: keymanagement
     restart: unless-stopped
     volumes:
@@ -25,8 +25,8 @@ services:
       - postgres
 
   doorcontroller:
-    image: cli-synch-tools:latest
-    # image: ghcr.io/ebpowell/BeSeenDoorController/cli-synch-tools:latest
+    #image: cli-synch-tools:latest
+    image: ghcr.io/ebpowell/BeSeenDoorController/cli-synch-tools:latest
     container_name: cli-synch-tools
     restart: unless-stopped
     volumes:
