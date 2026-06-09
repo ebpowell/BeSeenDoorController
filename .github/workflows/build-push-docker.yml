@@ -32,7 +32,7 @@ jobs:
             context: .
           - name: Key Management Application
             # dockerfile: door_controller/key_management_application/Dockerfile
-            dockerfile: Dockerfile.key-magmt-app
+            dockerfile: Dockerfile.key-mgmt-app
             image_name: key-management-app
             context: .
 
