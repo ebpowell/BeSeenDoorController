@@ -553,3 +553,145 @@ class FobDatabaseManager:
                     conn.rollback()
                     log_info(f"Database: Error deleting group: {e}")
                     raise
+
+    def list_reservations(self):
+        """
+        List all clubhouse reservations, joined with properties and owners.
+        Sorted by reservation_date ASC, from_time ASC.
+        """
+        log_info("Database: Fetching all clubhouse reservations.")
+        query = """
+            SELECT 
+                r.reservation_id, r.property_id, r.reservation_date, 
+                r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.created_at,
+                p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.clubhouse_reservations r
+            JOIN key_fobs.properties p ON r.property_id = p.property_id
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            ORDER BY r.reservation_date ASC, r.from_time ASC NULLS FIRST;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query)
+                return cur.fetchall()
+
+    def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
+                        payment_made=False, deposit_on_file=False, username='system'):
+        """
+        Add a new clubhouse reservation and logs to the user audit logs.
+        """
+        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date}")
+        query = """
+            INSERT INTO key_fobs.clubhouse_reservations 
+                (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING reservation_id;
+        """
+        # Convert empty strings to None for optional time fields
+        from_time_val = from_time if from_time else None
+        to_time_val = to_time if to_time else None
+        
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT address FROM key_fobs.properties WHERE property_id = %s;", (property_id,))
+                prop_row = cur.fetchone()
+                address = prop_row[0] if prop_row else f"ID {property_id}"
+                
+                cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file))
+                reservation_id = cur.fetchone()[0]
+                
+                time_str = f" from {from_time_val} to {to_time_val}" if from_time_val else ""
+                details = f"Reserved clubhouse for '{address}' on {reservation_date}{time_str} (Payment: {payment_made}, Deposit: {deposit_on_file})"
+                self.log_audit_action(cur, username, "Add Clubhouse Reservation", details)
+            conn.commit()
+        return reservation_id
+
+    def delete_reservation(self, reservation_id, username='system'):
+        """
+        Delete a clubhouse reservation and logs to the user audit logs.
+        """
+        log_info(f"Database: Deleting reservation_id={reservation_id} by user={username}")
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Get reservation details for audit logging
+                cur.execute("""
+                    SELECT r.reservation_date, p.address 
+                    FROM key_fobs.clubhouse_reservations r
+                    JOIN key_fobs.properties p ON r.property_id = p.property_id
+                    WHERE r.reservation_id = %s;
+                """, (reservation_id,))
+                row = cur.fetchone()
+                if row:
+                    res_date, address = row
+                    details = f"Deleted clubhouse reservation for '{address}' on {res_date}"
+                else:
+                    details = f"Deleted non-existent reservation {reservation_id}"
+                
+                cur.execute("DELETE FROM key_fobs.clubhouse_reservations WHERE reservation_id = %s;", (reservation_id,))
+                rowcount = cur.rowcount
+                if rowcount > 0:
+                    self.log_audit_action(cur, username, "Delete Clubhouse Reservation", details)
+            conn.commit()
+        return rowcount > 0
+
+    def update_reservation_status(self, reservation_id, field, value, username='system'):
+        """
+        Update a status boolean field (payment_made or deposit_on_file) for a clubhouse reservation.
+        """
+        if field not in ['payment_made', 'deposit_on_file']:
+            raise ValueError(f"Invalid field: {field}")
+            
+        log_info(f"Database: Updating reservation_id={reservation_id} field {field} to {value} by user={username}")
+        
+        query = f"""
+            UPDATE key_fobs.clubhouse_reservations
+            SET {field} = %s
+            WHERE reservation_id = %s;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT r.reservation_date, p.address 
+                    FROM key_fobs.clubhouse_reservations r
+                    JOIN key_fobs.properties p ON r.property_id = p.property_id
+                    WHERE r.reservation_id = %s;
+                """, (reservation_id,))
+                row = cur.fetchone()
+                if row:
+                    res_date, address = row
+                    details = f"Updated clubhouse reservation for '{address}' on {res_date}: set {field} = {value}"
+                else:
+                    details = f"Updated reservation {reservation_id}: set {field} = {value}"
+                
+                cur.execute(query, (value, reservation_id))
+                rowcount = cur.rowcount
+                if rowcount > 0:
+                    self.log_audit_action(cur, username, "Update Clubhouse Reservation", details)
+            conn.commit()
+        return rowcount > 0
+
+    def search_properties(self, search_query):
+        """
+        Search properties and owners where the address or owner name matches the search_query.
+        Returns property_id, address, and owner name.
+        """
+        log_info(f"Database: Searching properties with query '{search_query}'")
+        query = """
+            SELECT 
+                p.property_id, p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.properties p
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            WHERE p.address ILIKE %s 
+               OR o.first_name ILIKE %s 
+               OR o.last_name ILIKE %s 
+               OR CONCAT(o.first_name, ' ', o.last_name) ILIKE %s
+            ORDER BY p.address ASC
+            LIMIT 10;
+        """
+        like_query = f"%{search_query}%"
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (like_query, like_query, like_query, like_query))
+                return cur.fetchall()

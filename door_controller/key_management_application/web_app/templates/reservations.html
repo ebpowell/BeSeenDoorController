@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Clubhouse Reservations{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Autocomplete Styling */
+    .autocomplete-wrapper {
+        position: relative;
+    }
+    .suggestions-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: rgba(15, 17, 26, 0.98);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        z-index: 1000;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 4px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        display: none;
+    }
+    .suggestion-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        transition: background 0.2s ease;
+        text-align: left;
+    }
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .suggestion-item:hover {
+        background: rgba(99, 102, 241, 0.15);
+        color: #ffffff;
+    }
+    .suggestion-address {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .suggestion-owner {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-left: 0.5rem;
+    }
+
+    /* Switch toggle styling */
+    .toggle-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--card-border);
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 46px;
+        height: 24px;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(255, 255, 255, 0.1);
+        transition: .4s;
+        border-radius: 24px;
+        border: 1px solid var(--card-border);
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color: var(--primary);
+    }
+    input:checked + .slider:before {
+        transform: translateX(22px);
+    }
+
+    /* Badge buttons for inline status updates */
+    .toggle-form {
+        display: inline-block;
+        margin: 0;
+    }
+    .badge-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+        display: inline-block;
+    }
+    .badge-success {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #34d399;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+    .badge-success:hover {
+        background: var(--success);
+        color: white;
+        box-shadow: 0 0 10px var(--success-glow);
+    }
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #fca5a5;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+    .badge-danger:hover {
+        background: var(--danger);
+        color: white;
+        box-shadow: 0 0 10px var(--danger-glow);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Panel: Reserve Form -->
+    <div class="forms-panel">
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Reserve Clubhouse
+            </h2>
+            <form id="reserveForm" action="/reservations" method="POST">
+                <div class="form-group autocomplete-wrapper">
+                    <label for="addressLookup">Search Address or Owner</label>
+                    <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address..." required>
+                    <input type="hidden" id="property_id" name="property_id" required>
+                    <div id="suggestionsList" class="suggestions-list"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reservation_date">Reservation Date</label>
+                    <input type="date" id="reservation_date" name="reservation_date" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="from_time">From Time (Optional)</label>
+                        <input type="time" id="from_time" name="from_time">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="to_time">To Time (Optional)</label>
+                        <input type="time" id="to_time" name="to_time">
+                    </div>
+                </div>
+
+                <div class="toggle-group">
+                    <span>Payment Made</span>
+                    <label class="switch">
+                        <input type="checkbox" name="payment_made">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-group">
+                    <span>Deposit on File</span>
+                    <label class="switch">
+                        <input type="checkbox" name="deposit_on_file">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Book Reservation</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Panel: Reservations Registry -->
+    <div class="list-panel">
+        <div class="glass-card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m-2 3h.01M5.5 21h3m-3-4h3m-3-4h3m-3-4h3M9 4v3m4-3v3m1 4h6m-3-3v6"></path>
+                </svg>
+                Clubhouse Reservations Registry
+            </h2>
+
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input type="text" class="search-input" id="searchReservations" placeholder="Search by Address or Owner..." onkeyup="filterReservations()">
+            </div>
+
+            <div class="table-responsive">
+                <table id="reservationsTable">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Owner Name</th>
+                            <th>Date</th>
+                            <th>Timeslot</th>
+                            <th>Payment Status</th>
+                            <th>Deposit Status</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if reservations %}
+                            {% for res in reservations %}
+                                <tr>
+                                    <td><span class="address-badge">{{ res.address }}</span></td>
+                                    <td><span class="owner-name">{% if res.owner_name %}{{ res.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td><strong>{{ res.reservation_date.strftime('%Y-%m-%d') if res.reservation_date.strftime else res.reservation_date }}</strong></td>
+                                    <td>
+                                        {% if res.from_time or res.to_time %}
+                                            <span style="font-family: monospace; font-size: 0.9rem;">
+                                                {{ res.from_time.strftime('%H:%M') if res.from_time.strftime else res.from_time }} - 
+                                                {{ res.to_time.strftime('%H:%M') if res.to_time.strftime else res.to_time }}
+                                            </span>
+                                        {% else %}
+                                            <span style="color: var(--text-secondary); font-size: 0.9rem;">All Day</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form action="/reservations/toggle_payment/{{ res.reservation_id }}" method="POST" class="toggle-form">
+                                            <input type="hidden" name="current_value" value="{{ 'true' if res.payment_made else 'false' }}">
+                                            <button type="submit" class="badge-btn">
+                                                {% if res.payment_made %}
+                                                    <span class="badge-success">Paid</span>
+                                                {% else %}
+                                                    <span class="badge-danger">Unpaid</span>
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <form action="/reservations/toggle_deposit/{{ res.reservation_id }}" method="POST" class="toggle-form">
+                                            <input type="hidden" name="current_value" value="{{ 'true' if res.deposit_on_file else 'false' }}">
+                                            <button type="submit" class="badge-btn">
+                                                {% if res.deposit_on_file %}
+                                                    <span class="badge-success">On File</span>
+                                                {% else %}
+                                                    <span class="badge-danger">None</span>
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <form action="/reservations/delete/{{ res.reservation_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
+                                            <button type="submit" class="btn btn-danger-outline">Cancel</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="no-data">No clubhouse reservations registered.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const lookupInput = document.getElementById('addressLookup');
+        const hiddenIdInput = document.getElementById('property_id');
+        const suggestionsBox = document.getElementById('suggestionsList');
+
+        let debounceTimeout = null;
+
+        // Perform dynamic autocomplete lookup
+        lookupInput.addEventListener('input', () => {
+            const query = lookupInput.value.trim();
+            if (query.length < 2) {
+                suggestionsBox.style.display = 'none';
+                suggestionsBox.innerHTML = '';
+                return;
+            }
+
+            // Debounce requests to API
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                fetch(`/api/properties/search?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        suggestionsBox.innerHTML = '';
+                        if (data.length === 0) {
+                            suggestionsBox.style.display = 'none';
+                            return;
+                        }
+
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.innerHTML = `
+                                <span class="suggestion-address">${escapeHtml(item.address)}</span>
+                                <span class="suggestion-owner">${item.owner_name ? '(' + escapeHtml(item.owner_name) + ')' : '(No Owner)'}</span>
+                            `;
+                            div.addEventListener('click', () => {
+                                lookupInput.value = `${item.address} ${item.owner_name ? '(' + item.owner_name + ')' : ''}`.trim();
+                                hiddenIdInput.value = item.property_id;
+                                suggestionsBox.style.display = 'none';
+                                suggestionsBox.innerHTML = '';
+                            });
+                            suggestionsBox.appendChild(div);
+                        });
+                        suggestionsBox.style.display = 'block';
+                    })
+                    .catch(err => {
+                        console.error('Error fetching property search results:', err);
+                    });
+            }, 300);
+        });
+
+        // Hide suggestions on outside click
+        document.addEventListener('click', (e) => {
+            if (e.target !== lookupInput && e.target !== suggestionsBox) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        // Safe HTML escape helper
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    });
+
+    // Reservations Table Filter
+    function filterReservations() {
+        const searchText = document.getElementById('searchReservations').value.toLowerCase();
+        const table = document.getElementById('reservationsTable');
+        const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let i = 0; i < trs.length; i++) {
+            const tr = trs[i];
+            if (tr.getElementsByClassName('no-data').length > 0) continue;
+
+            const addressBadge = tr.getElementsByClassName('address-badge')[0];
+            const ownerName = tr.getElementsByClassName('owner-name')[0];
+
+            const addressText = addressBadge ? addressBadge.textContent || addressBadge.innerText : '';
+            const ownerText = ownerName ? ownerName.textContent || ownerName.innerText : '';
+
+            if (addressText.toLowerCase().indexOf(searchText) > -1 || ownerText.toLowerCase().indexOf(searchText) > -1) {
+                tr.style.display = "";
+            } else {
+                tr.style.display = "none";
+            }
+        }
+    }
+</script>
+{% endblock %}

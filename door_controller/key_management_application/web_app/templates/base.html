@@ -655,6 +655,9 @@
             <a href="{{ url_for('fobs') }}" class="nav-tab {% if request.path == url_for('fobs') or request.path == '/' %}active{% endif %}">
                 Fob Management
             </a>
+            <a href="{{ url_for('reservations') }}" class="nav-tab {% if request.path == url_for('reservations') %}active{% endif %}">
+                Clubhouse Reservations
+            </a>
             {% if session.get('role') in ['Secretary', 'SysAdmin'] %}
             <a href="{{ url_for('ownership') }}" class="nav-tab {% if request.path == url_for('ownership') %}active{% endif %}">
                 Ownership Management

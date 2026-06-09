@@ -838,6 +838,46 @@ ALTER SEQUENCE key_fobs.fob_replacements_replacement_id_seq OWNED BY key_fobs.fo
 
 
 --
+-- Name: clubhouse_reservations; Type: TABLE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE TABLE key_fobs.clubhouse_reservations (
+    reservation_id integer NOT NULL,
+    property_id integer NOT NULL,
+    reservation_date date NOT NULL,
+    from_time time without time zone,
+    to_time time without time zone,
+    payment_made boolean DEFAULT false NOT NULL,
+    deposit_on_file boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE key_fobs.clubhouse_reservations OWNER TO wentworth_user;
+
+--
+-- Name: clubhouse_reservations_reservation_id_seq; Type: SEQUENCE; Schema: key_fobs; Owner: wentworth_user
+--
+
+CREATE SEQUENCE key_fobs.clubhouse_reservations_reservation_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE key_fobs.clubhouse_reservations_reservation_id_seq OWNER TO wentworth_user;
+
+--
+-- Name: clubhouse_reservations_reservation_id_seq; Type: SEQUENCE OWNED BY; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER SEQUENCE key_fobs.clubhouse_reservations_reservation_id_seq OWNED BY key_fobs.clubhouse_reservations.reservation_id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: key_fobs; Owner: wentworth_user
 --
 
@@ -1415,6 +1455,13 @@ ALTER TABLE ONLY key_fobs.fob_replacements ALTER COLUMN replacement_id SET DEFAU
 
 
 --
+-- Name: clubhouse_reservations reservation_id; Type: DEFAULT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.clubhouse_reservations ALTER COLUMN reservation_id SET DEFAULT nextval('key_fobs.clubhouse_reservations_reservation_id_seq'::regclass);
+
+
+--
 -- Name: users user_id; Type: DEFAULT; Schema: key_fobs; Owner: wentworth_user
 --
 
@@ -1583,6 +1630,22 @@ ALTER TABLE ONLY public.pool_events
 
 ALTER TABLE ONLY key_fobs.fob_replacements
     ADD CONSTRAINT fob_replacements_property_id_fkey FOREIGN KEY (property_id) REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE;
+
+
+--
+-- Name: clubhouse_reservations clubhouse_reservations_pkey; Type: CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.clubhouse_reservations
+    ADD CONSTRAINT clubhouse_reservations_pkey PRIMARY KEY (reservation_id);
+
+
+--
+-- Name: clubhouse_reservations clubhouse_reservations_property_id_fkey; Type: FK CONSTRAINT; Schema: key_fobs; Owner: wentworth_user
+--
+
+ALTER TABLE ONLY key_fobs.clubhouse_reservations
+    ADD CONSTRAINT clubhouse_reservations_property_id_fkey FOREIGN KEY (property_id) REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE;
 
 
 --

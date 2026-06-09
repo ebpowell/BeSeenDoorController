@@ -1,6 +1,6 @@
 import os
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.utils import log_info
 
@@ -83,8 +83,8 @@ def fobs():
     try:
         role = session.get('role')
         group_id = None
-        # if role == 'ManagementCo':
-            # group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
+        if role == 'ManagementCo':
+            group_id = get_db_mgr().get_group_id_by_name('ManagementCo') or -1
             
         fobs = get_db_mgr().list_fobs(group_id=group_id)
         properties = get_db_mgr().list_properties(group_id=group_id)
@@ -277,6 +277,109 @@ def unassign_group_access():
         flash(f"Database error: {e}", "danger")
 
     return redirect(url_for('groups'))
+
+@app.route('/reservations', methods=['GET', 'POST'])
+@login_required
+def reservations():
+    if request.method == 'POST':
+        property_id_str = request.form.get('property_id', '').strip()
+        reservation_date = request.form.get('reservation_date', '').strip()
+        from_time = request.form.get('from_time', '').strip()
+        to_time = request.form.get('to_time', '').strip()
+        payment_made = request.form.get('payment_made') == 'on'
+        deposit_on_file = request.form.get('deposit_on_file') == 'on'
+
+        if not property_id_str or not reservation_date:
+            flash("Property and Reservation Date are required.", "warning")
+            return redirect(url_for('reservations'))
+
+        try:
+            property_id = int(property_id_str)
+            username = session.get('username', 'system')
+            get_db_mgr().add_reservation(
+                property_id=property_id,
+                reservation_date=reservation_date,
+                from_time=from_time if from_time else None,
+                to_time=to_time if to_time else None,
+                payment_made=payment_made,
+                deposit_on_file=deposit_on_file,
+                username=username
+            )
+            flash("Clubhouse reservation added successfully.", "success")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add reservation. {e}")
+            flash(f"Database error: {e}", "danger")
+
+        return redirect(url_for('reservations'))
+
+    # GET request
+    try:
+        res_list = get_db_mgr().list_reservations()
+        properties = get_db_mgr().list_properties()
+        return render_template('reservations.html', reservations=res_list, properties=properties)
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load reservations page. {e}")
+        flash(f"Error loading reservations: {e}", "danger")
+        return render_template('reservations.html', reservations=[], properties=[])
+
+@app.route('/reservations/delete/<int:reservation_id>', methods=['POST'])
+@login_required
+def delete_reservation(reservation_id):
+    try:
+        username = session.get('username', 'system')
+        deleted = get_db_mgr().delete_reservation(reservation_id, username=username)
+        if deleted:
+            flash("Clubhouse reservation deleted successfully.", "success")
+        else:
+            flash("Reservation not found.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to delete reservation {reservation_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('reservations'))
+
+@app.route('/reservations/toggle_payment/<int:reservation_id>', methods=['POST'])
+@login_required
+def toggle_payment(reservation_id):
+    try:
+        current_value = request.form.get('current_value') == 'true'
+        new_value = not current_value
+        username = session.get('username', 'system')
+        get_db_mgr().update_reservation_status(reservation_id, 'payment_made', new_value, username=username)
+        flash("Payment status updated.", "success")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to toggle payment for reservation {reservation_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('reservations'))
+
+@app.route('/reservations/toggle_deposit/<int:reservation_id>', methods=['POST'])
+@login_required
+def toggle_deposit(reservation_id):
+    try:
+        current_value = request.form.get('current_value') == 'true'
+        new_value = not current_value
+        username = session.get('username', 'system')
+        get_db_mgr().update_reservation_status(reservation_id, 'deposit_on_file', new_value, username=username)
+        flash("Deposit status updated.", "success")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to toggle deposit for reservation {reservation_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('reservations'))
+
+@app.route('/api/properties/search')
+@login_required
+def api_search_properties():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify([])
+    try:
+        results = get_db_mgr().search_properties(query)
+        return jsonify([dict(r) for r in results])
+    except Exception as e:
+        log_info(f"API Error: Failed to search properties. {e}")
+        return jsonify([]), 500
 
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")

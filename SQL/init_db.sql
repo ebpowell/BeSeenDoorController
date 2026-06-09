@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS key_fobs.role_properties CASCADE;
 DROP TABLE IF EXISTS key_fobs.groups CASCADE;
 DROP TABLE IF EXISTS key_fobs.group_permissions CASCADE;
 DROP TABLE IF EXISTS key_fobs.property_group_permissions CASCADE;
+DROP TABLE IF EXISTS key_fobs.clubhouse_reservations CASCADE;
 
 -- Create key_fobs.properties table (Fixed Fact Table)
 CREATE TABLE key_fobs.properties (
@@ -89,6 +90,18 @@ CREATE TABLE key_fobs.audit_logs (
     username VARCHAR(50) NOT NULL,
     action VARCHAR(100) NOT NULL,
     details TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create key_fobs.clubhouse_reservations table
+CREATE TABLE key_fobs.clubhouse_reservations (
+    reservation_id SERIAL PRIMARY KEY,
+    property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
+    reservation_date DATE NOT NULL,
+    from_time TIME,
+    to_time TIME,
+    payment_made BOOLEAN NOT NULL DEFAULT FALSE,
+    deposit_on_file BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
