@@ -71,6 +71,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -86,6 +87,8 @@ jobs:
           echo ""
           echo "CLI Synchronization Tools:"
           echo "  ghcr.io/${{ github.repository }}/cli-synch-tools:latest"
+          echo "  Platforms: linux/amd64, linux/arm64"
           echo ""
           echo "Key Management Application:"
           echo "  ghcr.io/${{ github.repository }}/key-management-app:latest"
+          echo "  Platforms: linux/amd64, linux/arm64"
