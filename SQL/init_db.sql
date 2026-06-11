@@ -22,7 +22,8 @@ DROP TABLE IF EXISTS key_fobs.clubhouse_reservations CASCADE;
 -- Create key_fobs.properties table (Fixed Fact Table)
 CREATE TABLE key_fobs.properties (
     property_id INT PRIMARY KEY,
-    address VARCHAR(255) UNIQUE NOT NULL
+    address VARCHAR(255) UNIQUE NOT NULL,
+    knox_co_lot_id INT
 );
 
 -- Create key_fobs.property_owners table

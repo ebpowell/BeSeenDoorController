@@ -95,10 +95,9 @@ class TestWebApp(unittest.TestCase):
         mock_db.list_properties.assert_called_once_with(group_id=None)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
-    def test_fobs_route_restricted_managementco(self, mock_get_db_mgr):
+    def test_fobs_route_unrestricted_managementco(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1', role='ManagementCo')
         mock_db = MagicMock()
-        mock_db.get_group_id_by_name.return_value = 1
         mock_db.list_fobs.return_value = []
         mock_db.list_properties.return_value = []
         mock_db.list_replacement_logs.return_value = []
@@ -108,9 +107,8 @@ class TestWebApp(unittest.TestCase):
         response = self.client.get('/fobs')
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b'Group Access Control', response.data)
-        mock_db.get_group_id_by_name.assert_called_once_with('ManagementCo')
-        mock_db.list_fobs.assert_called_once_with(group_id=1)
-        mock_db.list_properties.assert_called_once_with(group_id=1)
+        mock_db.list_fobs.assert_called_once_with(group_id=None)
+        mock_db.list_properties.assert_called_once_with(group_id=None)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_ownership_route_authorized_secretary(self, mock_get_db_mgr):
