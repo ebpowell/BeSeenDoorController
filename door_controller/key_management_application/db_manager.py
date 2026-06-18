@@ -180,7 +180,7 @@ class FobDatabaseManager:
         if group_id:
             query = """
                 SELECT DISTINCT 
-                    f.keyfob_id, f.fob_id, p.property_id, p.address, 
+                    f.fob_id, p.property_id, p.address, 
                     CONCAT(o.first_name, ' ', o.last_name) AS owner_name, 
                     f.created_at, f.updated_at,
                     g.group_id, g.name AS group_name
@@ -196,7 +196,7 @@ class FobDatabaseManager:
         else:
             query = """
                 SELECT 
-                    f.keyfob_id, f.fob_id, p.property_id, p.address, 
+                    f.fob_id, p.property_id, p.address, 
                     CONCAT(o.first_name, ' ', o.last_name) AS owner_name, 
                     f.created_at, f.updated_at
                 FROM key_fobs.keyfobs f
