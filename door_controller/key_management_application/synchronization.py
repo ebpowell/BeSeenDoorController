@@ -1,6 +1,7 @@
 import time
 import os
 import re
+from datetime import datetime, date, timedelta
 from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
@@ -94,7 +95,7 @@ def get_owner_for_fob(db_mgr, fob_id):
     """
     query = """
         SELECT o.owner_name
-        FROM key_fobs.fobs f
+        FROM key_fobs.keyfobs f
         JOIN key_fobs.properties p ON f.property_id = p.property_id
         LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
         WHERE f.fob_id = %s;
@@ -281,6 +282,36 @@ def synchronize_controller(url, username, password, db_mgr):
     return True
 
 
+def derive_run_schedule(db_mgr):
+    """
+    Derives the run-schedule for the next 24 hours based on when permissions change
+    throughout the day using key_fobs.f_get_runtimes.
+    """
+    now = datetime.now()
+    today = now.date()
+    tomorrow = today + timedelta(days=1)
+    
+    # Fetch runtimes for today and tomorrow
+    today_times = db_mgr.get_runtimes_for_date(today)
+    tomorrow_times = db_mgr.get_runtimes_for_date(tomorrow)
+    
+    schedule = []
+    
+    # Helper to combine date and time
+    def add_to_schedule(d, t_list):
+        for t in t_list:
+            dt = datetime.combine(d, t)
+            # Filter for future times within the next 24 hours
+            if now < dt <= now + timedelta(hours=24):
+                schedule.append(dt)
+                
+    add_to_schedule(today, today_times)
+    add_to_schedule(tomorrow, tomorrow_times)
+    
+    schedule.sort()
+    return schedule
+
+
 def main():
     log_info("Starting global door controller synchronization routine.")
     config = load_config()
@@ -294,6 +325,18 @@ def main():
         return
         
     db_mgr = FobDatabaseManager(connect_string)
+    
+    # Derive run-schedule for the next 24 hours
+    try:
+        schedule = derive_run_schedule(db_mgr)
+        log_info("Derived synchronization run-schedule for the next 24 hours:")
+        if schedule:
+            for dt in schedule:
+                log_info(f" - Sync scheduled at: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            log_info(" - No permission changes detected in the next 24 hours.")
+    except Exception as e:
+        log_error(f"Failed to derive synchronization run-schedule: {e}")
     
     username = config.get('settings', {}).get('username')
     password = config.get('settings', {}).get('password')

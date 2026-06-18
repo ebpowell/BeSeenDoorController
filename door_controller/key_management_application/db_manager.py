@@ -695,3 +695,14 @@ class FobDatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (like_query, like_query, like_query, like_query))
                 return cur.fetchall()
+
+    def get_runtimes_for_date(self, target_date):
+        """
+        Retrieves unique permission change runtimes for a given date.
+        """
+        log_info(f"Database: Fetching permission change runtimes for {target_date}")
+        query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s) ORDER BY run_times ASC;"
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (target_date,))
+                return [row[0] for row in cur.fetchall()]

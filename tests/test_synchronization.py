@@ -161,6 +161,7 @@ class TestSynchronization(unittest.TestCase):
                 'urls': ['http://69.21.119.147', 'http://69.21.119.148']
             }
         }
+        mock_db_mgr_class.return_value.get_runtimes_for_date.return_value = []
 
         main()
 
@@ -171,6 +172,45 @@ class TestSynchronization(unittest.TestCase):
         mock_sync_controller.assert_any_call(
             'http://69.21.119.148', 'admin', 'password', mock_db_mgr_class.return_value
         )
+
+    @patch('door_controller.key_management_application.db_manager.psycopg2.connect')
+    def test_get_runtimes_for_date(self, mock_connect):
+        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        mock_conn = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        mock_cur = MagicMock()
+        mock_cur.__enter__.return_value = mock_cur
+        mock_conn.cursor.return_value = mock_cur
+        mock_connect.return_value = mock_conn
+
+        from datetime import time
+        mock_cur.fetchall.return_value = [
+            (time(6, 0),),
+            (time(22, 0),)
+        ]
+        db_mgr = FobDatabaseManager(conn_str="dbname=test")
+        runtimes = db_mgr.get_runtimes_for_date("2026-06-17")
+        self.assertEqual(runtimes, [time(6, 0), time(22, 0)])
+
+    @patch('door_controller.key_management_application.synchronization.datetime')
+    def test_derive_run_schedule(self, mock_datetime):
+        from datetime import datetime, time
+        mock_datetime.now.return_value = datetime(2026, 6, 16, 22, 30, 0)
+        mock_datetime.combine = datetime.combine
+
+        mock_db_mgr = MagicMock()
+        mock_db_mgr.get_runtimes_for_date.side_effect = [
+            [time(6, 0), time(22, 0)],
+            [time(6, 0), time(8, 0), time(22, 0)]
+        ]
+
+        from door_controller.key_management_application.synchronization import derive_run_schedule
+        schedule = derive_run_schedule(mock_db_mgr)
+
+        self.assertEqual(len(schedule), 3)
+        self.assertEqual(schedule[0], datetime(2026, 6, 17, 6, 0, 0))
+        self.assertEqual(schedule[1], datetime(2026, 6, 17, 8, 0, 0))
+        self.assertEqual(schedule[2], datetime(2026, 6, 17, 22, 0, 0))
 
 
 if __name__ == '__main__':
