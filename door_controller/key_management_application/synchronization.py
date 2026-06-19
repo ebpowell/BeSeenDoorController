@@ -127,12 +127,13 @@ def get_expected_permissions(db_mgr, fob_id, cidr):
     return expected
 
 
-def synchronize_controller(url, username, password, db_mgr):
+def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
     """
     Executes synchronization for a single controller.
     """
     log_info(f"Starting synchronization for controller: {url}")
     
+    changes_made = 0
     cidr = url[7:] + '/32'
     
     # 1. Fetch current fobs from controller
@@ -170,14 +171,20 @@ def synchronize_controller(url, username, password, db_mgr):
     
     # 3. Expunge extra fobs on controller
     fobs_to_expunge = controller_fobs_keys - db_fobs_keys
+    actual_fob_changes = False
     if fobs_to_expunge:
         log_info(f"Expunging {len(fobs_to_expunge)} fobs from controller {url}")
         for fob_id in fobs_to_expunge:
             rec_id = controller_fobs[fob_id]
+            if limit_changes is not None and changes_made >= limit_changes:
+                log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {url}.")
+                continue
             log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {url}")
             try:
                 # Call del_fob
                 res_code = data_manager.del_fob(login_data, rec_id)
+                changes_made += 1
+                actual_fob_changes = True
                 # Log to DB audit logs
                 with db_mgr._get_connection() as conn:
                     with conn.cursor() as cur:
@@ -195,10 +202,15 @@ def synchronize_controller(url, username, password, db_mgr):
         log_info(f"Adding {len(fobs_to_add)} missing fobs to controller {url}")
         for fob_id in fobs_to_add:
             owner_name = get_owner_for_fob(db_mgr, fob_id)
+            if limit_changes is not None and changes_made >= limit_changes:
+                log_info(f"Change limit of {limit_changes} reached. Skipping addition of Fob {fob_id} (Owner: {owner_name}) to controller {url}.")
+                continue
             log_info(f"Adding Fob {fob_id} (Owner: {owner_name}) to controller {url}")
             try:
                 # Call add_fob
                 res_code = data_manager.add_fob(fob_id, owner_name)
+                changes_made += 1
+                actual_fob_changes = True
                 # Log to DB audit logs
                 with db_mgr._get_connection() as conn:
                     with conn.cursor() as cur:
@@ -211,7 +223,7 @@ def synchronize_controller(url, username, password, db_mgr):
                 log_error(f"Failed to add Fob {fob_id} to controller {url}: {e}")
                 
     # 5. Re-fetch current fobs from controller if any changes were made
-    if fobs_to_expunge or fobs_to_add:
+    if actual_fob_changes:
         try:
             fobs_on_controller = get_all_fobs_from_controller(url, username, password)
             controller_fobs = {}
@@ -261,9 +273,13 @@ def synchronize_controller(url, username, password, db_mgr):
                     delta = True
                     
             if delta:
+                if limit_changes is not None and changes_made >= limit_changes:
+                    log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {url}.")
+                    continue
                 log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {url}. "
                          f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
                 data_manager.set_permissions(target_perms, rec_id)
+                changes_made += 1
                 # Log to DB audit logs
                 with db_mgr._get_connection() as conn:
                     with conn.cursor() as cur:
@@ -324,6 +340,7 @@ def main(argv=None):
             
     parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
     parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
+    parser.add_argument("-l", "--limit-changes", type=int, default=None, help="Limit the number of mutating changes applied per controller.")
     args = parser.parse_args(argv)
 
     log_info("Starting global door controller synchronization routine.")
@@ -346,13 +363,20 @@ def main(argv=None):
         log_info("No door controller URLs configured for synchronization.")
         return
 
+    limit_changes = args.limit_changes
+    if limit_changes is None:
+        limit_changes = config.get('settings', {}).get('limit_changes')
+        
+    if limit_changes is not None:
+        log_info(f"Applying synchronization change limit: {limit_changes} changes per controller.")
+
     if args.daemon:
         log_info("Running in daemon/scheduler mode.")
         
         # Initial startup synchronization to ensure consistency
         log_info("Executing initial startup synchronization...")
         for url in urls:
-            synchronize_controller(url, username, password, db_mgr)
+            synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
             
         last_sync_time = datetime.now()
         log_info(f"Initial synchronization complete. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -378,7 +402,7 @@ def main(argv=None):
                 if pending_events:
                     log_info(f"Triggering synchronization for scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
                     for url in urls:
-                        synchronize_controller(url, username, password, db_mgr)
+                        synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
                     last_sync_time = now
                     
             except Exception as e:
@@ -399,7 +423,7 @@ def main(argv=None):
             log_error(f"Failed to derive synchronization run-schedule: {e}")
         
         for url in urls:
-            synchronize_controller(url, username, password, db_mgr)
+            synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
             
         log_info("Global door controller synchronization routine completed.")
 
