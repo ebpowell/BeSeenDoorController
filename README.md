@@ -30,24 +30,25 @@ If you wish to run the Flask application directly in your host environment using
 ## CLI & Background Tasks
 
 ### Pulling Swipes and ACL Information
-To manually execute background scripts via the Docker container:
+To manually execute background scripts via the running Docker container:
 
 - **Get Swipes**:
   ```bash
-  docker compose run doorcontroller get_swipes
+  docker compose exec doorcontroller get_swipes
   ```
 - **Get ACL list from controller**:
   ```bash
-  docker compose run doorcontroller get_acl_from_controller
+  docker compose exec doorcontroller get_acl_from_controller
   ```
 - **Get registered fob list from controller**:
   ```bash
-  docker compose run doorcontroller get_foblist_from_controller
+  docker compose exec doorcontroller get_foblist_from_controller
   ```
 
 ### Cron Integration (e.g., Pulling swipes every 15 minutes)
-Add the following line to your crontab:
+Since the `doorcontroller` container runs continuously in the background as the permissions updates scheduler daemon, you can run other CLI tools on the host machine using `docker compose exec` inside a cron job:
 ```cron
-*/15 * * * * cd /opt/scripts/BeSeenDoorController && docker compose -f docker-compose.yaml run doorcontroller get_swipes > /dev/null 2>&1
+*/15 * * * * cd /opt/scripts/BeSeenDoorController && docker compose exec -T doorcontroller get_swipes > /dev/null 2>&1
 ```
+Note: The `-T` option is recommended for cron jobs as it disables pseudo-TTY allocation.
 

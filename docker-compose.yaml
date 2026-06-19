@@ -42,8 +42,8 @@ services:
     # Set the user to run processes inside the container
     user: doorcontroller
 
-    # Run get_swipes command on startup
-    command: ["get_swipes"]
+    # Run synchronization daemon on startup
+    command: ["sync_controller", "--daemon"]
     depends_on:
       - postgres
 

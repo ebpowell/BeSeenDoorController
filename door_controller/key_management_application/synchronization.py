@@ -282,13 +282,13 @@ def synchronize_controller(url, username, password, db_mgr):
     return True
 
 
-def derive_run_schedule(db_mgr):
+def derive_run_schedule(db_mgr, reference_time=None):
     """
     Derives the run-schedule for the next 24 hours based on when permissions change
     throughout the day using key_fobs.f_get_runtimes.
     """
-    now = datetime.now()
-    today = now.date()
+    ref = reference_time or datetime.now()
+    today = ref.date()
     tomorrow = today + timedelta(days=1)
     
     # Fetch runtimes for today and tomorrow
@@ -301,8 +301,8 @@ def derive_run_schedule(db_mgr):
     def add_to_schedule(d, t_list):
         for t in t_list:
             dt = datetime.combine(d, t)
-            # Filter for future times within the next 24 hours
-            if now < dt <= now + timedelta(hours=24):
+            # Filter for future times within the next 24 hours relative to reference_time
+            if ref < dt <= ref + timedelta(hours=24):
                 schedule.append(dt)
                 
     add_to_schedule(today, today_times)
@@ -312,7 +312,20 @@ def derive_run_schedule(db_mgr):
     return schedule
 
 
-def main():
+def main(argv=None):
+    import sys
+    import argparse
+    
+    if argv is None:
+        if any('unittest' in arg or 'pytest' in arg for arg in sys.argv) or (len(sys.argv) > 1 and sys.argv[1] == 'discover'):
+            argv = []
+        else:
+            argv = sys.argv[1:]
+            
+    parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
+    parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
+    args = parser.parse_args(argv)
+
     log_info("Starting global door controller synchronization routine.")
     config = load_config()
     if not config:
@@ -325,19 +338,6 @@ def main():
         return
         
     db_mgr = FobDatabaseManager(connect_string)
-    
-    # Derive run-schedule for the next 24 hours
-    try:
-        schedule = derive_run_schedule(db_mgr)
-        log_info("Derived synchronization run-schedule for the next 24 hours:")
-        if schedule:
-            for dt in schedule:
-                log_info(f" - Sync scheduled at: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-        else:
-            log_info(" - No permission changes detected in the next 24 hours.")
-    except Exception as e:
-        log_error(f"Failed to derive synchronization run-schedule: {e}")
-    
     username = config.get('settings', {}).get('username')
     password = config.get('settings', {}).get('password')
     urls = config.get('settings', {}).get('urls', [])
@@ -345,11 +345,63 @@ def main():
     if not urls:
         log_info("No door controller URLs configured for synchronization.")
         return
+
+    if args.daemon:
+        log_info("Running in daemon/scheduler mode.")
         
-    for url in urls:
-        synchronize_controller(url, username, password, db_mgr)
+        # Initial startup synchronization to ensure consistency
+        log_info("Executing initial startup synchronization...")
+        for url in urls:
+            synchronize_controller(url, username, password, db_mgr)
+            
+        last_sync_time = datetime.now()
+        log_info(f"Initial synchronization complete. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
-    log_info("Global door controller synchronization routine completed.")
+        while True:
+            try:
+                now = datetime.now()
+                # Handle time backward adjustments or resets
+                if now < last_sync_time:
+                    last_sync_time = now
+                    
+                # Cap the lookback window to 24 hours to keep schedule calculation bounded
+                if now - last_sync_time > timedelta(hours=24):
+                    log_info("last_sync_time is older than 24 hours. Resetting check window to the last 24 hours.")
+                    last_sync_time = now - timedelta(hours=24)
+                    
+                # Derive schedule from the last sync time
+                schedule = derive_run_schedule(db_mgr, reference_time=last_sync_time)
+                
+                # Check for any events that have occurred up to 'now'
+                pending_events = [dt for dt in schedule if dt <= now]
+                
+                if pending_events:
+                    log_info(f"Triggering synchronization for scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
+                    for url in urls:
+                        synchronize_controller(url, username, password, db_mgr)
+                    last_sync_time = now
+                    
+            except Exception as e:
+                log_error(f"Error in scheduler daemon loop: {e}", exc_info=True)
+                
+            time.sleep(30)
+    else:
+        # Run-once mode
+        try:
+            schedule = derive_run_schedule(db_mgr)
+            log_info("Derived synchronization run-schedule for the next 24 hours:")
+            if schedule:
+                for dt in schedule:
+                    log_info(f" - Sync scheduled at: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                log_info(" - No permission changes detected in the next 24 hours.")
+        except Exception as e:
+            log_error(f"Failed to derive synchronization run-schedule: {e}")
+        
+        for url in urls:
+            synchronize_controller(url, username, password, db_mgr)
+            
+        log_info("Global door controller synchronization routine completed.")
 
 
 if __name__ == '__main__':

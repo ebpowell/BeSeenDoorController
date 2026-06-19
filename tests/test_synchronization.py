@@ -173,6 +173,30 @@ class TestSynchronization(unittest.TestCase):
             'http://69.21.119.148', 'admin', 'password', mock_db_mgr_class.return_value
         )
 
+    @patch('door_controller.key_management_application.synchronization.time.sleep')
+    @patch('door_controller.key_management_application.synchronization.load_config')
+    @patch('door_controller.key_management_application.synchronization.FobDatabaseManager')
+    @patch('door_controller.key_management_application.synchronization.synchronize_controller')
+    def test_main_daemon(self, mock_sync_controller, mock_db_mgr_class, mock_load_config, mock_sleep):
+        mock_load_config.return_value = {
+            'settings': {
+                'postgres_connect_string': 'postgresql://db',
+                'username': 'admin',
+                'password': 'password',
+                'urls': ['http://69.21.119.147', 'http://69.21.119.148']
+            }
+        }
+        mock_db_mgr_class.return_value.get_runtimes_for_date.return_value = []
+        
+        # Raise KeyboardInterrupt from sleep to terminate daemon loop
+        mock_sleep.side_effect = KeyboardInterrupt("Stop Daemon")
+
+        with self.assertRaises(KeyboardInterrupt):
+            main(argv=["--daemon"])
+
+        # Verify it did initial synchronization (2 URLs = 2 calls)
+        self.assertEqual(mock_sync_controller.call_count, 2)
+
     @patch('door_controller.key_management_application.db_manager.psycopg2.connect')
     def test_get_runtimes_for_date(self, mock_connect):
         from door_controller.key_management_application.db_manager import FobDatabaseManager
