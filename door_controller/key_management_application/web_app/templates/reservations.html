@@ -193,6 +193,14 @@
                     </label>
                 </div>
 
+                <div class="toggle-group">
+                    <span>Rental Agreement Received</span>
+                    <label class="switch">
+                        <input type="checkbox" name="agreement_received">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
                 <button type="submit" class="btn btn-primary">Book Reservation</button>
             </form>
         </div>
@@ -225,6 +233,7 @@
                             <th>Timeslot</th>
                             <th>Payment Status</th>
                             <th>Deposit Status</th>
+                            <th>Agreement Status</th>
                             <th style="text-align: right;">Actions</th>
                         </tr>
                     </thead>
@@ -269,6 +278,18 @@
                                             </button>
                                         </form>
                                     </td>
+                                    <td>
+                                        <form action="/reservations/toggle_agreement/{{ res.reservation_id }}" method="POST" class="toggle-form">
+                                            <input type="hidden" name="current_value" value="{{ 'true' if res.agreement_received else 'false' }}">
+                                            <button type="submit" class="badge-btn">
+                                                {% if res.agreement_received %}
+                                                    <span class="badge-success">Received</span>
+                                                {% else %}
+                                                    <span class="badge-danger">Pending</span>
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                    </td>
                                     <td style="text-align: right;">
                                         <form action="/reservations/delete/{{ res.reservation_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
                                             <button type="submit" class="btn btn-danger-outline">Cancel</button>
@@ -278,7 +299,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="7" class="no-data">No clubhouse reservations registered.</td>
+                                <td colspan="8" class="no-data">No clubhouse reservations registered.</td>
                             </tr>
                         {% endif %}
                     </tbody>

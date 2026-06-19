@@ -103,6 +103,7 @@ CREATE TABLE key_fobs.clubhouse_reservations (
     to_time TIME,
     payment_made BOOLEAN NOT NULL DEFAULT FALSE,
     deposit_on_file BOOLEAN NOT NULL DEFAULT FALSE,
+    agreement_received BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

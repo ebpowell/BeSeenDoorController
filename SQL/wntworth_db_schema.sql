@@ -849,6 +849,7 @@ CREATE TABLE key_fobs.clubhouse_reservations (
     to_time time without time zone,
     payment_made boolean DEFAULT false NOT NULL,
     deposit_on_file boolean DEFAULT false NOT NULL,
+    agreement_received boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
