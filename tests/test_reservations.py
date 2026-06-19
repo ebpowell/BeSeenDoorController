@@ -29,6 +29,7 @@ class TestReservations(unittest.TestCase):
                 'to_time': '18:00:00',
                 'payment_made': True,
                 'deposit_on_file': False,
+                'agreement_received': False,
                 'address': '101 Main St',
                 'owner_name': 'John Doe'
             }
@@ -58,7 +59,8 @@ class TestReservations(unittest.TestCase):
             'from_time': '12:00',
             'to_time': '18:00',
             'payment_made': 'on',
-            'deposit_on_file': 'on'
+            'deposit_on_file': 'on',
+            'agreement_received': 'on'
         })
         
         self.assertEqual(response.status_code, 302)
@@ -69,6 +71,7 @@ class TestReservations(unittest.TestCase):
             to_time='18:00',
             payment_made=True,
             deposit_on_file=True,
+            agreement_received=True,
             username='operator1'
         )
 
@@ -106,6 +109,18 @@ class TestReservations(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 302)
         mock_db.update_reservation_status.assert_called_once_with(1, 'deposit_on_file', False, username='operator1')
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_toggle_agreement_post(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations/toggle_agreement/1', data={
+            'current_value': 'false'
+        })
+        self.assertEqual(response.status_code, 302)
+        mock_db.update_reservation_status.assert_called_once_with(1, 'agreement_received', True, username='operator1')
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_api_search_properties(self, mock_get_db_mgr):

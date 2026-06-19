@@ -283,6 +283,7 @@ def reservations():
         to_time = request.form.get('to_time', '').strip()
         payment_made = request.form.get('payment_made') == 'on'
         deposit_on_file = request.form.get('deposit_on_file') == 'on'
+        agreement_received = request.form.get('agreement_received') == 'on'
 
         if not property_id_str or not reservation_date:
             flash("Property and Reservation Date are required.", "warning")
@@ -298,6 +299,7 @@ def reservations():
                 to_time=to_time if to_time else None,
                 payment_made=payment_made,
                 deposit_on_file=deposit_on_file,
+                agreement_received=agreement_received,
                 username=username
             )
             flash("Clubhouse reservation added successfully.", "success")
@@ -359,6 +361,21 @@ def toggle_deposit(reservation_id):
         flash("Deposit status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle deposit for reservation {reservation_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('reservations'))
+
+@app.route('/reservations/toggle_agreement/<int:reservation_id>', methods=['POST'])
+@login_required
+def toggle_agreement(reservation_id):
+    try:
+        current_value = request.form.get('current_value') == 'true'
+        new_value = not current_value
+        username = session.get('username', 'system')
+        get_db_mgr().update_reservation_status(reservation_id, 'agreement_received', new_value, username=username)
+        flash("Rental agreement status updated.", "success")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to toggle agreement for reservation {reservation_id}. {e}")
         flash(f"Database error: {e}", "danger")
 
     return redirect(url_for('reservations'))

@@ -563,7 +563,7 @@ class FobDatabaseManager:
         query = """
             SELECT 
                 r.reservation_id, r.property_id, r.reservation_date, 
-                r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.created_at,
+                r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.agreement_received, r.created_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name
             FROM key_fobs.clubhouse_reservations r
@@ -577,15 +577,15 @@ class FobDatabaseManager:
                 return cur.fetchall()
 
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
-                        payment_made=False, deposit_on_file=False, username='system'):
+                        payment_made=False, deposit_on_file=False, agreement_received=False, username='system'):
         """
         Add a new clubhouse reservation and logs to the user audit logs.
         """
         log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date}")
         query = """
             INSERT INTO key_fobs.clubhouse_reservations 
-                (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING reservation_id;
         """
         # Convert empty strings to None for optional time fields
@@ -598,11 +598,11 @@ class FobDatabaseManager:
                 prop_row = cur.fetchone()
                 address = prop_row[0] if prop_row else f"ID {property_id}"
                 
-                cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file))
+                cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file, agreement_received))
                 reservation_id = cur.fetchone()[0]
                 
                 time_str = f" from {from_time_val} to {to_time_val}" if from_time_val else ""
-                details = f"Reserved clubhouse for '{address}' on {reservation_date}{time_str} (Payment: {payment_made}, Deposit: {deposit_on_file})"
+                details = f"Reserved clubhouse for '{address}' on {reservation_date}{time_str} (Payment: {payment_made}, Deposit: {deposit_on_file}, Agreement: {agreement_received})"
                 self.log_audit_action(cur, username, "Add Clubhouse Reservation", details)
             conn.commit()
         return reservation_id
@@ -637,9 +637,9 @@ class FobDatabaseManager:
 
     def update_reservation_status(self, reservation_id, field, value, username='system'):
         """
-        Update a status boolean field (payment_made or deposit_on_file) for a clubhouse reservation.
+        Update a status boolean field (payment_made, deposit_on_file, or agreement_received) for a clubhouse reservation.
         """
-        if field not in ['payment_made', 'deposit_on_file']:
+        if field not in ['payment_made', 'deposit_on_file', 'agreement_received']:
             raise ValueError(f"Invalid field: {field}")
             
         log_info(f"Database: Updating reservation_id={reservation_id} field {field} to {value} by user={username}")
