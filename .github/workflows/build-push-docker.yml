@@ -57,12 +57,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-,enable={{branch}} 
+            type=ref,event=branch 
+            type=semver,pattern={{version}} 
+            type=semver,pattern={{major}}.{{minor}} 
             type=sha,prefix=sha-{{short_sha}} 
             type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push Docker image - ${{ matrix.name }}
         uses: docker/build-push-action@v5
         with:
