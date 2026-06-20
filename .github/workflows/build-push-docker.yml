@@ -56,19 +56,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}
-          # tags: |
-          #   type=ref,event=branch
-          #   type=semver,pattern={{version}}
-          #   type=semver,pattern={{major}}.{{minor}}
-          #   type=sha,prefix={{branch}}-,enable={{branch}} 
-          #   type=sha,prefix=sha-{{short_sha}} 
-          #   type=raw,value=latest,enable={{is_default_branch}}
-
-          tags:  |
+          tags: |
             type=ref,event=branch 
             type=semver,pattern={{version}} 
             type=semver,pattern={{major}}.{{minor}} 
-            type=sha,prefix={{branch}}-,enable={{is_branch}} 
             type=sha,prefix=sha-{{short_sha}} 
             type=raw,value=latest,enable={{is_default_branch}}
 
