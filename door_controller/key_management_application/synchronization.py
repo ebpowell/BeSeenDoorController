@@ -94,7 +94,7 @@ def get_owner_for_fob(db_mgr, fob_id):
     Helper to get property owner name for a fob_id from database.
     """
     query = """
-        SELECT o.owner_name
+        SELECT concat(o.first_name, ' ', o.last_name) owner_name
         FROM key_fobs.keyfobs f
         JOIN key_fobs.properties p ON f.property_id = p.property_id
         LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id

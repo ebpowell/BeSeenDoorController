@@ -333,7 +333,7 @@ class FobDatabaseManager:
         Update (upsert) the owner of a property. All fobs under this property
         will inherit the new owner. Returns True on success.
         """
-        log_info(f"Database: Updating owner of property_iowner_named={property_id} to '{owner_name}' by user={username}")
+        log_info(f"Database: Updating owner of property_id={property_id} to '{owner_name}' by user={username}")
         # query = """
         #     INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
         #     VALUES (%s, %s, CURRENT_TIMESTAMP)
