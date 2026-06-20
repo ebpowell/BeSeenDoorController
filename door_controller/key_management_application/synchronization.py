@@ -97,7 +97,7 @@ def get_owner_for_fob(db_mgr, fob_id):
         SELECT o.owner_name
         FROM key_fobs.keyfobs f
         JOIN key_fobs.properties p ON f.property_id = p.property_id
-        LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+        LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
         WHERE f.fob_id = %s;
     """
     with db_mgr._get_connection() as conn:
