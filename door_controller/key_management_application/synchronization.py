@@ -81,8 +81,6 @@ def get_all_fobs_from_controller(url, username, password):
             break
             
         fobs.extend(new_records)
-        if len(batch) < 20:
-            break
         next_index = int(batch[-1][0])
         if next_index in visited_indices:
             break

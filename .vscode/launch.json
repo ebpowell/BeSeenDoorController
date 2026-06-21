@@ -1,17 +1,52 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
+            "name": "Sync Controller (Run Once)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Sync Controller (Daemon Mode)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "args": [
+                "--daemon"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Sync Controller (Limit 1 Change)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "args": [
+                "--limit-changes",
+                "1"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "env": {"PYTHONPATH": "${workspaceFolder}"}
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

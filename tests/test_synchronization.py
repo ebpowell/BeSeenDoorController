@@ -66,20 +66,69 @@ class TestSynchronization(unittest.TestCase):
         mock_response_2.status_code = 200
         mock_response_2.text = "page 2 html"
 
-        mock_kf.get_httpresponse.side_effect = [mock_response_1, mock_response_2]
+        mock_response_3 = MagicMock()
+        mock_response_3.status_code = 200
+        mock_response_3.text = "page 3 html"
+
+        mock_kf.get_httpresponse.side_effect = [mock_response_1, mock_response_2, mock_response_3]
         
         # parse_fobs_data mock returns:
         # page 1: [["21", "1001"], ["22", "1002"]]
         # page 2: [["23", "1003"]]
+        # page 3: []
         mock_kf.parse_fobs_data.side_effect = [
             [["21", "1001"], ["22", "1002"]],
-            [["23", "1003"]]
+            [["23", "1003"]],
+            []
         ]
         
         fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password')
         self.assertEqual(len(fobs), 3)
         self.assertEqual(fobs[0][1], "1001")
         self.assertEqual(fobs[2][1], "1003")
+
+    @patch('door_controller.key_management_application.synchronization.key_fobs')
+    def test_get_all_fobs_from_controller_with_gaps(self, mock_key_fobs_class):
+        mock_kf = mock_key_fobs_class.return_value
+        mock_kf.connect.return_value.status_code = 200
+        
+        # Mock 4 responses (page 1, page 2 with gaps, page 3, and empty page 4)
+        mock_response_1 = MagicMock()
+        mock_response_1.status_code = 200
+        
+        mock_response_2 = MagicMock()
+        mock_response_2.status_code = 200
+        
+        mock_response_3 = MagicMock()
+        mock_response_3.status_code = 200
+
+        mock_response_4 = MagicMock()
+        mock_response_4.status_code = 200
+
+        mock_kf.get_httpresponse.side_effect = [
+            mock_response_1, mock_response_2, mock_response_3, mock_response_4
+        ]
+        
+        # parse_fobs_data mock returns:
+        # Page 1: 20 fobs (IDs 1-20)
+        # Page 2: 15 fobs (IDs 21-35) -> simulates a gap (fewer than 20)
+        # Page 3: 20 fobs (IDs 41-60)
+        # Page 4: empty
+        mock_kf.parse_fobs_data.side_effect = [
+            [[str(i), f"100{i}"] for i in range(1, 21)],
+            [[str(i), f"100{i}"] for i in range(21, 36)],
+            [[str(i), f"100{i}"] for i in range(41, 61)],
+            []
+        ]
+        
+        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password')
+        self.assertEqual(len(fobs), 55)  # 20 + 15 + 20 = 55
+        self.assertEqual(fobs[0][1], "1001")
+        self.assertEqual(fobs[19][1], "10020")
+        self.assertEqual(fobs[20][1], "10021")
+        self.assertEqual(fobs[34][1], "10035")
+        self.assertEqual(fobs[35][1], "10041")
+        self.assertEqual(fobs[54][1], "10060")
 
     @patch('door_controller.key_management_application.synchronization.get_all_fobs_from_controller')
     @patch('door_controller.key_management_application.synchronization.get_owner_for_fob')
