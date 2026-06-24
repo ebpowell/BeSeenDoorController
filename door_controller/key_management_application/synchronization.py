@@ -8,6 +8,7 @@ from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.data_extractor import ww_data_extractor
+from door_controller.common_lib.pg_database import postgres
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
 
@@ -23,69 +24,34 @@ def parse_door_name(door_name):
     return None
 
 
-def get_all_fobs_from_controller(url, username, password):
+def get_all_fobs_from_controller(url, username, password, db_mgr):
     """
-    Retrieves all fobs from the controller in memory.
+    Retrieves all fobs from the controller by using ww_data_extractor.
     """
-    obj_keyfobs = key_fobs(url, username, password)
+    pg_db = postgres(db_mgr.conn_str)
+    extractor = ww_data_extractor(username, password, url, pg_db)
     
-    # 1. Authenticate
-    data = {
-        'username': username,
-        'pwd': password,
-        'logid': '20101222'
-    }
-    response = obj_keyfobs.connect(data)
-    if not response or response.status_code != 200:
-        raise Exception(f"Failed to authenticate with controller {url}")
-        
+    # Extract fob list to dataload.fobs_slop
+    extractor.get_system_fob_list()
+    
+    # Query all fobs from dataload.fobs_slop
+    cidr = url[7:] + '/32'
+    query = """
+        SELECT record_id, fob_id
+        FROM dataload.fobs_slop
+        WHERE controller_ip = %s;
+    """
     fobs = []
+    with db_mgr._get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (cidr,))
+            for record_id, fob_id in cur.fetchall():
+                # Format: [record_id, fob_id] as strings to match original format
+                fobs.append([str(record_id), str(fob_id)])
+                
+    # Clean up/purge the slop table
+    pg_db.purge_fob_records(f"'{cidr}'")
     
-    # 2. Fetch page 1
-    obj_keyfobs.session.headers['Referer'] = url + '/ACT_ID_1'
-    page_url = url + '/ACT_ID_21'
-    page_data = {'s2': 'Users'}
-    response = obj_keyfobs.get_httpresponse(page_url, page_data)
-    if not response or response.status_code != 200:
-        return fobs
-        
-    batch = obj_keyfobs.parse_fobs_data(response.text)
-    if not batch:
-        return fobs
-        
-    fobs.extend(batch)
-    
-    # Keep paging until we get an empty batch or the same last index
-    next_index = int(batch[-1][0])
-    visited_indices = {next_index}
-    
-    for _ in range(100):
-        # Fetch next page
-        obj_keyfobs.session.headers['Referer'] = url + '/ACT_ID_21' if len(fobs) <= 20 else url + '/ACT_ID_325'
-        page_url = url + '/ACT_ID_325'
-        page_data = {
-            'PC': f"000{next_index-19}",
-            'PE': f"000{next_index}",
-            'PN': 'Next'
-        }
-        response = obj_keyfobs.get_httpresponse(page_url, page_data)
-        if not response or response.status_code != 200:
-            break
-            
-        batch = obj_keyfobs.parse_fobs_data(response.text)
-        if not batch:
-            break
-            
-        new_records = [r for r in batch if int(r[0]) not in [int(f[0]) for f in fobs]]
-        if not new_records:
-            break
-            
-        fobs.extend(new_records)
-        next_index = int(batch[-1][0])
-        if next_index in visited_indices:
-            break
-        visited_indices.add(next_index)
-        
     return fobs
 
 
@@ -138,7 +104,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
     
     # 1. Fetch current fobs from controller
     try:
-        fobs_on_controller = get_all_fobs_from_controller(url, username, password)
+        fobs_on_controller = get_all_fobs_from_controller(url, username, password, db_mgr)
     except Exception as e:
         log_error(f"Error fetching fobs from controller {url}: {e}")
         return False
@@ -225,7 +191,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
     # 5. Re-fetch current fobs from controller if any changes were made
     if actual_fob_changes:
         try:
-            fobs_on_controller = get_all_fobs_from_controller(url, username, password)
+            fobs_on_controller = get_all_fobs_from_controller(url, username, password, db_mgr)
             controller_fobs = {}
             for row in fobs_on_controller:
                 try:

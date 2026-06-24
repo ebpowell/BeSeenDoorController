@@ -52,83 +52,65 @@ class TestSynchronization(unittest.TestCase):
         perms = get_expected_permissions(mock_db_mgr, 1001, '69.21.119.147/32')
         self.assertEqual(perms, {1: True, 2: False})
 
-    @patch('door_controller.key_management_application.synchronization.key_fobs')
-    def test_get_all_fobs_from_controller(self, mock_key_fobs_class):
-        mock_kf = mock_key_fobs_class.return_value
-        mock_kf.connect.return_value.status_code = 200
+    @patch('door_controller.key_management_application.synchronization.postgres')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_get_all_fobs_from_controller(self, mock_extractor_class, mock_postgres_class):
+        mock_pg_db = mock_postgres_class.return_value
+        mock_extractor = mock_extractor_class.return_value
         
-        # Mock pages
-        mock_response_1 = MagicMock()
-        mock_response_1.status_code = 200
-        mock_response_1.text = "page 1 html"
+        # Setup mock db_mgr
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+        mock_db_mgr.conn_str = "postgres://conn"
         
-        mock_response_2 = MagicMock()
-        mock_response_2.status_code = 200
-        mock_response_2.text = "page 2 html"
-
-        mock_response_3 = MagicMock()
-        mock_response_3.status_code = 200
-        mock_response_3.text = "page 3 html"
-
-        mock_kf.get_httpresponse.side_effect = [mock_response_1, mock_response_2, mock_response_3]
-        
-        # parse_fobs_data mock returns:
-        # page 1: [["21", "1001"], ["22", "1002"]]
-        # page 2: [["23", "1003"]]
-        # page 3: []
-        mock_kf.parse_fobs_data.side_effect = [
-            [["21", "1001"], ["22", "1002"]],
-            [["23", "1003"]],
-            []
+        # Database query fetchall returns the fobs list
+        mock_cur.fetchall.return_value = [
+            (21, 1001),
+            (22, 1002),
+            (23, 1003)
         ]
         
-        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password')
+        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr)
+        
         self.assertEqual(len(fobs), 3)
-        self.assertEqual(fobs[0][1], "1001")
-        self.assertEqual(fobs[2][1], "1003")
+        self.assertEqual(fobs[0], ["21", "1001"])
+        self.assertEqual(fobs[2], ["23", "1003"])
+        
+        # Verify calls
+        mock_postgres_class.assert_called_once_with("postgres://conn")
+        mock_extractor_class.assert_called_once_with("admin", "password", "http://69.21.119.147", mock_pg_db)
+        mock_extractor.get_system_fob_list.assert_called_once()
+        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
 
-    @patch('door_controller.key_management_application.synchronization.key_fobs')
-    def test_get_all_fobs_from_controller_with_gaps(self, mock_key_fobs_class):
-        mock_kf = mock_key_fobs_class.return_value
-        mock_kf.connect.return_value.status_code = 200
+    @patch('door_controller.key_management_application.synchronization.postgres')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_get_all_fobs_from_controller_empty(self, mock_extractor_class, mock_postgres_class):
+        mock_pg_db = mock_postgres_class.return_value
+        mock_extractor = mock_extractor_class.return_value
         
-        # Mock 4 responses (page 1, page 2 with gaps, page 3, and empty page 4)
-        mock_response_1 = MagicMock()
-        mock_response_1.status_code = 200
+        # Setup mock db_mgr
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+        mock_db_mgr.conn_str = "postgres://conn"
         
-        mock_response_2 = MagicMock()
-        mock_response_2.status_code = 200
+        # Database query fetchall returns empty list
+        mock_cur.fetchall.return_value = []
         
-        mock_response_3 = MagicMock()
-        mock_response_3.status_code = 200
-
-        mock_response_4 = MagicMock()
-        mock_response_4.status_code = 200
-
-        mock_kf.get_httpresponse.side_effect = [
-            mock_response_1, mock_response_2, mock_response_3, mock_response_4
-        ]
+        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr)
         
-        # parse_fobs_data mock returns:
-        # Page 1: 20 fobs (IDs 1-20)
-        # Page 2: 15 fobs (IDs 21-35) -> simulates a gap (fewer than 20)
-        # Page 3: 20 fobs (IDs 41-60)
-        # Page 4: empty
-        mock_kf.parse_fobs_data.side_effect = [
-            [[str(i), f"100{i}"] for i in range(1, 21)],
-            [[str(i), f"100{i}"] for i in range(21, 36)],
-            [[str(i), f"100{i}"] for i in range(41, 61)],
-            []
-        ]
+        self.assertEqual(len(fobs), 0)
         
-        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password')
-        self.assertEqual(len(fobs), 55)  # 20 + 15 + 20 = 55
-        self.assertEqual(fobs[0][1], "1001")
-        self.assertEqual(fobs[19][1], "10020")
-        self.assertEqual(fobs[20][1], "10021")
-        self.assertEqual(fobs[34][1], "10035")
-        self.assertEqual(fobs[35][1], "10041")
-        self.assertEqual(fobs[54][1], "10060")
+        # Verify calls
+        mock_postgres_class.assert_called_once_with("postgres://conn")
+        mock_extractor_class.assert_called_once_with("admin", "password", "http://69.21.119.147", mock_pg_db)
+        mock_extractor.get_system_fob_list.assert_called_once()
+        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
 
     @patch('door_controller.key_management_application.synchronization.get_all_fobs_from_controller')
     @patch('door_controller.key_management_application.synchronization.get_owner_for_fob')
