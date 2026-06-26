@@ -149,16 +149,20 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             try:
                 # Call del_fob
                 res_code = data_manager.del_fob(login_data, rec_id)
-                changes_made += 1
-                actual_fob_changes = True
-                # Log to DB audit logs
-                with db_mgr._get_connection() as conn:
-                    with conn.cursor() as cur:
-                        db_mgr.log_audit_action(
-                            cur, 'system', 'Sync Expunge Fob',
-                            f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {url} (status: {res_code})"
-                        )
-                    conn.commit()
+                if res_code is None:
+                    log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. No response code returned.")
+                    continue
+                else:    
+                    changes_made += 1
+                    actual_fob_changes = True
+                    # Log to DB audit logs
+                    with db_mgr._get_connection() as conn:
+                        with conn.cursor() as cur:
+                            db_mgr.log_audit_action(
+                                cur, 'system', 'Sync Expunge Fob',
+                                f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {url} (status: {res_code})"
+                            )
+                        conn.commit()
             except Exception as e:
                 log_error(f"Failed to delete Fob {fob_id} from controller {url}: {e}")
                 

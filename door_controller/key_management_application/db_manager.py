@@ -1,3 +1,5 @@
+import datetime
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
@@ -700,9 +702,12 @@ class FobDatabaseManager:
         """
         Retrieves unique permission change runtimes for a given date.
         """
+        if isinstance(target_date, datetime.datetime):
+            target_date = target_date.date()
         log_info(f"Database: Fetching permission change runtimes for {target_date}")
-        query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s) ORDER BY run_times ASC;"
+        query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date) ORDER BY run_times ASC;"
         with self._get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, (target_date,))
+                # results = cur.fetchall()
                 return [row[0] for row in cur.fetchall()]
