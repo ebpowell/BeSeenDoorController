@@ -144,7 +144,8 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             rec_id = controller_fobs[fob_id]
             if limit_changes is not None and changes_made >= limit_changes:
                 log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {url}.")
-                continue
+                changes_made = 0 # Reset to test other functions
+                break
             log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {url}")
             try:
                 # Call del_fob
@@ -174,7 +175,8 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             owner_name = get_owner_for_fob(db_mgr, fob_id)
             if limit_changes is not None and changes_made >= limit_changes:
                 log_info(f"Change limit of {limit_changes} reached. Skipping addition of Fob {fob_id} (Owner: {owner_name}) to controller {url}.")
-                continue
+                changes_made = 0
+                break
             log_info(f"Adding Fob {fob_id} (Owner: {owner_name}) to controller {url}")
             try:
                 # Call add_fob
@@ -245,7 +247,8 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             if delta:
                 if limit_changes is not None and changes_made >= limit_changes:
                     log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {url}.")
-                    continue
+                    changes_made = 0 # Reset to test other functions
+                    break
                 log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {url}. "
                          f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
                 data_manager.set_permissions(target_perms, rec_id)
