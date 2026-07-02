@@ -9,7 +9,8 @@ settings:
   password: 654321
   iterations: 25
   batch_size: 20
-  limit_changes: 2
+  limit_changes: 30
+  retry_sleep_seconds: 1
   urls:
     - http://69.21.119.147
-    - http://69.21.119.148
+#    - http://69.21.119.148

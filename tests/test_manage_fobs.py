@@ -64,5 +64,19 @@ class TestDataManager(unittest.TestCase):
             self.assertEqual(data[1], ('AD22', 'TestUser'))
             self.assertEqual(data[2], ('25', 'Add'))
 
+    @patch('door_controller.common_lib.utils.load_config')
+    def test_init_loads_retry_sleep_from_config(self, mock_load_config):
+        mock_load_config.return_value = {
+            'settings': {
+                'retry_sleep_seconds': 5
+            }
+        }
+        dm = DataManager(self.url, self.username, self.password)
+        self.assertEqual(dm.retry_sleep, 5)
+
+    def test_init_with_explicit_retry_sleep(self):
+        dm = DataManager(self.url, self.username, self.password, retry_sleep=10)
+        self.assertEqual(dm.retry_sleep, 10)
+
 if __name__ == '__main__':
     unittest.main()

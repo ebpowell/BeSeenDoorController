@@ -146,6 +146,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             rec_id = controller_fobs[fob_id]
             if limit_changes is not None and changes_made >= limit_changes:
                 log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {url}.")
+                # debugging 
                 changes_made = 0 # Reset to test other functions
                 break
             log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {url}")
@@ -179,22 +180,29 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             owner_name = get_owner_for_fob(db_mgr, fob_id)
             if limit_changes is not None and changes_made >= limit_changes:
                 log_info(f"Change limit of {limit_changes} reached. Skipping addition of Fob {fob_id} (Owner: {owner_name}) to controller {url}.")
-                changes_made = 0
+                # debugging
+                chnages_made = 0 # Reset to test other functions
                 break
             log_info(f"Adding Fob {fob_id} (Owner: {owner_name}) to controller {url}")
             try:
                 # Call add_fob
-                res_code = data_manager.add_fob(fob_id, owner_name)
-                changes_made += 1
-                actual_fob_changes = True
-                # Log to DB audit logs
-                with db_mgr._get_connection() as conn:
-                    with conn.cursor() as cur:
-                        db_mgr.log_audit_action(
-                            cur, 'system', 'Sync Add Fob',
-                            f"Added Fob {fob_id} (Owner {owner_name}) to controller {url}"
-                        )
-                    conn.commit()
+                res_resp = data_manager.add_fob(fob_id, owner_name)
+                if res_resp is None:
+                    log_error(f"Failed to add Fob {fob_id} to controller {url}. No response returned.")
+                    continue
+                elif res_resp.status_code == 200:
+                    changes_made += 1
+                    actual_fob_changes = True
+                    # Log to DB audit logs
+                    with db_mgr._get_connection() as conn:
+                        with conn.cursor() as cur:
+                            db_mgr.log_audit_action(
+                                cur, 'system', 'Sync Add Fob',
+                                f"Added Fob {fob_id} (Owner {owner_name}) to controller {url} (status: {res_resp.status_code})"
+                            )
+                        conn.commit()
+                else:
+                    log_error(f"Failed to add Fob {fob_id} to controller {url}. HTTP status code: {res_resp.status_code}")
             except Exception as e:
                 log_error(f"Failed to add Fob {fob_id} to controller {url}: {e}")
                 
@@ -252,6 +260,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
                 if limit_changes is not None and changes_made >= limit_changes:
                     log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {url}.")
                     # changes_made = 0 # Reset to test other functions
+                    # limit_changes = 0 # Reset to test other functions   
                     break
                 log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {url}. "
                          f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")

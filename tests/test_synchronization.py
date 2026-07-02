@@ -301,6 +301,7 @@ class TestSynchronization(unittest.TestCase):
         ]
 
         mock_dm = mock_dm_class.return_value
+        mock_dm.del_fob.return_value = 200
 
         res = synchronize_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr, limit_changes=1)
         
