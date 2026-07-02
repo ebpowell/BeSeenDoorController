@@ -82,7 +82,9 @@ def get_expected_permissions(db_mgr, fob_id, cidr):
     query = """
         SELECT door_no, allow
         FROM key_fobs.vint_acl_data
-        WHERE fob_id = %s AND controller_ip = %s;
+        WHERE fob_id = %s AND controller_ip = %s
+        and start_time <= now()::time and (end_time is null or end_time >= now()::time)
+        and start_date <= now()::date and (end_date is null or end_date >= now()::date);
     """
     expected = {}
     with db_mgr._get_connection() as conn:
@@ -153,7 +155,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
                 if res_code is None:
                     log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. No response code returned.")
                     continue
-                else:    
+                elif res_code == 200:    
                     changes_made += 1
                     actual_fob_changes = True
                     # Log to DB audit logs
@@ -164,6 +166,8 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
                                 f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {url} (status: {res_code})"
                             )
                         conn.commit()
+                else:
+                    log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. HTTP status code: {res_code}")
             except Exception as e:
                 log_error(f"Failed to delete Fob {fob_id} from controller {url}: {e}")
                 
@@ -247,7 +251,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             if delta:
                 if limit_changes is not None and changes_made >= limit_changes:
                     log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {url}.")
-                    changes_made = 0 # Reset to test other functions
+                    # changes_made = 0 # Reset to test other functions
                     break
                 log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {url}. "
                          f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
@@ -396,6 +400,7 @@ def main(argv=None):
             log_error(f"Failed to derive synchronization run-schedule: {e}")
         
         for url in urls:
+            # TO DO - wrap in subprocess to isolate failures per controller / run in parallel
             synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
             
         log_info("Global door controller synchronization routine completed.")

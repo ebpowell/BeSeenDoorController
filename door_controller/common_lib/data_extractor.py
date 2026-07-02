@@ -96,7 +96,7 @@ class ww_data_extractor:
         obj_keyfobs = key_fobs(self.url, self.username, self.password)
         lst_fobs = obj_keyfobs.get_keyfobs(5)
         self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
-        print("get_new_swipes Complete")
+        print("get_keyfobs Starting ID:", lst_fobs[0][0])
         # Query the database to get the last recordid
         query = (f"SELECT max(record_id) FROM dataload.fobs_slop "
                  f"where controller_ip={cidr}")
@@ -106,7 +106,7 @@ class ww_data_extractor:
             try:
                 for y in range(0, 5):
                     try:
-                        print("get_swipe_range Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
+                        print("get_fobs Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
                         lst_fobs = obj_keyfobs.get_keyfobs_range(self.iterations, max_id)
                         break
                     except:

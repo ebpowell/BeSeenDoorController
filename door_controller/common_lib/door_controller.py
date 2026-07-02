@@ -34,7 +34,7 @@ class door_controller:
                 response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
                 if response.status_code == 200:
-                    print("door_controller.get_httpresponse: Connected")
+                    # print("door_controller.get_httpresponse: Connected", data)
 
                     return response
                 else:
@@ -89,7 +89,7 @@ class door_controller:
                 response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
                 if response.status_code == 200:
-                    print("door_controller.connect: Connected")
+                    # print("door_controller.connect: Connected")
                     return response
                 else:
                     print(f"door_controller.connect: Connection Request failed with status code: {response.status_code}")

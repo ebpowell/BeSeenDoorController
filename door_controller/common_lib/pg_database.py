@@ -18,7 +18,7 @@ class postgres:
 
     def gen_swipe_record(self, record, sql):
         str_query = F"""{sql} ({int(record[0])}, {int(record[1])}, '{record[2]}',{record[3]},'{record[4]}','{record[5]}')"""
-        print (str_query)
+        # print (str_query)
         return str_query
 
     def insert_swipe_record(self, data, max_id):
@@ -41,7 +41,7 @@ class postgres:
                  '(record_id, fob_id, status, door_id, controller_ip, record_time) values')
         cur = self.db_con.cursor()
         sql = F"""{query} ({int(data[0])}, {int(data[1])}, '{data[3]}',{door_id}, {cidr}, {now})"""
-        print(sql)
+        #print(sql)
         cur.execute(sql)
         self.db_con.commit()
         # db.close()
@@ -84,7 +84,7 @@ class postgres:
         sql += "where concat(record_id, '-',substr(door_controller_ip, 18,3)) "
         sql += "not in (select distinct concat(record_id, '-',substr(door_controller_ip, 18,3)) "
         sql += "from door_controller.t_keyswipes )"
-        print(sql)
+        # print(sql)
         cur.execute(sql)
         self.db_con.commit()
 
@@ -129,7 +129,7 @@ class postgres:
         # Convert list to a string of comma seperated values
         the_string = ','.join(token)
         the_query = f"""{sql}({the_string})"""
-        print(the_query)
+        # print(the_query)
         return the_query
 
     def get_record_id(self, url, fob_id):

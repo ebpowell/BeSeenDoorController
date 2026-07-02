@@ -133,9 +133,11 @@ class key_fobs(door_controller):
                             else:
                                 print ("No Records returned")
                                 # next_index =  swipes[len(swipes)-20][0]
-                            time.sleep(self.timeout/3)
+                            time.sleep(self.timeout/2)
                     except:
                         pass
+                else:
+                    print("Skipping first iteration, no data returned")
             return fobs
         return None
 

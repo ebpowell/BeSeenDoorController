@@ -30,8 +30,9 @@ class DataManager(key_fobs):
                     print("Max retries reached. Failed to add fob.")
             else:   
                 if response.status_code == 200:
-                    print("Response from server:")
-                    print(response.text)
+                    # print("Response from server:")
+                    # print(response.text)
+                    print("Connected to server successfully. Proceeding to add fob.")
                     self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                     url = self.url+'/ACT_ID_312'
                     # ACT_ID_312
@@ -41,15 +42,17 @@ class DataManager(key_fobs):
                             ('AD22', name),
                             ('25', 'Add')]
                     #Call response object
-                    print(data)
+                    # print(data)
                     response=self.get_httpresponse(url, data)
                     # print("Response from server:")
-                    print(response.text)  # Print the HTML response from the server
+                    # print(response.text)  # Print the HTML response from the server
                     if "Login" in response.text or "session" in response.text:
-                        print("\nDEBUG: The response HTML mentions 'Login' or 'session'.")
+                        print("\nDEBUG: The response HTML mentions 'Login' or 'session'.\n")
                         print("This strongly suggests you need to log in first. See step 2.")
+                        print(response.text)
                     elif "Invalid" in response.text or "Error" in response.text:
-                        print(f"\nDEBUG: The response HTML contains an error message. Please read the HTML above.")
+                        print(f"\nDEBUG: The response HTML contains an error message. Please read the HTML below.\n")
+                        print(response.text)
                 return response
 
 
