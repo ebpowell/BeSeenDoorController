@@ -17,41 +17,40 @@ class DataManager(key_fobs):
             self.retry_sleep = retry_sleep
 
     def add_fob(self, fob_id, name):
-        # Authenticate first
+        obj_fob = key_fobs(self.url, self.username, self.password)
         login_data = {'username': self.username,
                       'pwd': self.password,
                       'logid': '20101222'}
-        self.connect(login_data)
-
-        data = {'s1': 'AddCard'}
-        url = self.url + '/ACT_ID_21'
-        for i in range(self.max_retries):
-            response = self.get_httpresponse(url, data)
-            if not response:
-                sleep(self.retry_sleep)
-                if i < self.max_retries - 1:
-                    print(f"Retrying add_fob... Attempt {i + 2} of {self.max_retries}")
-                else:
-                    print("Max retries reached. Failed to add fob.")
-            else:
-                if response.status_code == 200:
-                    print("Connected to server successfully. Proceeding to add fob.")
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_312'
-                    str_fobid = str(fob_id)
-                    data = [('AD21', str_fobid),
+        response = obj_fob.connect(login_data)
+        if response and response.status_code == 200:
+            url = self.url + '/ACT_ID_21'
+            data = {'s1': 'AddCard'}
+            obj_fob.session.headers['Referer'] = self.url + '/ACT_ID_1'
+            response = obj_fob.get_httpcall_response(url, data) if hasattr(obj_fob, 'get_httpcall_response') else obj_fob.get_httpresponse(url, data)
+            if response and response.status_code == 200:
+                url_add = self.url + '/ACT_ID_312'
+                str_fobid = str(fob_id)
+                add_data = [('AD21', str_fobid),
                             ('AD22', name),
                             ('25', 'Add')]
-                    response = self.get_httpresponse(url, data)
-                    
-                    if response:
-                        # Print warnings for developer debugging
-                        if "Login" in response.text or "session" in response.text:
-                            print("\nDEBUG: The response HTML mentions 'Login' or 'session'.\n")
-                        elif "Invalid" in response.text or "Error" in response.text:
-                            print(f"\nDEBUG: The response HTML contains an error message.\n")
-                            
-                return response
+                self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+                for i in range(self.max_retries):
+                    the_code = self.get_httpcall_response(url_add, add_data) if hasattr(self, 'get_httpcall_response') else self.get_httpresponse(url_add, add_data)
+                    if the_code:
+                        if the_code.status_code == 200:
+                            # Print warnings for developer debugging
+                            if "Login" in the_code.text or "session" in the_code.text:
+                                print("\nDEBUG: The response HTML mentions 'Login' or 'session'.\n")
+                            elif "Invalid" in the_code.text or "Error" in the_code.text:
+                                print(f"\nDEBUG: The response HTML contains an error message.\n")
+                        return the_code
+                    else:
+                        sleep(self.retry_sleep)
+                        if i < self.max_retries - 1:
+                            print(f"Retrying add_fob... Attempt {i + 2} of {self.max_retries}")
+                        else:
+                            print("Max retries reached. Failed to add fob.")
+                return None
         return None
 
     def set_permissions(self, lst_permissions, record_id):
@@ -109,30 +108,27 @@ class DataManager(key_fobs):
         return None
 
     def del_fob(self, data, record_id):
-        # Authenticate first
-        self.connect(data)
-        self.users_page()
-
-        url = self.url + '/ACT_ID_324'
-        the_number = record_id - 1
-        key = f"D{the_number}"
-        del_data = {key: 'Delete'}
-        
-        self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-        for i in range(self.max_retries):
-            response = self.get_httpresponse(url, del_data)
-            if not response:
-                sleep(self.retry_sleep)
-                if i < self.max_retries - 1:
-                    print(f"Retrying del_fob... Attempt {i + 2} of {self.max_retries}")
-                else:
-                    print("Max retries reached. Failed to delete fob.")
-            else:
-                if response.status_code == 200:
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_324'
-                    ok_key = f"X{the_number}"
-                    ok_data = {ok_key: 'OK'}
-                    response = self.get_httpresponse(url, ok_data)
-                    
-                return response.status_code if response else None
+        obj_fob = key_fobs(self.url, self.username, self.password)
+        response = obj_fob.navigate(data)
+        if response and response.status_code == 200:
+            url = self.url + '/ACT_ID_324'
+            the_number = record_id - 1
+            key = f"D{the_number}"
+            del_data = {key: 'Delete'}
+            
+            for i in range(self.max_retries):
+                the_code = self.get_httpresponse(url, del_data)
+                if the_code: # Check for valid response from server
+                    if the_code.status_code == 200:
+                        ok_key = f"X{the_number}"
+                        ok_data = {ok_key: 'OK'}
+                        the_code = self.get_httpresponse(url, ok_data)
+                    return the_code.status_code
+                else: # Null response from server
+                    sleep(self.retry_sleep)
+                    if i < self.max_retries - 1:
+                        print(f"Retrying del_fob... Attempt {i + 2} of {self.max_retries}")
+                    else:
+                        print("Max retries reached. Failed to delete fob.")
+            return None
         return None
