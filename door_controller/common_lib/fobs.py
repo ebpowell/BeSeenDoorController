@@ -1,5 +1,7 @@
+from logging import exception
 import time
 import datetime
+from urllib import response
 
 from door_controller.common_lib.door_controller import door_controller
 
@@ -23,123 +25,199 @@ class key_fobs(door_controller):
         tpl_murow = self.parse_tr_data(text_markup, r'<tr align=(.*?)</tr>', 4)
         [tpl_row.append([row[0], row[1],cidr, now]) for row in tpl_murow]
         return  tpl_row
+# import time
 
-    def get_keyfobs(self, iterations):
+    def get_keyfobs(self):
         fobs = []
-        # Add iterations, start val parameters
-        data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
         next_index = 20
-        try:
-            response = self.connect(data)
-        except:
-            raise
-        if response.status_code == 200:
-            for x in range (1,iterations):
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s2':'Users'}
-                elif x == 2:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{next_index-19}",
-                           'PE': f"000{next_index}",
-                           'PN': 'Next'}
-                else:
-                    # Derive the PC value from the form element of the response text
-                    # Update passed data
-                    data = {'PC': f"000{next_index - 19}",
-                     'PE': f"000{next_index}",
-                     'PN': 'Next'}
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
-                    url = self.url + '/ACT_ID_325'
-                try:
-                    print(url)
-                    print(x, data)
-                    print(self.session.headers)
-                    response = self.get_httpresponse(url, data)
-                except:
-                    raise
-                try:
-                    if response.status_code ==200:
-                        # Extract data from the returned page
-                        batch = self.parse_fobs_data(response.text)
-                        if batch:
-                            fobs = fobs + batch
-                            next_index = int(batch[19][0])
-                            print('Next Index:', next_index, 'Records Added:', len(fobs), 'Total Count:', len(batch))
-                        else:
-                            print ("No Records returned")
-                            # next_index =  swipes[len(swipes)-20][0]
-                        time.sleep(self.timeout/3)
-                except:
-                    pass
-            return fobs
-        return None
+        page_iteration = 1  # Track page step dynamically instead of using range()
 
-    def get_keyfobs_range(self, iterations, start_rec):
-        fobs = []
-        next_index = start_rec
-        print("Start:",start_rec)
-        # Add iterations, start val parameters
-        data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
         try:
-            response = self.connect(data)
-        except:
-            raise
-        if response.status_code == 200:
-            for x in range (1,iterations):
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s2':'Users'}
-                elif x == 2:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{next_index-19}",
-                           'PE': f"000{(next_index)}",
-                           'PN': 'Next'}
-                else:
-                    # Derive the PC value from the form element of the response text
-                    # Update passed data
-                    data = {'PC':f"000{next_index-19}",
-                            'PE':f"000{next_index}",
-                            'PN':'Next'}
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
-                    url = self.url + '/ACT_ID_325'
+            response = self.connect()
+        except Exception as e:
+            raise e
+
+        if response.status_code != 200:
+            return None
+
+        print("Starting controller sync...")
+
+        while True:
+            # Determine URL, data payload, and headers dynamically based on current page step
+            if page_iteration == 1:
+                self.session.headers['Referer'] = f"{self.url}/ACT_ID_1"
+                url = f"{self.url}/ACT_ID_21"
+                data = {'s2': 'Users'}
+            else:
+                # Dynamically calculate and string-pad indices to keep format uniform (e.g., '0001', '0021')
+                start_idx = str(next_index - 19).zfill(4)
+                end_idx = str(next_index).zfill(4)
+                
+                data = {
+                    'PC': start_idx,
+                    'PE': end_idx,
+                    'PN': 'Next'
+                }
+                
+                self.session.headers['Referer'] = f"{self.url}/ACT_ID_325"
+                url = f"{self.url}/ACT_ID_325"
+
+            try:
+                print(f"Fetching page {page_iteration} -> {url}")
+                print(f"Payload: {data}")
+                response = self.get_httpresponse(url, data)
+            except Exception as e:
+                print(f"Network error on page {page_iteration}: {e}")
+                raise e
+
+            if response.status_code == 200:
                 try:
-                    response = self.get_httpresponse(url, data)
-                except:
-                    raise
-                if x > 1:
-                    try:
-                        if response.status_code ==200:
-                            # Extract data from the returned page
-                            batch = self.parse_fobs_data(response.text)
-                            if batch:
-                                fobs = fobs + batch
-                                next_index = int(batch[19][0])
-                                print ('Next Index:',next_index, 'Records Added:',len(fobs), 'Total Count:',len(batch))
-                            else:
-                                print ("No Records returned")
-                                # next_index =  swipes[len(swipes)-20][0]
-                            time.sleep(self.timeout/2)
-                    except:
-                        pass
-                else:
-                    print("Skipping first iteration, no data returned")
-            return fobs
-        return None
+                    # Extract data from the returned page HTML
+                    batch = self.parse_fobs_data(response.text)
+                    
+                    # TERMINATION CONDITION: If the parser returns nothing, we hit the end
+                    if not batch:
+                        print("No more records returned from controller. Finalizing sync.")
+                        break
+                    
+                    fobs.extend(batch)
+                    
+                    # Calculate the next pagination markers based on the last processed ID
+                    last_record_id = int(batch[-1][0])
+                    next_index = last_record_id + 1
+                    
+                    print(f"Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
+                    
+                except Exception as e:
+                    print(f"Error occurred while parsing page response: {e}")
+                    # Optional: break or raise here if parsing failure shouldn't infinite-loop
+                    break
+                    
+                time.sleep(self.timeout / 3)
+                page_iteration += 1  # Increment to move into subsequent pages step
+            else:
+                print(f"Received non-200 status code ({response.status_code}). Stopping.")
+                break
+
+        return fobs
+
+
+
+    # def get_keyfobs(self):
+    #     fobs = []
+    #     next_index = 20
+    #     try:
+    #         response = self.connect()
+    #     except exception as e:
+    #         raise e
+    #     if response.status_code == 200:
+    #         for x in range (1,self.max_retries):
+    #             if x == 1:
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+    #                 url = self.url + '/ACT_ID_21'
+    #                 data = {'s2':'Users'}
+    #             elif x == 2:
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+    #                 url = self.url + '/ACT_ID_325'
+    #                 data = {'PC': f"000{next_index-19}",
+    #                        'PE': f"000{next_index}",
+    #                        'PN': 'Next'}
+    #             else:
+    #                 # Derive the PC value from the form element of the response text
+    #                 # Update passed data
+    #                 data = {'PC': f"000{next_index - 19}",
+    #                  'PE': f"000{next_index}",
+    #                  'PN': 'Next'}
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url+'/ACT_ID_325'
+    #                 url = self.url + '/ACT_ID_325'
+    #             try:
+    #                 print(url)
+    #                 print(x, data)
+    #                 # print(self.session.headers)
+    #                 response = self.get_httpresponse(url, data)
+    #             except:
+    #                 raise
+    #             try:
+    #                 if response.status_code ==200:
+    #                     # Extract data from the returned page
+    #                     batch = self.parse_fobs_data(response.text)
+    #                     if batch:
+    #                         fobs = fobs + batch
+    #                         # Calculate the next index based on the last record in the batch
+    #                         next_index = int(batch[-1][0]) + 1
+    #                         # next_index = int(batch[19][0])
+    #                         print('Next Index:', next_index, 'Records Added:', len(fobs), 'Total Count:', len(batch))
+    #                     else:
+    #                         print ("No Records returned")
+    #                         # next_index =  swipes[len(swipes)-20][0]
+    #                     time.sleep(self.timeout/3)
+    #             except exception as e:
+    #                 print(f"Error occurred while processing response: {e}")
+    #                 pass
+    #         return fobs
+    #     return None
+
+    # def get_keyfobs_range(self, iterations, start_rec):
+    #     fobs = []
+    #     next_index = start_rec
+    #     print("Start:",start_rec)
+    #     # Add iterations, start val parameters
+    #     data = {'username': self.username,
+    #     'pwd': self.password,
+    #     'logid': '20101222'}
+    #     try:
+    #         response = self.connect(data)
+    #     except:
+    #         raise
+    #     if response.status_code == 200:
+    #         for x in range (1,iterations):
+    #             if x == 1:
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+    #                 url = self.url + '/ACT_ID_21'
+    #                 data = {'s2':'Users'}
+    #             elif x == 2:
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+    #                 url = self.url + '/ACT_ID_325'
+    #                 data = {'PC': f"000{next_index-19}",
+    #                        'PE': f"000{(next_index)}",
+    #                        'PN': 'Next'}
+    #             else:
+    #                 # Derive the PC value from the form element of the response text
+    #                 # Update passed data
+    #                 data = {'PC':f"000{next_index-19}",
+    #                         'PE':f"000{next_index}",
+    #                         'PN':'Next'}
+    #                 # Update Request header to revise the referrer attribute
+    #                 self.session.headers['Referer'] = self.url+'/ACT_ID_325'
+    #                 url = self.url + '/ACT_ID_325'
+    #             try:
+    #                 response = self.get_httpresponse(url, data)
+    #             except:
+    #                 raise
+    #             if x > 1:
+    #                 try:
+    #                     if response.status_code ==200:
+    #                         # Extract data from the returned page
+    #                         batch = self.parse_fobs_data(response.text)
+    #                         if batch:
+    #                             fobs = fobs + batch
+    #                             next_index = int(batch[19][0])
+    #                             print ('Next Index:',next_index, 'Records Added:',len(fobs), 'Total Count:',len(batch))
+    #                         else:
+    #                             print ("No Records returned")
+    #                             # next_index =  swipes[len(swipes)-20][0]
+    #                         time.sleep(self.timeout/2)
+    #                 except:
+    #                     pass
+    #             else:
+    #                 print("Skipping first iteration, no data returned")
+    #         return fobs
+    #     return None
 
     def get_fob_range(self, iterations, max_id):
         pass
@@ -155,11 +233,6 @@ class key_fobs(door_controller):
             raise
 
     def parse_permissions(self, markup):
-        # access permissions are on attribute names Door controller 1: 24, 25, 26, and 27,
-        # access permissions are on attribute names Door controller 2:  26, and 27,
-        # Values 0 : Forbid, 1 : Allow
-        # Chop the inital noise off of the record
-        # markup = markup[markup.find('<th>Operation</th></tr>'):markup.find('</p></form></body><HEAD>')]
         markup = markup[markup.find('</th></tr>') + 10:markup.find('</p></form></body><HEAD>') - 8]
         # Split into 5 columns
         tpl_murow = self.parse_tr_data(markup, r'<tr align=(.*?)</tr>', 5)
@@ -191,3 +264,37 @@ class key_fobs(door_controller):
             return
         print([door, perm])
         return [door, perm]
+
+    def get_user_id(self, fob_id):
+        url = self.url + '/ACT_ID_323'
+        try:
+            self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+            data = {'US21':f"{fob_id}",
+                    '22': '0',
+                    '23': '',
+                    '24': 'Search'}
+            response = self.get_httpresponse(url, data)
+            return self.parse_user_id(response.text)
+        except Exception as e:
+            raise e
+        
+    def parse_user_id(self, markup):
+        data_row_regex = r'<tr align=center>(.*?)</tr>'
+        tpl_murow = self.parse_tr_data(markup, data_row_regex, tag_count=4)
+        try:
+            user_id = tpl_murow[0][0]
+            try:
+                return int(user_id)
+            except:
+                print(f"Failed to convert user_id to int: {user_id}")
+                return None
+        except IndexError:
+            # Verify thet the markup contains the information "Found Users' Count: 0. Search Finished"
+            if "Found Users' Count: 0. Search Finished" in markup:
+                print("No users found for the given fob_id.")
+                return None
+            else:
+                print(markup)
+            pass
+        except Exception as e:
+            raise e

@@ -174,4 +174,11 @@ class postgres:
         rows = cur.fetchall()
         # Convert the results into a text string
         return rows
+    
+    def get_val(self, query, params=None):
+        cur = self.db_con.cursor()
+        # print(query)
+        cur.execute(query, params)
+        row = cur.fetchall()
+        return row
 

@@ -13,4 +13,4 @@ settings:
   retry_sleep_seconds: 1
   urls:
     - http://69.21.119.147
-#    - http://69.21.119.148
+    # - http://69.21.119.148

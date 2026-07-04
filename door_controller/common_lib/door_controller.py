@@ -1,5 +1,6 @@
 import re
 import requests
+from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 import time
 
@@ -26,16 +27,17 @@ class door_controller:
         self.sql = ''
         self.timeout = 10
         self.max_retries = 6
+        self.login_data = {'username': self.username,
+        'pwd': self.password,
+        'logid': '20101222'}
 
 
     def get_httpresponse(self, url, data):
         for x in range (0, self.max_retries):
             try:
-                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
                 if response.status_code == 200:
-                    # print("door_controller.get_httpresponse: Connected", data)
-
                     return response
                 else:
                     print(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
@@ -82,11 +84,13 @@ class door_controller:
         # print(results)
         return results
 
-    def connect(self, data):
+    def connect(self):
         url = self.url+'/ACT_ID_1'
         for x in range(0, self.max_retries):
             try:
-                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # TO DO: Use self.get_httpresponse instead of direct requests.post to maintain session and headers
+                response = self.get_httpresponse(url, data = self.login_data)
+                # response = self.session.post(url, headers=self.session.headers, data=self.login_data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
                 if response.status_code == 200:
                     # print("door_controller.connect: Connected")
@@ -95,29 +99,31 @@ class door_controller:
                     print(f"door_controller.connect: Connection Request failed with status code: {response.status_code}")
                     print(response.text)
                     return
-            except:
+            except Exception as e:
+                # raise e
                 pass
         print('Connection Failed')
         return
 
     def users_page(self):
+        response = self.connect()
+        if response and response.status_code == 200:
+            self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+            url = self.url + '/ACT_ID_21'
+            data ={'s2':'Users'}
+            for x in range(0, self.max_retries):
+                try:
+                    response = self.get_httpresponse(url, data=data)
+                    #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
+                    return response
+                except:
+                    time.sleep(self.timeout/3)
+                    pass
 
-        self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-        url = self.url + '/ACT_ID_21'
-        data ={'s2':'Users'}
-        for x in range(0, self.max_retries):
-            try:
-                response = self.get_httpresponse(url, data=data)
-                #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
-                return response
-            except:
-                time.sleep(self.timeout/3)
-                pass
-
-    def navigate(self, data):
+    def navigate(self):
         # obj_ACL = AccessControlList(self.username, self.password, self.url)
         try:
-            response = self.connect(data)
+            response = self.connect()
             if response.status_code == 200:
                 try:
                     response = self.users_page()
@@ -126,8 +132,3 @@ class door_controller:
                     raise e
         except Exception as e:
             raise e
-
-
-
-
-

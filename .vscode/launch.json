@@ -47,6 +47,29 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
-        }
+        },
+        {
+            "name": "Pulls Swipes from Controller",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
+            "console": "integratedTerminal",
+            "args": [""],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Pulls Fobs from Controller",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_foblist_from_controller.py",
+            "console": "integratedTerminal",
+            "args": [""],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+
     ]
 }
