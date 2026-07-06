@@ -1,4 +1,5 @@
 from logging import exception
+import re
 import time
 import datetime
 from urllib import response
@@ -28,6 +29,7 @@ class key_fobs(door_controller):
 # import time
 
     def get_keyfobs(self):
+        batch_len = 20  # Number of records to fetch per page
         fobs = []
         next_index = 20
         page_iteration = 1  # Track page step dynamically instead of using range()
@@ -50,7 +52,7 @@ class key_fobs(door_controller):
                 data = {'s2': 'Users'}
             else:
                 # Dynamically calculate and string-pad indices to keep format uniform (e.g., '0001', '0021')
-                start_idx = str(next_index - 19).zfill(4)
+                start_idx = str(next_index - batch_len).zfill(4)
                 end_idx = str(next_index).zfill(4)
                 
                 data = {
@@ -72,11 +74,20 @@ class key_fobs(door_controller):
 
             if response.status_code == 200:
                 try:
+                    # First iteration, extract total number of key fobs from the page to determine when to stop
+                    if page_iteration == 1:
+                        total_fobs_match = re.search(r"Total Users:\s* (\d+)", response.text)
+                        if total_fobs_match:
+                            total_fobs = int(total_fobs_match.group(1))
+                            print(f"Total key fobs to sync: {total_fobs}")
+                        else:
+                            print("Could not determine total number of key fobs. Proceeding with pagination until no more records are returned.")
+                            total_fobs = None  # Unknown, will rely on termination condition
                     # Extract data from the returned page HTML
-                    batch = self.parse_fobs_data(response.text)
-                    
-                    # TERMINATION CONDITION: If the parser returns nothing, we hit the end
+                    batch = self.parse_fobs_data(response.text) 
+                    # TERMINATION CONDITION: once the returns no new records (id the last record id does not change), we can stop the loop
                     if not batch:
+
                         print("No more records returned from controller. Finalizing sync.")
                         break
                     
@@ -85,7 +96,11 @@ class key_fobs(door_controller):
                     # Calculate the next pagination markers based on the last processed ID
                     last_record_id = int(batch[-1][0])
                     next_index = last_record_id + 1
-                    
+                    batch_len = len(batch)      
+                    if len(fobs) >= total_fobs if total_fobs is not None else False:
+                        print("Reached the end of available records based on total count. Finalizing sync.")
+                        break
+                    print(f"Processed page {page_iteration}: {batch_len} records added. Next index target: {next_index}. Total fobs pulled so far: {len(fobs)}")              
                     print(f"Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
                     
                 except Exception as e:
