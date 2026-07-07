@@ -152,7 +152,7 @@ def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
             log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {url}")
             try:
                 # Call del_fob
-                res_code = data_manager.del_fob(login_data, rec_id)
+                res_code = data_manager.del_fob(rec_id)
                 if res_code is None:
                     log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. No response code returned.")
                     continue

@@ -17,7 +17,7 @@ class DataManager(key_fobs):
             self.retry_sleep = retry_sleep
 
     def add_fob(self, fob_id, name):
-        response = self.connect()
+        response = self.navigate()
         if response and response.status_code == 200:
             url = self.url + '/ACT_ID_21'
             data = {'s1': 'AddCard'}
@@ -26,6 +26,7 @@ class DataManager(key_fobs):
             if response and response.status_code == 200:
                 url_add = self.url + '/ACT_ID_312'
                 str_fobid = str(fob_id)
+                # AD21=123456&AD22=Test&25=Add
                 add_data = [('AD21', str_fobid),
                             ('AD22', name),
                             ('25', 'Add')]

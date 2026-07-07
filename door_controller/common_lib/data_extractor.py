@@ -94,32 +94,34 @@ class ww_data_extractor:
         cidr = "'{}'".format(cidr)
         self.obj_db.purge_fob_records(cidr)
         obj_keyfobs = key_fobs(self.url, self.username, self.password)
-        lst_fobs = obj_keyfobs.get_keyfobs(5)
+        lst_fobs = obj_keyfobs.get_keyfobs()
         self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
-        print("get_keyfobs Starting ID:", lst_fobs[0][0])
-        # Query the database to get the last recordid
-        query = (f"SELECT max(record_id) FROM dataload.fobs_slop "
-                 f"where controller_ip={cidr}")
-        max_id = self.obj_db.get_maxid(query)-20
-        print("Starting ID:", max_id)
-        for x in range(0, 20):
-            try:
-                for y in range(0, 5):
-                    try:
-                        print("get_fobs Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
-                        lst_fobs = obj_keyfobs.get_keyfobs_range(self.iterations, max_id)
-                        break
-                    except:
-                        pass
-                        time.sleep(5)
-            except:
-                raise
-            self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
-            time.sleep(5)
-            # ASK THE DATABASE WHERE TO RESTART
-            max_id = self.obj_db.get_maxid(query)
-            if max_id == 1:
-                break
+        # print("get_keyfobs Starting ID:", lst_fobs[0][0])
+        # # Query the database to get the last recordid
+        # query = (f"SELECT max(record_id) FROM dataload.fobs_slop "
+        #          f"where controller_ip={cidr}")
+        # max_id = self.obj_db.get_maxid(query)-20
+        # print("Starting ID:", max_id)
+        # for x in range(0, 5):
+        #     try:
+        #         for y in range(0, 5):
+        #             try:
+        #                 print("get_fobs Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
+        #                 lst_fobs = obj_keyfobs.get_keyfobs_range(self.iterations, max_id)
+        #                 break
+        #             except Exception as e:
+        #                 print(e)
+        #                 pass
+        #                 time.sleep(1)
+        #     except Exception as e:
+        #         print(e)    
+        #         raise e
+            # self.obj_db.write_db(lst_fobs, obj_keyfobs.sql)
+            # time.sleep(5)
+            # # ASK THE DATABASE WHERE TO RESTART
+            # max_id = self.obj_db.get_maxid(query)
+            # if max_id == 1:
+            #     break
 
 
     def get_permissions_record(self, record_id):
@@ -136,7 +138,7 @@ class ww_data_extractor:
         # Ref = ACT_ID_21
         # URL = http://69.21.119.148/ACT_ID_324
         obj_keyfobs = key_fobs(self.url, self.username, self.password)
-        response = obj_keyfobs.connect(data)
+        response = obj_keyfobs.connect()
         if response.status_code==200:
             response= obj_keyfobs.users_page()
             if response.status_code==200:
