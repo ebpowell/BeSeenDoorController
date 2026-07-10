@@ -15,7 +15,7 @@ class TestKeyFobs(unittest.TestCase):
         # Verify the method exists (was missing before)
         self.assertTrue(hasattr(self.kf, 'get_permissions_record'))
 
-    @patch('door_controller.common_lib.door_controller.requests.post')
+    @patch('door_controller.common_lib.door_controller.requests.Session.post')
     def test_get_permissions_record_logic(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 200

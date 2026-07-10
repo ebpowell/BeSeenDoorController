@@ -38,9 +38,14 @@ class DataManager(key_fobs):
                             # Print warnings for developer debugging
                             if "Login" in the_code.text or "session" in the_code.text:
                                 print("\nDEBUG: The response HTML mentions 'Login' or 'session'.\n")
+                                rec_id = None
                             elif "Invalid" in the_code.text or "Error" in the_code.text:
                                 print(f"\nDEBUG: The response HTML contains an error message.\n")
-                        return the_code
+                                rec_id = None
+                            else:
+                                print(f"\nDEBUG: The response HTML does not contain any obvious error messages.\n")
+                                rec_id = self.get_user_id(fob_id)
+                        return [the_code, rec_id]
                     else:
                         sleep(self.retry_sleep)
                         if i < self.max_retries - 1:
@@ -135,3 +140,4 @@ class DataManager(key_fobs):
                 raise e
             return None
         return None
+

@@ -698,16 +698,35 @@ class FobDatabaseManager:
                 cur.execute(query, (like_query, like_query, like_query, like_query))
                 return cur.fetchall()
 
-    def get_runtimes_for_date(self, target_date):
+    def get_runtimes_for_date(self, target_date, controller_ip=None):
         """
         Retrieves unique permission change runtimes for a given date.
         """
         if isinstance(target_date, datetime.datetime):
             target_date = target_date.date()
-        log_info(f"Database: Fetching permission change runtimes for {target_date}")
-        query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date) ORDER BY run_times ASC;"
+        log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
+        if controller_ip:
+            query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date, %s::cidr) ORDER BY run_times ASC;"
+            params = (target_date, controller_ip)
+        else:
+            query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date) ORDER BY run_times ASC;"
+            params = (target_date,)
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (target_date,))
+                cur.execute(query, params)
                 # results = cur.fetchall()
                 return [row[0] for row in cur.fetchall()]
+            
+    def get_owner_for_fobid(self, fob_id):
+        """
+        Retrieves the owner for a given FobID
+        """
+        query = 'SELECT concat(o.first_name, \' \', o.last_name) from key_fobs.owners o ' \
+                'join key_fobs.properties p on o.property_id = p.property_id ' \
+                'join key_fobs.keyfobs kf on p.property_id = kf.property_id ' \
+                'where kf.fob_id = %s;'
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (fob_id,))
+                row = cur.fetchone()
+                return row[0] if row else None

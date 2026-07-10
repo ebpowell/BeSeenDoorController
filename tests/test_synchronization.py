@@ -165,10 +165,7 @@ class TestSynchronization(unittest.TestCase):
         self.assertTrue(res)
 
         # Verify deletion of fob 1003 (record id 23)
-        mock_dm.del_fob.assert_called_once_with(
-            {'username': 'admin', 'pwd': 'password', 'logid': '20101222'},
-            23
-        )
+        mock_dm.del_fob.assert_called_once_with(23)
 
         # Verify addition of fob 1002 (owner "Bob Owner")
         mock_dm.add_fob.assert_called_once_with(1002, "Bob Owner")
@@ -307,10 +304,7 @@ class TestSynchronization(unittest.TestCase):
         
         self.assertTrue(res)
 
-        mock_dm.del_fob.assert_called_once_with(
-            {'username': 'admin', 'pwd': 'password', 'logid': '20101222'},
-            23
-        )
+        mock_dm.del_fob.assert_called_once_with(23)
         mock_dm.add_fob.assert_not_called()
         mock_dm.set_permissions.assert_not_called()
 
