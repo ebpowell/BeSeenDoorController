@@ -1,8 +1,6 @@
 import unittest
-import time
 from unittest.mock import MagicMock, patch
-from datetime import datetime, date, time as dt_time
-import threading
+from datetime import datetime, time as dt_time
 
 from door_controller.key_management_application.update_access import (
     AccessSynchronizer,
@@ -34,22 +32,6 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(self.sync.parse_door_name(""), None)
         self.assertEqual(self.sync.parse_door_name(None), None)
 
-    def test_get_owner_for_fob(self):
-        mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        self.mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
-
-        # Test case: Owner exists
-        mock_cur.fetchone.return_value = ("Alice Owner",)
-        owner = self.sync.get_owner_for_fob(1001)
-        self.assertEqual(owner, "Alice Owner")
-
-        # Test case: Owner does not exist
-        mock_cur.fetchone.return_value = None
-        owner = self.sync.get_owner_for_fob(9999)
-        self.assertEqual(owner, "Fob 9999")
-
     def test_get_expected_permissions(self):
         mock_conn = MagicMock()
         mock_cur = MagicMock()
@@ -62,33 +44,6 @@ class TestAccessSynchronizer(unittest.TestCase):
         ]
         perms = self.sync.get_expected_permissions(1001, '69.21.119.147/32')
         self.assertEqual(perms, {1: True, 2: False})
-
-    @patch('door_controller.key_management_application.update_access.postgres')
-    @patch('door_controller.key_management_application.update_access.ww_data_extractor')
-    def test_get_all_fobs_from_controller(self, mock_extractor_class, mock_postgres_class):
-        mock_pg_db = mock_postgres_class.return_value
-        mock_extractor = mock_extractor_class.return_value
-        
-        mock_conn = MagicMock()
-        mock_cur = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        self.mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
-        self.mock_db_mgr.conn_str = self.db_config
-
-        mock_cur.fetchall.return_value = [
-            (21, 1001),
-            (22, 1002)
-        ]
-        
-        fobs = self.sync.get_all_fobs_from_controller('http://69.21.119.147')
-        self.assertEqual(len(fobs), 2)
-        self.assertEqual(fobs[0], ["21", "1001"])
-        self.assertEqual(fobs[1], ["22", "1002"])
-
-        mock_postgres_class.assert_called_once_with(self.db_config)
-        mock_extractor_class.assert_called_once_with('admin', 'password', 'http://69.21.119.147', mock_pg_db)
-        mock_extractor.get_system_fob_list.assert_called_once()
-        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
 
     def test_derive_run_schedule(self):
         ref_time = datetime(2026, 6, 16, 22, 30, 0)
@@ -103,54 +58,55 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(schedule[1], datetime(2026, 6, 17, 8, 0, 0))
         self.assertEqual(schedule[2], datetime(2026, 6, 17, 22, 0, 0))
 
-    @patch.object(AccessSynchronizer, 'get_all_fobs_from_controller')
-    @patch.object(AccessSynchronizer, 'get_owner_for_fob')
     @patch.object(AccessSynchronizer, 'get_expected_permissions')
     @patch('door_controller.key_management_application.update_access.DataManager')
     @patch('door_controller.key_management_application.update_access.ww_data_extractor')
-    def test_synchronize_access(self, mock_extractor_class, mock_dm_class, mock_get_expected_perms, mock_get_owner, mock_get_all_fobs):
+    def test_synchronize_access(self, mock_extractor_class, mock_dm_class, mock_get_expected_perms):
         mock_conn = MagicMock()
         mock_cur = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cur
         self.mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
 
+        # DB has fobs 1001 (exists on controller) and 1002 (missing, needs add)
         self.mock_db_mgr.list_fobs.return_value = [
             {'fob_id': 1001},
             {'fob_id': 1002}
         ]
+        self.mock_db_mgr.get_owner_for_fobid.return_value = "Bob Owner"
 
-        # Initial controller state: has 1001 and 1003 (extra fob to delete, missing 1002)
-        mock_get_all_fobs.side_effect = [
-            [["21", "1001"], ["23", "1003"]],
-            [["21", "1001"], ["22", "1002"]]
-        ]
-
-        mock_get_owner.return_value = "Bob Owner"
-
-        mock_get_expected_perms.side_effect = [
-            {1: True, 2: False},
-            {1: True, 2: True}
-        ]
-
-        mock_extractor = mock_extractor_class.return_value
-        mock_extractor.get_permissions_record.side_effect = [
-            [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]],
-            [["22", "1002", "Door 01", "Allow", "url"], ["22", "1002", "Door 02", "Allow", "url"]]
-        ]
-
+        # Mock DataManager
         mock_dm = mock_dm_class.return_value
-        mock_dm.del_fob.return_value = 200
+        # For fob 1001, get_user_id returns 21. For 1002, returns None (missing).
+        mock_dm.get_user_id.side_effect = [21, None]
         
         # Mock add_fob return format [response, record_id]
         mock_add_resp = MagicMock()
         mock_add_resp.status_code = 200
-        mock_dm.add_fob.return_value = mock_add_resp
+        mock_dm.add_fob.return_value = [mock_add_resp, 22]
+
+        # Mock ww_data_extractor
+        mock_extractor = mock_extractor_class.return_value
+        # Permissions for 1001 (mismatch expected to sync)
+        mock_extractor.get_permissions_record.side_effect = [
+            [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]]
+        ]
+
+        # Expected permissions for 1001
+        mock_get_expected_perms.return_value = {1: True, 2: False}
 
         res = self.sync.synchronize_access('http://69.21.119.147')
         
         self.assertTrue(res)
-        mock_dm.del_fob.assert_called_once_with(23)
+        
+        # Verify get_user_id was called for both
+        self.assertEqual(mock_dm.get_user_id.call_count, 2)
+        mock_dm.get_user_id.assert_any_call(1001)
+        mock_dm.get_user_id.assert_any_call(1002)
+
+        # Verify addition of fob 1002 (owner "Bob Owner")
         mock_dm.add_fob.assert_called_once_with(1002, "Bob Owner")
+
+        # Verify setting permissions for 1001 (door 2 forbidden)
         mock_dm.set_permissions.assert_called_once_with(
             [(1, True), (2, False)],
             21
@@ -164,7 +120,6 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(len(threads), 2)
         for t in threads:
             self.assertTrue(t.daemon)
-            self.assertTrue(t.is_alive() or not t.is_alive()) # Just check it is a Thread object
             self.assertIn(t.name, ["SyncThread-http://69.21.119.147", "SyncThread-http://69.21.119.148"])
 
     @patch('door_controller.key_management_application.update_access.load_config')
