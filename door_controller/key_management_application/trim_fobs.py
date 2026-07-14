@@ -7,54 +7,51 @@ from datetime import datetime, date, timedelta
 from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
+from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
 
-class AccessSynchronizer:
+class RemoveOrphanedFobs:
+    """ 
+        Remove FobIDs from the controller that are not present in the database.
+    """
+
     def __init__(self, username, password, db_config):  
         self.username = username
         self.password = password
         self.db_config = db_config
         self.db_mgr = FobDatabaseManager(db_config)
 
-    def extract_cidr(self, url):
+    def get_all_fobs_from_controller(self, url):
         """
-        Extracts the IP and appends '/32' subnet mask from a given controller URL.
+        Retrieves all fobs from the controller by using ww_data_extractor.
         """
-        ip_port = url.split("://")[-1]
-        ip = ip_port.split(":")[0]
-        return f"{ip}/32"
-
-    def parse_door_name(self, door_name):
-        """
-        Parses door name like "Door 01" to an integer.
-        """
-        if not door_name:
-            return None
-        digits = ''.join(c for c in door_name if c.isdigit())
-        if digits:
-            return int(digits)
-        return None
-
-    def get_expected_permissions(self, fob_id, cidr):
-        """
-        Helper to get expected permissions for a fob_id on a given controller from database.
-        """
+        pg_db = postgres(self.db_mgr.conn_str)
+        extractor = ww_data_extractor(self.username, self.password, url, pg_db)
+        
+        # Extract fob list to dataload.fobs_slop
+        extractor.get_system_fob_list()
+        
+        # Query all fobs from dataload.fobs_slop
+        cidr = url[7:] + '/32'
         query = """
-            SELECT door_no, allow
-            FROM key_fobs.vint_acl_data
-            WHERE fob_id = %s AND controller_ip = %s
-            and start_time <= now()::time and (end_time is null or end_time >= now()::time)
-            and start_date <= now()::date and (end_date is null or end_date >= now()::date);
+            SELECT record_id, fob_id
+            FROM dataload.fobs_slop
+            WHERE controller_ip = %s;
         """
-        expected = {}
+        fobs = []
         with self.db_mgr._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (fob_id, cidr))
-                for door_no, allow in cur.fetchall():
-                    expected[int(door_no)] = bool(allow)
-        return expected
+                cur.execute(query, (cidr,))
+                for record_id, fob_id in cur.fetchall():
+                    # Format: [record_id, fob_id] as strings to match original format
+                    fobs.append([str(record_id), str(fob_id)])
+                    
+        # Clean up/purge the slop table
+        pg_db.purge_fob_records(f"'{cidr}'")
+        
+        return fobs
 
     def derive_run_schedule(self, controller_ip, reference_time=None):
         """
@@ -85,7 +82,7 @@ class AccessSynchronizer:
         schedule.sort()
         return schedule
 
-    def synchronize_access(self, controller_url, limit_changes=None):
+    def remove_orphans(self, controller_url, limit_changes=None):
         """
         Executes synchronization for a single controller using database as single source of truth.
         """
@@ -93,104 +90,66 @@ class AccessSynchronizer:
         
         changes_made = 0
         cidr = self.extract_cidr(controller_url)
-        
-        # Fetch expected fobs from database
+           # 1. Fetch current fobs from controller
         try:
-            db_fobs = self.db_mgr.list_fobs()
-            db_fobs_keys = {int(f['fob_id']) for f in db_fobs}
+            fobs_on_controller = self.get_all_fobs_from_controller(controller_url)
         except Exception as e:
-            log_error(f"Error fetching expected fobs from database: {e}")
+            log_error(f"Error fetching fobs from controller {controller_url}: {e}")
             return False
             
-        log_info(f"Postgres database fobs count: {len(db_fobs_keys)}")
-        
-        # Instantiate DataManager and ww_data_extractor
-        data_manager = DataManager(controller_url, self.username, self.password)
-        extractor = ww_data_extractor(self.username, self.password, controller_url, None)
-        
-        # Iterate over database fobs and synchronize
-        for fob_id in db_fobs_keys:
+        controller_fobs = {} # fob_id -> record_id
+        for row in fobs_on_controller:
             try:
-                rec_id = data_manager.get_user_id(fob_id)
-            except Exception as e:
-                log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
+                rec_id = int(row[0])
+                fob_id = int(row[1])
+                controller_fobs[fob_id] = rec_id
+            except (ValueError, TypeError):
                 continue
                 
-            if not rec_id:
-                log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                owner_name = self.db_mgr.get_owner_for_fobid(fob_id)
-                if not owner_name:
-                    owner_name = f"Fob {fob_id}"
+        # 2. Fetch expected fobs from database
+        db_fobs = self.db_mgr.list_fobs() # returns dicts with fob_id
+        db_fobs_keys = {int(f['fob_id']) for f in db_fobs}
+        controller_fobs_keys = set(controller_fobs.keys())
+        
+        log_info(f"Controller {controller_url} active fobs count: {len(controller_fobs_keys)}")
+        log_info(f"Postgres database fobs count: {len(db_fobs_keys)}")
+    
+        # Fetch expected fobs from database
+         # 3. Expunge extra fobs on controller
+        fobs_to_expunge = controller_fobs_keys - db_fobs_keys
+        actual_fob_changes = False
+        if fobs_to_expunge:
+            log_info(f"Expunging {len(fobs_to_expunge)} fobs from controller {controller_url}")
+            for fob_id in fobs_to_expunge:
+                rec_id = controller_fobs[fob_id]
+                if limit_changes is not None and changes_made >= limit_changes:
+                    log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}.")
+                    # debugging 
+                    changes_made = 0 # Reset to test other functions
+                    break
+                log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}")
                 try:
-                    add_fob_result = data_manager.add_fob(fob_id, owner_name)
-                    if add_fob_result:
-                        if add_fob_result[1]:
-                            rec_id = add_fob_result[1]
-                            log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
-                            changes_made += 1
-                        else:
-                            log_error(f"Fob: {fob_id} not added;")
-                            continue
-                    else:
-                        log_error(f"Fob: {fob_id} addition failed;")
+                    # Call del_fob
+                    res_code = self.data_manager.del_fob(rec_id)
+                    if res_code is None:
+                        log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}. No response code returned.")
                         continue
+                    elif res_code == 200:    
+                        changes_made += 1
+                        actual_fob_changes = True
+                        # Log to DB audit logs
+                        with self.db_mgr._get_connection() as conn:
+                            with conn.cursor() as cur:
+                                self.db_mgr.log_audit_action(
+                                    cur, 'system', 'Sync Expunge Fob',
+                                    f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {controller_url} (status: {res_code})"
+                                )
+                            conn.commit()
+                    else:
+                        log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}. HTTP status code: {res_code}")
                 except Exception as e:
-                    log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
-                    continue
-                    
-            log_info(f"Checking ACL rules for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}")
-            try:
-                # Fetch current permissions from controller
-                current_perms_rows = extractor.get_permissions_record(rec_id)
-                if current_perms_rows is None:
-                    log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
-                    continue
-                    
-                current_perms = {}
-                for perm_row in current_perms_rows:
-                    door_name = perm_row[2]
-                    door_no = self.parse_door_name(door_name)
-                    allow_str = perm_row[3]
-                    allow = (allow_str == "Allow")
-                    if door_no is not None:
-                        current_perms[door_no] = allow
-                        
-                # Get expected permissions from database
-                expected_perms = self.get_expected_permissions(fob_id, cidr)
+                    log_error(f"Failed to delete Fob {fob_id} from controller {controller_url}: {e}")
                 
-                # Compare
-                delta = False
-                target_perms = []
-                for door_no, current_allow in current_perms.items():
-                    expected_allow = expected_perms.get(door_no, False)
-                    target_perms.append((door_no, expected_allow))
-                    if current_allow != expected_allow:
-                        delta = True
-                        
-                if delta:
-                    if limit_changes is not None and changes_made >= limit_changes:
-                        log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}.")
-                        break
-                    log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {controller_url}. "
-                             f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
-                    data_manager.set_permissions(target_perms, rec_id)
-                    changes_made += 1
-                    # Log to DB audit logs
-                    with self.db_mgr._get_connection() as conn:
-                        with conn.cursor() as cur:
-                            self.db_mgr.log_audit_action(
-                                cur, 'system', 'Sync ACL Rules',
-                                f"Updated ACL rules for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url} to {target_perms}"
-                            )
-                        conn.commit()
-                else:
-                    log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
-                    
-            except Exception as e:
-                log_error(f"Error syncing ACL rules for Fob {fob_id} on controller {controller_url}: {e}")
-                
-        log_info(f"Finished synchronization for controller: {controller_url}")
-        return True
 
     def run_controller_sync_loop(self, controller_url, limit_changes=None):
         """
@@ -295,7 +254,7 @@ def main(argv=None):
         log_info(f"Applying synchronization change limit: {limit_changes} changes per controller.")
 
     # Instantiate the AccessSynchronizer once
-    synchronizer = AccessSynchronizer(username, password, connect_string)
+    synchronizer = RemoveOrphanedFobs(username, password, connect_string)
 
     if args.daemon:
         log_info("Running in daemon/scheduler mode with multi-threading.")
@@ -306,7 +265,8 @@ def main(argv=None):
         # Keep the main thread alive since daemon threads will exit if the main thread exits
         try:
             while True:
-                time.sleep(1)
+                # WE can repeat every five minutes....
+                time.sleep(300)
         except KeyboardInterrupt:
             log_info("Scheduler daemon stopped by user request.")
     else:

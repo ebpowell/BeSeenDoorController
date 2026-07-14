@@ -12,6 +12,10 @@ from door_controller.key_management_application.db_manager import FobDatabaseMan
 
 
 class AccessSynchronizer:
+    """
+        Update the permissions for the fobs on a door controller based on the database schedule rules
+        Add any missing fobs to the controller and set permissions. 
+    """
     def __init__(self, username, password, db_config):  
         self.username = username
         self.password = password
@@ -306,7 +310,8 @@ def main(argv=None):
         # Keep the main thread alive since daemon threads will exit if the main thread exits
         try:
             while True:
-                time.sleep(1)
+                # WE can repeat every five minutes....
+                time.sleep(300)
         except KeyboardInterrupt:
             log_info("Scheduler daemon stopped by user request.")
     else:
