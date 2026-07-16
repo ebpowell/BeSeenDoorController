@@ -14,7 +14,7 @@ from door_controller.key_management_application.db_manager import FobDatabaseMan
 
 class RemoveOrphanedFobs:
     """ 
-        Remove FobIDs from the controller that are not present in the database.
+    Remove FobIDs from the controller that are not present in the database.
     """
 
     def __init__(self, username, password, db_config):  
@@ -22,6 +22,14 @@ class RemoveOrphanedFobs:
         self.password = password
         self.db_config = db_config
         self.db_mgr = FobDatabaseManager(db_config)
+
+    def extract_cidr(self, url):
+        """
+        Extracts the IP and appends '/32' subnet mask from a given controller URL.
+        """
+        ip_port = url.split("://")[-1]
+        ip = ip_port.split(":")[0]
+        return f"{ip}/32"
 
     def get_all_fobs_from_controller(self, url):
         """
@@ -34,7 +42,7 @@ class RemoveOrphanedFobs:
         extractor.get_system_fob_list()
         
         # Query all fobs from dataload.fobs_slop
-        cidr = url[7:] + '/32'
+        cidr = self.extract_cidr(url)
         query = """
             SELECT record_id, fob_id
             FROM dataload.fobs_slop
@@ -53,44 +61,15 @@ class RemoveOrphanedFobs:
         
         return fobs
 
-    def derive_run_schedule(self, controller_ip, reference_time=None):
-        """
-        Derives the run-schedule for the next 24 hours based on when permissions change
-        throughout the day using key_fobs.f_get_runtimes.
-        """
-        ref = reference_time or datetime.now()
-        today = ref.date()
-        tomorrow = today + timedelta(days=1)
-        
-        # Fetch runtimes for today and tomorrow
-        today_times = self.db_mgr.get_runtimes_for_date(today, controller_ip)
-        tomorrow_times = self.db_mgr.get_runtimes_for_date(tomorrow, controller_ip)
-        
-        schedule = []
-        
-        # Helper to combine date and time
-        def add_to_schedule(d, t_list):
-            for t in t_list:
-                dt = datetime.combine(d, t)
-                # Filter for future times within the next 24 hours relative to reference_time
-                if ref < dt <= ref + timedelta(hours=24):
-                    schedule.append(dt)
-                    
-        add_to_schedule(today, today_times)
-        add_to_schedule(tomorrow, tomorrow_times)
-        
-        schedule.sort()
-        return schedule
-
     def remove_orphans(self, controller_url, limit_changes=None):
         """
         Executes synchronization for a single controller using database as single source of truth.
         """
-        log_info(f"Starting synchronization for controller: {controller_url}")
+        log_info(f"Starting orphan removal for controller: {controller_url}")
         
         changes_made = 0
-        cidr = self.extract_cidr(controller_url)
-           # 1. Fetch current fobs from controller
+        
+        # 1. Fetch current fobs from controller
         try:
             fobs_on_controller = self.get_all_fobs_from_controller(controller_url)
         except Exception as e:
@@ -107,36 +86,37 @@ class RemoveOrphanedFobs:
                 continue
                 
         # 2. Fetch expected fobs from database
-        db_fobs = self.db_mgr.list_fobs() # returns dicts with fob_id
-        db_fobs_keys = {int(f['fob_id']) for f in db_fobs}
+        try:
+            db_fobs = self.db_mgr.list_fobs() # returns dicts with fob_id
+            db_fobs_keys = {int(f['fob_id']) for f in db_fobs}
+        except Exception as e:
+            log_error(f"Error fetching fobs from database: {e}")
+            return False
+            
         controller_fobs_keys = set(controller_fobs.keys())
         
         log_info(f"Controller {controller_url} active fobs count: {len(controller_fobs_keys)}")
         log_info(f"Postgres database fobs count: {len(db_fobs_keys)}")
     
-        # Fetch expected fobs from database
-         # 3. Expunge extra fobs on controller
+        # 3. Expunge extra fobs on controller
         fobs_to_expunge = controller_fobs_keys - db_fobs_keys
-        actual_fob_changes = False
         if fobs_to_expunge:
             log_info(f"Expunging {len(fobs_to_expunge)} fobs from controller {controller_url}")
+            data_manager = DataManager(controller_url, self.username, self.password)
             for fob_id in fobs_to_expunge:
                 rec_id = controller_fobs[fob_id]
                 if limit_changes is not None and changes_made >= limit_changes:
                     log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}.")
-                    # debugging 
-                    changes_made = 0 # Reset to test other functions
                     break
                 log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}")
                 try:
                     # Call del_fob
-                    res_code = self.data_manager.del_fob(rec_id)
+                    res_code = data_manager.del_fob(rec_id)
                     if res_code is None:
                         log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}. No response code returned.")
                         continue
                     elif res_code == 200:    
                         changes_made += 1
-                        actual_fob_changes = True
                         # Log to DB audit logs
                         with self.db_mgr._get_connection() as conn:
                             with conn.cursor() as cur:
@@ -149,61 +129,41 @@ class RemoveOrphanedFobs:
                         log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}. HTTP status code: {res_code}")
                 except Exception as e:
                     log_error(f"Failed to delete Fob {fob_id} from controller {controller_url}: {e}")
-                
+        
+        log_info(f"Finished orphan removal for controller: {controller_url}")
+        return True
 
-    def run_controller_sync_loop(self, controller_url, limit_changes=None):
+    def run_controller_sync_loop(self, controller_url, recurrence_interval, limit_changes=None):
         """
         The main daemon scheduling loop running in its own thread for a specific controller.
+        It runs remove_orphans periodically based on the recurrence interval.
         """
-        log_info(f"Starting schedule check loop for controller: {controller_url}")
+        log_info(f"Starting schedule check loop for controller: {controller_url} with recurrence interval {recurrence_interval} seconds")
         
-        # Initial startup synchronization to ensure consistency
-        log_info(f"Executing initial startup synchronization for {controller_url}...")
-        self.synchronize_access(controller_url, limit_changes=limit_changes)
-            
-        last_sync_time = datetime.now()
-        log_info(f"Initial synchronization complete for {controller_url}. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        
-        controller_ip = self.extract_cidr(controller_url)
+        # Initial run on startup
+        log_info(f"Executing initial startup orphan removal for {controller_url}...")
+        self.remove_orphans(controller_url, limit_changes=limit_changes)
         
         while True:
             try:
-                now = datetime.now()
-                # Handle time backward adjustments or resets
-                if now < last_sync_time:
-                    last_sync_time = now
-                    
-                # Cap the lookback window to 24 hours to keep schedule calculation bounded
-                if now - last_sync_time > timedelta(hours=24):
-                    log_info(f"last_sync_time for {controller_url} is older than 24 hours. Resetting check window to the last 24 hours.")
-                    last_sync_time = now - timedelta(hours=24)
-                    
-                # Derive schedule from the last sync time
-                schedule = self.derive_run_schedule(controller_ip, reference_time=last_sync_time)
+                # Sleep for the configured recurrence interval
+                time.sleep(recurrence_interval)
                 
-                # Check for any events that have occurred up to 'now'
-                pending_events = [dt for dt in schedule if dt <= now]
-                
-                if pending_events:
-                    log_info(f"Triggering synchronization for {controller_url} scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
-                    self.synchronize_access(controller_url, limit_changes=limit_changes)
-                    last_sync_time = now
-                    
+                log_info(f"Triggering scheduled orphan removal for controller {controller_url}...")
+                self.remove_orphans(controller_url, limit_changes=limit_changes)
             except Exception as e:
                 log_error(f"Error in scheduler daemon loop for {controller_url}: {e}", exc_info=True)
-                
-            time.sleep(30)
 
-    def start_scheduler_threads(self, controller_urls, limit_changes=None):
+    def start_scheduler_threads(self, controller_urls, recurrence_interval, limit_changes=None):
         """
         Spawns a separate daemon thread for each controller in the controller_urls list.
-        Each thread executes run_controller_sync_loop on its own schedule.
+        Each thread executes run_controller_sync_loop on its own recurrence schedule.
         """
         threads = []
         for url in controller_urls:
             t = threading.Thread(
                 target=self.run_controller_sync_loop,
-                args=(url, limit_changes),
+                args=(url, recurrence_interval, limit_changes),
                 name=f"SyncThread-{url}"
             )
             t.daemon = True
@@ -222,12 +182,12 @@ def main(argv=None):
         else:
             argv = sys.argv[1:]
             
-    parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
+    parser = argparse.ArgumentParser(description="Remove orphaned fobs from door controllers.")
     parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
     parser.add_argument("-l", "--limit-changes", type=int, default=None, help="Limit the number of mutating changes applied per controller.")
     args = parser.parse_args(argv)
 
-    log_info("Starting global door controller synchronization routine.")
+    log_info("Starting global door controller orphan removal routine.")
     config = load_config()
     if not config:
         log_error("Failed to load configuration.")
@@ -253,29 +213,32 @@ def main(argv=None):
     if limit_changes is not None:
         log_info(f"Applying synchronization change limit: {limit_changes} changes per controller.")
 
-    # Instantiate the AccessSynchronizer once
+    # Read recurrence from config (default to 3600 seconds if not specified)
+    recurrence_interval = config.get('settings', {}).get('recurrence', 3600)
+    log_info(f"Configured recurrence interval: {recurrence_interval} seconds.")
+
+    # Instantiate the RemoveOrphanedFobs once
     synchronizer = RemoveOrphanedFobs(username, password, connect_string)
 
     if args.daemon:
         log_info("Running in daemon/scheduler mode with multi-threading.")
         
         # Start a thread for each controller
-        threads = synchronizer.start_scheduler_threads(urls, limit_changes=limit_changes)
+        threads = synchronizer.start_scheduler_threads(urls, recurrence_interval, limit_changes=limit_changes)
         
         # Keep the main thread alive since daemon threads will exit if the main thread exits
         try:
             while True:
-                # WE can repeat every five minutes....
-                time.sleep(300)
+                time.sleep(1)
         except KeyboardInterrupt:
             log_info("Scheduler daemon stopped by user request.")
     else:
         # Run-once mode: run synchronizations in parallel threads and wait for them to finish
-        log_info("Running single synchronization run in parallel threads.")
+        log_info("Running single orphan removal run in parallel threads.")
         threads = []
         for url in urls:
             t = threading.Thread(
-                target=synchronizer.synchronize_access,
+                target=synchronizer.remove_orphans,
                 args=(url, limit_changes),
                 name=f"SyncThread-Once-{url}"
             )
@@ -285,7 +248,7 @@ def main(argv=None):
         for t in threads:
             t.join()
             
-        log_info("Global door controller synchronization routine completed.")
+        log_info("Global door controller orphan removal routine completed.")
 
 
 if __name__ == '__main__':
