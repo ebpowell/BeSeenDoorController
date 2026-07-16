@@ -291,7 +291,7 @@ class FobDatabaseManager:
                         (property_id, replaced_fob_id, fob_id)
                     )
                     action = "Replace Fob"
-                    details = f"Fob {new_fob_id} assigned to property {property_id}, replacing old Fob {replaced_fob_id}"
+                    details = f"Fob {fob_id} assigned to property {property_id}, replacing old Fob {replaced_fob_id}"
                 else:
                     action = "Assign Fob"
                     details = f"Fob {fob_id} assigned to property {property_id}"
