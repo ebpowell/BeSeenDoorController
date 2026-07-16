@@ -49,6 +49,9 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    build:
+      - context: .
+      - dockerfile: Dockerfile.postgres
     container_name: postgres
     restart: always
     ports:

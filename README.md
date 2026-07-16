@@ -27,6 +27,35 @@ If you wish to run the Flask application directly in your host environment using
 
 ---
 
+## Database Setup (with PL/Python Trigger)
+
+The database triggers for synchronizing fob updates to the controllers are written in PostgreSQL PL/Python (`plpython3u`). Official PostgreSQL Docker images do not include the Python runtime environment by default.
+
+To run the database container with Python support:
+
+1. Create a `Dockerfile.postgres` in the root directory:
+   ```dockerfile
+   FROM postgres:16-alpine
+   RUN apk add --no-cache python3
+   ```
+
+2. Update the `postgres` service in `docker-compose.yaml` to build the custom image:
+   ```yaml
+     postgres:
+       build:
+         context: .
+         dockerfile: Dockerfile.postgres
+       container_name: postgres
+       # ... other settings (ports, volumes, environment)
+   ```
+
+3. Build and launch the database service:
+   ```bash
+   docker compose up --build -d postgres
+   ```
+
+---
+
 ## CLI & Background Tasks
 
 ### Pulling Swipes and ACL Information
