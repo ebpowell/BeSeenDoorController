@@ -44,7 +44,7 @@ class DataManager(key_fobs):
                                 rec_id = None
                             else:
                                 print(f"\nDEBUG: The response HTML does not contain any obvious error messages.\n")
-                                rec_id = self.get_user_id(fob_id)
+                                rec_id = self.get_record_id(fob_id)
                         return [the_code, rec_id]
                     else:
                         sleep(self.retry_sleep)
@@ -63,12 +63,6 @@ class DataManager(key_fobs):
             rec_id = record_id
         
         rec_id = int(rec_id)
-        
-        # login_data = {
-        #     'username': self.username,
-        #     'pwd': self.password,
-        #     'logid': '20101222'
-        # }
         self.navigate()
         
         url = self.url + '/ACT_ID_324'
@@ -92,13 +86,21 @@ class DataManager(key_fobs):
                         perms_iterable = lst_permissions
                         
                     dct_doors = {1: '24', 2: '25', 3: '26', 4: '27'}
-                    save_data = []
+                    
+                    # 1. Initialize all 4 doors to a default '0' (disabled/disallowed)
+                    current_door_vals = {field: '0' for field in dct_doors.values()}
+                    
+                    # 2. Update with the explicitly provided permissions
                     for door_no, allow in perms_iterable:
                         door_field = dct_doors.get(int(door_no))
                         if door_field:
                             val = '1' if (allow is True or str(allow) in ('1', 'True', 'Allow', 'allow')) else '0'
-                            save_data.append((door_field, val))
+                            current_door_vals[door_field] = val
                             
+                    # 3. Build the save_data array strictly ordered by door field IDs
+                    save_data = [(field, current_door_vals[field]) for field in ('24', '25', '26', '27')]
+                    
+                    # 4. Append the final 2 structural elements (Total = 6 items)
                     save_key = f"S{rec_id - 1}"
                     save_data.append(('USXo', ''))
                     save_data.append((save_key, 'Save'))
@@ -113,7 +115,7 @@ class DataManager(key_fobs):
         if response and response.status_code == 200:
             try:
                 url = self.url + '/ACT_ID_324'
-                record_id = self.get_user_id(fob_id)
+                record_id = self.get_record_id(fob_id)
                 if record_id is None:
                     print(f"Could not find record ID for fob ID {fob_id}.") 
                     return None

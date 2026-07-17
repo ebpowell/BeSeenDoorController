@@ -138,7 +138,7 @@ class key_fobs(door_controller):
     def parse_tag(self, permission_tag):
 
         door = permission_tag[0:7]
-        print(permission_tag, door)
+        # print(permission_tag, door)
         if permission_tag.find('selected') > 0:
             selected_tag = permission_tag[permission_tag.find('selected') + 9:]
             perm = selected_tag[:selected_tag.find('<')]
@@ -151,7 +151,8 @@ class key_fobs(door_controller):
         print([door, perm])
         return [door, perm]
 
-    def get_user_id(self, fob_id):
+    def get_record_id(self, fob_id):
+        self.navigate()
         url = self.url + '/ACT_ID_323'
         try:
             self.session.headers['Referer'] = self.url + '/ACT_ID_21'

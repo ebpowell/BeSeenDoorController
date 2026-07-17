@@ -10,6 +10,13 @@ from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
+class ExternalSystemError(Exception):
+    """Raised when the door controller system returns a non-200 status code."""
+    def __init__(self, status_code, response_body=None):
+        self.status_code = status_code
+        self.response_body = response_body
+        super().__init__(f"Request failed with status code: {status_code}")
+
 
 class AccessSynchronizer:
     """
@@ -115,7 +122,7 @@ class AccessSynchronizer:
         # Iterate over database fobs and synchronize
         for fob_id in db_fobs_keys:
             try:
-                rec_id = data_manager.get_user_id(fob_id)
+                rec_id = data_manager.get_record_id(fob_id)
             except Exception as e:
                 log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
                 continue
@@ -177,7 +184,20 @@ class AccessSynchronizer:
                         break
                     log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {controller_url}. "
                              f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
-                    data_manager.set_permissions(target_perms, rec_id)
+                    response = data_manager.set_permissions(target_perms, rec_id)
+                    # 1. Handle a completely failed request (e.g., max retries hit, returning None)
+                    if response is None:
+                        raise ExternalSystemError(
+                            status_code=500, 
+                            response_body="Connection failed. Max retries reached with no response."
+                        )
+                    
+                    # 2. Check for non-200 status codes
+                    if response.status_code != 200:
+                        raise ExternalSystemError(
+                            status_code=response.status_code,
+                            response_body=getattr(response, 'text', '') # Safe access to body text if it exists
+                        )
                     changes_made += 1
                     # Log to DB audit logs
                     with self.db_mgr._get_connection() as conn:
@@ -189,6 +209,11 @@ class AccessSynchronizer:
                         conn.commit()
                 else:
                     log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
+
+            except ExternalSystemError as e:
+                    # Log the exact details, then either handle it or re-raise it
+                    print(f"Error updating permissions: {e} (Status: {e.status_code})")
+                    print(f"Response details: {e.response_body}")
                     
             except Exception as e:
                 log_error(f"Error syncing ACL rules for Fob {fob_id} on controller {controller_url}: {e}")

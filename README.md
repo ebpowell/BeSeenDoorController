@@ -54,18 +54,26 @@ The database triggers for synchronizing fob updates to the controllers are writt
    docker compose up --build -d postgres
    ```
 
-### 2. Apply the PL/Python Trigger to the Database
+### 2. Apply the Database Functions and Trigger
 
+To support synchronization schedules and automatic database-to-controller updates:
+
+#### A. Install the Permission Changes Schedule Function (`f_get_runtimes`)
+The `update_access` tool uses the [SQL/f_get_runtimes.sql](file:///home/ebpowell/GIT_REPO/BeSeenDoorController/SQL/f_get_runtimes.sql) script to determine when permission changes (ACL rules activation/deactivation) occur throughout the day:
+
+```bash
+# Copy the script to the postgres container
+docker cp SQL/f_get_runtimes.sql postgres:/tmp/f_get_runtimes.sql
+
+# Execute the script in the postgres database
+docker compose exec postgres psql -U wentworth_user -d wntworth_db -f /tmp/f_get_runtimes.sql
+```
+
+#### B. Apply the PL/Python Trigger (`fob_sync_trigger`)
 The fob synchronization trigger is defined in [SQL/fob_sync_trigger.sql](file:///home/ebpowell/GIT_REPO/BeSeenDoorController/SQL/fob_sync_trigger.sql). It automatically propagates `INSERT` and `DELETE` operations on the `key_fobs.keyfobs` table to all configured door controllers.
 
-#### Transaction Safety & Verification
-Before committing the database transaction, the trigger verifies the results returned by the door controllers:
-* **Add Fob (INSERT)**: Confirms the controller returns a successful HTTP response and a valid record ID.
-* **Delete Fob (DELETE)**: Confirms the controller returns a 200 HTTP status code.
-* **Failure Handling**: If any controller fails, the trigger raises a `plpy.error` exception, rolling back the database transaction.
+* **Transaction Safety & Verification**: Before committing the database transaction, the trigger verifies the results returned by the door controllers. If any controller fails, the trigger raises a `plpy.error` exception, rolling back the database transaction.
 
-#### Applying the Trigger:
-Copy the SQL script to the postgres container and execute it:
 ```bash
 # Copy the trigger SQL script to the postgres container
 docker cp SQL/fob_sync_trigger.sql postgres:/tmp/fob_sync_trigger.sql

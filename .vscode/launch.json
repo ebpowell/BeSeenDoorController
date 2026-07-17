@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Sync Controller (Run Once)",
+            "name": "Test AccessSynchronizer",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "program": "${workspaceFolder}/tests/test_AccessSynchronizer.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
