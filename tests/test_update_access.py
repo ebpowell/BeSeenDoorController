@@ -60,8 +60,7 @@ class TestAccessSynchronizer(unittest.TestCase):
 
     @patch.object(AccessSynchronizer, 'get_expected_permissions')
     @patch('door_controller.key_management_application.update_access.DataManager')
-    @patch('door_controller.key_management_application.update_access.ww_data_extractor')
-    def test_synchronize_access(self, mock_extractor_class, mock_dm_class, mock_get_expected_perms):
+    def test_synchronize_access(self, mock_dm_class, mock_get_expected_perms):
         mock_conn = MagicMock()
         mock_cur = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cur
@@ -76,18 +75,16 @@ class TestAccessSynchronizer(unittest.TestCase):
 
         # Mock DataManager
         mock_dm = mock_dm_class.return_value
-        # For fob 1001, get_user_id returns 21. For 1002, returns None (missing).
-        mock_dm.get_user_id.side_effect = [21, None]
+        # For fob 1001, get_record_id returns 21. For 1002, returns None (missing).
+        mock_dm.get_record_id.side_effect = [21, None]
         
         # Mock add_fob return format [response, record_id]
         mock_add_resp = MagicMock()
         mock_add_resp.status_code = 200
         mock_dm.add_fob.return_value = [mock_add_resp, 22]
 
-        # Mock ww_data_extractor
-        mock_extractor = mock_extractor_class.return_value
         # Permissions for 1001 (mismatch expected to sync)
-        mock_extractor.get_permissions_record.side_effect = [
+        mock_dm.get_permissions_record.side_effect = [
             [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]]
         ]
 
@@ -98,10 +95,10 @@ class TestAccessSynchronizer(unittest.TestCase):
         
         self.assertTrue(res)
         
-        # Verify get_user_id was called for both
-        self.assertEqual(mock_dm.get_user_id.call_count, 2)
-        mock_dm.get_user_id.assert_any_call(1001)
-        mock_dm.get_user_id.assert_any_call(1002)
+        # Verify get_record_id was called for both
+        self.assertEqual(mock_dm.get_record_id.call_count, 2)
+        mock_dm.get_record_id.assert_any_call(1001)
+        mock_dm.get_record_id.assert_any_call(1002)
 
         # Verify addition of fob 1002 (owner "Bob Owner")
         mock_dm.add_fob.assert_called_once_with(1002, "Bob Owner")
