@@ -70,6 +70,7 @@ class DataManager(key_fobs):
         edit_data = {edit_key: 'Edit'}
         
         self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+        # USX106=0&24=1&25=1&26=1&27=1&S106=Save
         for i in range(self.max_retries):
             response = self.get_httpresponse(url, edit_data)
             if not response:
@@ -86,7 +87,6 @@ class DataManager(key_fobs):
                         perms_iterable = lst_permissions
                         
                     dct_doors = {1: '24', 2: '25', 3: '26', 4: '27'}
-                    
                     # 1. Initialize all 4 doors to a default '0' (disabled/disallowed)
                     current_door_vals = {field: '0' for field in dct_doors.values()}
                     
@@ -100,11 +100,11 @@ class DataManager(key_fobs):
                     # 3. Build the save_data array strictly ordered by door field IDs
                     save_data = [(field, current_door_vals[field]) for field in ('24', '25', '26', '27')]
                     
-                    # 4. Append the final 2 structural elements (Total = 6 items)
+                    # 4. Prepend the US Key
+                    save_data.insert(0,[f"USX{rec_id - 1}",''])
+                    #5. Appned the Save
                     save_key = f"S{rec_id - 1}"
-                    save_data.append(('USXo', ''))
                     save_data.append((save_key, 'Save'))
-                    
                     self.session.headers['Referer'] = self.url + '/ACT_ID_324'
                     response = self.get_httpresponse(url, save_data)
                 return response

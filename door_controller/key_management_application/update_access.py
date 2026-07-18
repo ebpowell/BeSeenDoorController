@@ -53,8 +53,7 @@ class AccessSynchronizer:
         Helper to get expected permissions for a fob_id on a given controller from database.
         """
         query = """
-            SELECT door_no, 
-                case when allow then 1 else 0 end allow
+            SELECT door_no, allow
             FROM key_fobs.vint_acl_data
             WHERE fob_id = %s AND controller_ip = %s
             and start_time <= now()::time and (end_time is null or end_time >= now()::time)

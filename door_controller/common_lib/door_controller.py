@@ -36,6 +36,9 @@ class door_controller:
         for x in range (0, self.max_retries):
             try:
                 response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # Debugging code
+                raw_sent_string = response.request.body
+                print(raw_sent_string)
                 # Check for successful response
                 if response.status_code == 200:
                     return response
@@ -44,8 +47,8 @@ class door_controller:
                     print(response.text)
                     return
             except Exception as e:
-                #raise e
-                pass
+                raise e
+                # pass
         return
 
     def is_convertible_to_int(self, token):
