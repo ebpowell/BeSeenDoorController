@@ -84,6 +84,64 @@ docker compose exec postgres psql -U wentworth_user -d wntworth_db -f /tmp/fob_s
 
 ---
 
+## Timezone Configuration
+
+Since both the database functions (e.g. `f_get_runtimes` which queries `now()::time`) and the background scheduler tools evaluate permission schedules based on the current local time, it is critical that all containers are configured to use the correct local timezone.
+
+To set the proper timezone in Docker Compose:
+
+1. Add the `TZ` environment variable to the services in `docker-compose.yaml` (e.g., `America/New_York`). For the PostgreSQL service, also set the `PGTZ` environment variable to guarantee the database engine itself initializes with this default timezone:
+   ```yaml
+   services:
+     keymanagement:
+       # ...
+       environment:
+         TZ: America/New_York
+         APP_CONFIG_DIR: /app/config
+
+     doorcontroller:
+       # ...
+       environment:
+         TZ: America/New_York
+         APP_CONFIG_DIR: /app/config
+
+     postgres:
+       # ...
+       environment:
+         TZ: America/New_York
+         PGTZ: America/New_York
+         POSTGRES_PASSWORD: ww_s3cret
+         POSTGRES_USER: wentworth_user
+         POSTGRES_DB: wntworth_db
+   ```
+
+2. Re-create the containers to apply the configuration:
+   ```bash
+   docker compose up -d --force-recreate
+   ```
+
+3. **Verify and Lock Timezone inside PostgreSQL**:
+   To ensure the database and database users default to the local time zone regardless of connection layer defaults, run the following SQL commands on the database:
+   ```sql
+   -- Set the timezone for the specific database
+   ALTER DATABASE wntworth_db SET timezone TO 'America/New_York';
+
+   -- Set the timezone for the database user
+   ALTER USER wentworth_user SET timezone TO 'America/New_York';
+   ```
+   You can apply these settings by executing:
+   ```bash
+   docker compose exec postgres psql -U wentworth_user -d wntworth_db -c "ALTER DATABASE wntworth_db SET timezone TO 'America/New_York';"
+   docker compose exec postgres psql -U wentworth_user -d wntworth_db -c "ALTER USER wentworth_user SET timezone TO 'America/New_York';"
+   ```
+
+   To verify the current active timezone inside PostgreSQL, run:
+   ```bash
+   docker compose exec postgres psql -U wentworth_user -d wntworth_db -c "SHOW timezone;"
+   ```
+
+---
+
 ## CLI & Background Tasks
 
 ### Pulling Swipes and ACL Information

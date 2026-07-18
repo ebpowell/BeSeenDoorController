@@ -13,7 +13,7 @@ from door_controller.common_lib.utils import load_config
 if __name__ == '__main__':
     config = load_config()
     controller_ip = config.get('settings', {}).get('urls', [])[0].split('//')[1]  # Extract the IP address from the URL
-    url = config.get('settings', {}).get('urls', [])[0]
+    urls = config.get('settings', {}).get('urls', [])
     username = config.get('settings', {}).get('username')
     password = config.get('settings', {}).get('password')
 
@@ -21,9 +21,14 @@ if __name__ == '__main__':
     # pg_db = postgres(config.get('settings', {}).get('postgres_connect_string'))
     connect_string = config.get('settings', {}).get('postgres_connect_string')
     # Fetch a single record to delete from the physical controller. This assumes that there is at least one unassigned fob in the database.
-    dm = DataManager(url, username, password)
+    dm = DataManager(urls[0], username, password)
     #Test deletion by pulling foblist and looking for deleted fob
     success = 0
     objAC = AccessSynchronizer(username, password, connect_string)
-    objAC.synchronize_access(url)
+    # objAC.synchronize_access(url)
+    ip_port = urls[0].split("://")[-1]
+    ip = ip_port.split(":")[0]
+    objAC.derive_run_schedule(f"{ip}/32")
+    # objAC.start_scheduler_threads(urls)
+    
 

@@ -148,7 +148,7 @@ class key_fobs(door_controller):
             perm = 'Forbid'
         else:
             return
-        print([door, perm])
+        # print([door, perm])
         return [door, perm]
 
     def get_record_id(self, fob_id):

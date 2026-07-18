@@ -53,7 +53,8 @@ class AccessSynchronizer:
         Helper to get expected permissions for a fob_id on a given controller from database.
         """
         query = """
-            SELECT door_no, allow
+            SELECT door_no, 
+                case when allow then 1 else 0 end allow
             FROM key_fobs.vint_acl_data
             WHERE fob_id = %s AND controller_ip = %s
             and start_time <= now()::time and (end_time is null or end_time >= now()::time)
@@ -62,9 +63,10 @@ class AccessSynchronizer:
         expected = {}
         with self.db_mgr._get_connection() as conn:
             with conn.cursor() as cur:
+                # print(query, (fob_id, cidr))
                 cur.execute(query, (fob_id, cidr))
                 for door_no, allow in cur.fetchall():
-                    expected[int(door_no)] = bool(allow)
+                    expected[int(door_no)] = allow
         return expected
 
     def derive_run_schedule(self, controller_ip, reference_time=None):
@@ -94,6 +96,7 @@ class AccessSynchronizer:
         add_to_schedule(tomorrow, tomorrow_times)
         
         schedule.sort()
+        print(f"Controller {controller_ip} schedule: \n", schedule)
         return schedule
 
     def synchronize_access(self, controller_url, limit_changes=None):
@@ -336,7 +339,7 @@ def main(argv=None):
         try:
             while True:
                 # WE can repeat every five minutes....
-                time.sleep(300)
+                time.sleep(1)
         except KeyboardInterrupt:
             log_info("Scheduler daemon stopped by user request.")
     else:
