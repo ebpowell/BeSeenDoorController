@@ -8,7 +8,6 @@ from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.pg_database import postgres
-from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
 
@@ -31,18 +30,23 @@ class RemoveOrphanedFobs:
         ip = ip_port.split(":")[0]
         return f"{ip}/32"
 
-    def get_all_fobs_from_controller(self, url):
+    def get_all_fobs_from_controller(self, url, data_manager):
         """
-        Retrieves all fobs from the controller by using ww_data_extractor.
+        Retrieves all fobs from the controller by using the existing data_manager session.
         """
         pg_db = postgres(self.db_mgr.conn_str)
-        extractor = ww_data_extractor(self.username, self.password, url, pg_db)
+        cidr = self.extract_cidr(url)
         
-        # Extract fob list to dataload.fobs_slop
-        extractor.get_system_fob_list()
+        # Purge existing records for this controller in the database
+        pg_db.purge_fob_records(f"'{cidr}'")
+        
+        # Fetch fobs from controller using the existing data_manager session
+        lst_fobs = data_manager.get_keyfobs()
+        
+        # Write to DB
+        pg_db.write_db(lst_fobs, data_manager.sql)
         
         # Query all fobs from dataload.fobs_slop
-        cidr = self.extract_cidr(url)
         query = """
             SELECT record_id, fob_id
             FROM dataload.fobs_slop
@@ -68,10 +72,11 @@ class RemoveOrphanedFobs:
         log_info(f"Starting orphan removal for controller: {controller_url}")
         
         changes_made = 0
+        data_manager = DataManager(controller_url, self.username, self.password)
         
         # 1. Fetch current fobs from controller
         try:
-            fobs_on_controller = self.get_all_fobs_from_controller(controller_url)
+            fobs_on_controller = self.get_all_fobs_from_controller(controller_url, data_manager)
         except Exception as e:
             log_error(f"Error fetching fobs from controller {controller_url}: {e}")
             return False
@@ -102,7 +107,6 @@ class RemoveOrphanedFobs:
         fobs_to_expunge = controller_fobs_keys - db_fobs_keys
         if fobs_to_expunge:
             log_info(f"Expunging {len(fobs_to_expunge)} fobs from controller {controller_url}")
-            data_manager = DataManager(controller_url, self.username, self.password)
             for fob_id in fobs_to_expunge:
                 rec_id = controller_fobs[fob_id]
                 if limit_changes is not None and changes_made >= limit_changes:
