@@ -138,7 +138,14 @@ class AccessSynchronizer:
                         if add_fob_result[1]:
                             rec_id = add_fob_result[1]
                             log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
+                            
+                            # Get permissions for Fobid from database
+                            log_info(f"Updating permissions for record: {rec_id}")
+                            expected_perms = self.get_expected_permissions(fob_id, cidr)
+                            # Update the controller
+                            response = data_manager.set_permissions(target_perms, rec_id)
                             changes_made += 1
+                            continue
                         else:
                             log_error(f"Fob: {fob_id} not added;")
                             continue

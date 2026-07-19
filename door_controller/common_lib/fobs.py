@@ -87,7 +87,7 @@ class key_fobs(door_controller):
                         print("Reached the end of available records based on total count. Finalizing sync.")
                         print(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
-                    if len(fobs) == 0:
+                    if not batch:
                         print("No more records returned. Ending pagination.")
                         print(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
