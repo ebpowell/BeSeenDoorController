@@ -7,7 +7,6 @@ from datetime import datetime, date, timedelta
 from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
 class ExternalSystemError(Exception):
@@ -117,9 +116,8 @@ class AccessSynchronizer:
             
         log_info(f"Postgres database fobs count: {len(db_fobs_keys)}")
         
-        # Instantiate DataManager and ww_data_extractor
+        # Instantiate DataManager
         data_manager = DataManager(controller_url, self.username, self.password)
-        extractor = ww_data_extractor(self.username, self.password, controller_url, None)
         
         # Iterate over database fobs and synchronize
         for fob_id in db_fobs_keys:
@@ -140,7 +138,14 @@ class AccessSynchronizer:
                         if add_fob_result[1]:
                             rec_id = add_fob_result[1]
                             log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
+                            
+                            # Get permissions for Fobid from database
+                            log_info(f"Updating permissions for record: {rec_id}")
+                            expected_perms = self.get_expected_permissions(fob_id, cidr)
+                            # Update the controller
+                            response = data_manager.set_permissions(target_perms, rec_id)
                             changes_made += 1
+                            continue
                         else:
                             log_error(f"Fob: {fob_id} not added;")
                             continue
@@ -154,7 +159,7 @@ class AccessSynchronizer:
             log_info(f"Checking ACL rules for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}")
             try:
                 # Fetch current permissions from controller
-                current_perms_rows = extractor.get_permissions_record(rec_id)
+                current_perms_rows = data_manager.get_permissions_record(rec_id)
                 if current_perms_rows is None:
                     log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
                     continue

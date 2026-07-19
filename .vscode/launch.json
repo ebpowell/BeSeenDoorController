@@ -15,7 +15,8 @@
             "name": "Sync Controller (Daemon Mode)",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
+            "logToFile": true,
             "args": [
                 "--daemon"
             ],
@@ -43,6 +44,8 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
+            "logToFile": true,
+            "redirectOutput": true,
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"

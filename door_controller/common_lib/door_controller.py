@@ -30,6 +30,8 @@ class door_controller:
         self.login_data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
+        self._logged_in = False
+        self._login_response = None
 
 
     def get_httpresponse(self, url, data):
@@ -88,6 +90,8 @@ class door_controller:
         return results
 
     def connect(self):
+        if getattr(self, '_logged_in', False) and getattr(self, '_login_response', None) is not None:
+            return self._login_response
         url = self.url+'/ACT_ID_1'
         for x in range(0, self.max_retries):
             try:
@@ -95,13 +99,16 @@ class door_controller:
                 response = self.get_httpresponse(url, data = self.login_data)
                 # response = self.session.post(url, headers=self.session.headers, data=self.login_data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
-                if response.status_code == 200:
+                if response and response.status_code == 200:
                     # print("door_controller.connect: Connected")
+                    self._logged_in = True
+                    self._login_response = response
                     return response
                 else:
-                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code}")
-                    print(response.text)
-                    return
+                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code if response else 'No Response'}")
+                    if response:
+                        print(response.text)
+                    return response
             except Exception as e:
                 # raise e
                 pass

@@ -25,10 +25,10 @@ class TestRemoveOrphanedFobs(unittest.TestCase):
         self.assertEqual(self.trimmer.extract_cidr("https://192.168.1.10:8080"), "192.168.1.10/32")
 
     @patch('door_controller.key_management_application.trim_fobs.postgres')
-    @patch('door_controller.key_management_application.trim_fobs.ww_data_extractor')
-    def test_get_all_fobs_from_controller(self, mock_extractor_class, mock_postgres_class):
+    def test_get_all_fobs_from_controller(self, mock_postgres_class):
         mock_pg_db = mock_postgres_class.return_value
-        mock_extractor = mock_extractor_class.return_value
+        mock_dm = MagicMock()
+        mock_dm.sql = "INSERT INTO..."
         
         mock_conn = MagicMock()
         mock_cur = MagicMock()
@@ -41,15 +41,15 @@ class TestRemoveOrphanedFobs(unittest.TestCase):
             (22, 1002)
         ]
         
-        fobs = self.trimmer.get_all_fobs_from_controller('http://69.21.119.147')
+        fobs = self.trimmer.get_all_fobs_from_controller('http://69.21.119.147', mock_dm)
         self.assertEqual(len(fobs), 2)
         self.assertEqual(fobs[0], ["21", "1001"])
         self.assertEqual(fobs[1], ["22", "1002"])
 
         mock_postgres_class.assert_called_once_with(self.db_config)
-        mock_extractor_class.assert_called_once_with('admin', 'password', 'http://69.21.119.147', mock_pg_db)
-        mock_extractor.get_system_fob_list.assert_called_once()
-        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
+        mock_dm.get_keyfobs.assert_called_once()
+        mock_pg_db.purge_fob_records.assert_any_call("'69.21.119.147/32'")
+        mock_pg_db.write_db.assert_called_once_with(mock_dm.get_keyfobs.return_value, mock_dm.sql)
 
     @patch.object(RemoveOrphanedFobs, 'get_all_fobs_from_controller')
     @patch('door_controller.key_management_application.trim_fobs.DataManager')
