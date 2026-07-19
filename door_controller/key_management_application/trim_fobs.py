@@ -115,7 +115,7 @@ class RemoveOrphanedFobs:
                 log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}")
                 try:
                     # Call del_fob
-                    res_code = data_manager.del_fob(rec_id)
+                    res_code = data_manager.del_fob(fob_id)
                     if res_code is None:
                         log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {controller_url}. No response code returned.")
                         continue
