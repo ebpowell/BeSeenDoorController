@@ -33,20 +33,24 @@ The database triggers for synchronizing fob updates to the controllers are writt
 
 ### 1. Run the Database Container with Python Support
 
-1. Create a `Dockerfile.postgres` in the root directory:
+1. A custom `Dockerfile.postgres` builds on top of the standard `postgres:16-alpine` image to install Python 3, pip, and our door controller libraries:
    ```dockerfile
    FROM postgres:16-alpine
-   RUN apk add --no-cache python3
+   RUN apk add --no-cache python3 py3-pip
+   ...
+   RUN pip install --no-cache-dir . --break-system-packages
    ```
 
-2. Update the `postgres` service in `docker-compose.yaml` to build the custom image:
+2. The `postgres` service in `docker-compose.yaml` is configured to build this custom image and automatically mounts the `./init` folder to populate schemas and triggers on first-run:
    ```yaml
      postgres:
        build:
          context: .
          dockerfile: Dockerfile.postgres
        container_name: postgres
-       # ... other settings (ports, volumes, environment)
+       volumes:
+         - /mnt/sda1/postgresql:/var/lib/postgresql/data
+         - ./init:/docker-entrypoint-initdb.d/
    ```
 
 3. Build and launch the database service:
@@ -54,43 +58,24 @@ The database triggers for synchronizing fob updates to the controllers are writt
    docker compose up --build -d postgres
    ```
 
-### 2. Apply the Database Functions and Trigger
+### 2. Automatic Database Initialization and Triggers
 
-To support synchronization schedules and automatic database-to-controller updates:
+To support synchronization schedules and automatic database-to-controller updates, the database container self-initializes by executing SQL scripts mounted from the `./init` directory to `/docker-entrypoint-initdb.d/` in alphabetical order on first run:
 
-#### A. Install the Permission Changes Schedule Function (`f_get_runtimes`)
-The `update_access` tool uses the [SQL/f_get_runtimes.sql](file:///home/ebpowell/GIT_REPO/BeSeenDoorController/SQL/f_get_runtimes.sql) script to determine when permission changes (ACL rules activation/deactivation) occur throughout the day:
-
-```bash
-# Copy the script to the postgres container
-docker cp SQL/f_get_runtimes.sql postgres:/tmp/f_get_runtimes.sql
-
-# Execute the script in the postgres database
-docker compose exec postgres psql -U wentworth_user -d wntworth_db -f /tmp/f_get_runtimes.sql
-```
-
-#### B. Apply the PL/Python Trigger (`fob_sync_trigger`)
-The fob synchronization trigger is defined in [SQL/fob_sync_trigger.sql](file:///home/ebpowell/GIT_REPO/BeSeenDoorController/SQL/fob_sync_trigger.sql). It automatically propagates `INSERT` and `DELETE` operations on the `key_fobs.keyfobs` table to all configured door controllers.
-
-* **Transaction Safety & Verification**: Before committing the database transaction, the trigger verifies the results returned by the door controllers. If any controller fails, the trigger raises a `plpy.error` exception, rolling back the database transaction.
-
-```bash
-# Copy the trigger SQL script to the postgres container
-docker cp SQL/fob_sync_trigger.sql postgres:/tmp/fob_sync_trigger.sql
-
-# Execute the SQL script in the postgres database
-docker compose exec postgres psql -U wentworth_user -d wntworth_db -f /tmp/fob_sync_trigger.sql
-```
+*   **`01_init_db.sql`**: Configures the base database schemas (`key_fobs`, `door_controller`, `dataload`), tables, user accounts, and seed data.
+*   **`02_f_get_runtimes.sql`**: Installs the `key_fobs.f_get_runtimes` permission schedule function which evaluates when access windows activate throughout the day.
+*   **`03_fob_sync_trigger.sql`**: Enables the untrusted PL/Python 3 extension (`plpython3u`) and registers the trigger function `process_fob_changes_py()` on the `key_fobs.keyfobs` table.
+    *   *Transaction Safety & Verification*: Before committing any database transaction (like an `INSERT` or `DELETE` on a fob), the trigger propagates the change to all controllers. If any controller fails, the trigger raises a `plpy.error` exception, rolling back the transaction.
 
 ---
 
 ## Timezone Configuration
 
-Since both the database functions (e.g. `f_get_runtimes` which queries `now()::time`) and the background scheduler tools evaluate permission schedules based on the current local time, it is critical that all containers are configured to use the correct local timezone.
+Since both the database functions (e.g., `f_get_runtimes` which queries `now()::time`) and the background scheduler tools evaluate permission schedules based on the current local time, it is critical that all containers are configured to use the correct local timezone.
 
 To set the proper timezone in Docker Compose:
 
-1. Add the `TZ` environment variable to the services in `docker-compose.yaml` (e.g., `America/New_York`). For the PostgreSQL service, also set the `PGTZ` environment variable to guarantee the database engine itself initializes with this default timezone:
+1. Add the `TZ` environment variable to all services in `docker-compose.yaml` (e.g., `America/New_York`). For the PostgreSQL service, also set the `PGTZ` environment variable to guarantee the database engine itself initializes with this default timezone:
    ```yaml
    services:
      keymanagement:
@@ -108,11 +93,11 @@ To set the proper timezone in Docker Compose:
      postgres:
        # ...
        environment:
-         TZ: America/New_York
-         PGTZ: America/New_York
-         POSTGRES_PASSWORD: ww_s3cret
-         POSTGRES_USER: wentworth_user
-         POSTGRES_DB: wntworth_db
+         - POSTGRES_PASSWORD=ww_s3cret
+         - POSTGRES_USER=wentworth_user
+         - POSTGRES_DB=wntworth_db
+         - TZ=America/New_York
+         - PGTZ=America/New_York
    ```
 
 2. Re-create the containers to apply the configuration:
