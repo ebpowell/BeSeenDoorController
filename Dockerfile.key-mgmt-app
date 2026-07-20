@@ -2,7 +2,7 @@
 FROM python:3.10-slim-buster AS builder
 
 # Add Timezone data package
-RUN apt-get update && apt-get install -y tzdata
+# RUN apt-get update && apt-get install -y tzdata
 # Set environment variables for Python in the container
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
