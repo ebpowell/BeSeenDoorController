@@ -83,13 +83,17 @@ class TestAccessSynchronizer(unittest.TestCase):
         mock_add_resp.status_code = 200
         mock_dm.add_fob.return_value = [mock_add_resp, 22]
 
-        # Permissions for 1001 (mismatch expected to sync)
+        # Permissions for 1001 (mismatch expected to sync) and 1002 (no mismatch)
         mock_dm.get_permissions_record.side_effect = [
-            [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]]
+            [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]],
+            [["22", "1002", "Door 01", "Allow", "url"], ["22", "1002", "Door 02", "Allow", "url"]]
         ]
 
-        # Expected permissions for 1001
-        mock_get_expected_perms.return_value = {1: True, 2: False}
+        # Expected permissions for 1001 and 1002
+        mock_get_expected_perms.side_effect = [
+            {1: True, 2: False},
+            {1: True, 2: True}
+        ]
 
         res = self.sync.synchronize_access('http://69.21.119.147')
         
@@ -103,10 +107,15 @@ class TestAccessSynchronizer(unittest.TestCase):
         # Verify addition of fob 1002 (owner "Bob Owner")
         mock_dm.add_fob.assert_called_once_with(1002, "Bob Owner")
 
-        # Verify setting permissions for 1001 (door 2 forbidden)
-        mock_dm.set_permissions.assert_called_once_with(
+        # Verify setting permissions for 1001 (door 2 forbidden) and 1002 (newly added, both allowed)
+        self.assertEqual(mock_dm.set_permissions.call_count, 2)
+        mock_dm.set_permissions.assert_any_call(
             [(1, True), (2, False)],
             21
+        )
+        mock_dm.set_permissions.assert_any_call(
+            [(1, True), (2, True), (3, False), (4, False)],
+            22
         )
 
     @patch.object(AccessSynchronizer, 'run_controller_sync_loop')
@@ -137,6 +146,35 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(mock_sync_access.call_count, 2)
         mock_sync_access.assert_any_call('http://69.21.119.147', None)
         mock_sync_access.assert_any_call('http://69.21.119.148', None)
+
+    def test_derive_run_schedule_skips_edge_runs(self):
+        ref_time = datetime(2026, 6, 16, 22, 30, 0)
+        self.mock_db_mgr.get_runtimes_for_date.side_effect = [
+            [dt_time(6, 0), dt_time(22, 0), dt_time(0, 0)],
+            [dt_time(6, 0), dt_time(8, 0), dt_time(22, 0), dt_time(23, 59)]
+        ]
+
+        schedule = self.sync.derive_run_schedule('69.21.119.147/32', reference_time=ref_time)
+        self.assertEqual(len(schedule), 3)
+        self.assertEqual(schedule[0], datetime(2026, 6, 17, 6, 0, 0))
+        self.assertEqual(schedule[1], datetime(2026, 6, 17, 8, 0, 0))
+        self.assertEqual(schedule[2], datetime(2026, 6, 17, 22, 0, 0))
+
+    @patch('door_controller.key_management_application.update_access.datetime')
+    @patch('door_controller.key_management_application.update_access.time.sleep')
+    @patch.object(AccessSynchronizer, 'synchronize_access')
+    @patch.object(AccessSynchronizer, 'derive_run_schedule')
+    def test_run_controller_sync_loop_skips_startup_at_midnight(self, mock_derive, mock_sync_access, mock_sleep, mock_datetime):
+        mock_now = datetime(2026, 6, 17, 0, 0, 0)
+        mock_datetime.now.return_value = mock_now
+        mock_sleep.side_effect = KeyboardInterrupt()
+
+        try:
+            self.sync.run_controller_sync_loop('http://69.21.119.147')
+        except KeyboardInterrupt:
+            pass
+
+        mock_sync_access.assert_not_called()
 
 
 if __name__ == '__main__':

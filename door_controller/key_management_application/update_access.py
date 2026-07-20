@@ -85,6 +85,8 @@ class AccessSynchronizer:
         # Helper to combine date and time
         def add_to_schedule(d, t_list):
             for t in t_list:
+                if (t.hour == 0 and t.minute == 0) or (t.hour == 23 and t.minute == 59):
+                    continue
                 dt = datetime.combine(d, t)
                 # Filter for future times within the next 24 hours relative to reference_time
                 if ref < dt <= ref + timedelta(hours=24):
@@ -142,8 +144,9 @@ class AccessSynchronizer:
                             # Get permissions for Fobid from database
                             log_info(f"Updating permissions for record: {rec_id}")
                             expected_perms = self.get_expected_permissions(fob_id, cidr)
+                            target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
                             # Update the controller
-                            response = data_manager.set_permissions(target_perms, rec_id)
+                            response = data_manager.set_permissions(target_perms_new, rec_id)
                             changes_made += 1
                             continue
                         else:
@@ -174,8 +177,9 @@ class AccessSynchronizer:
                                 # Get permissions for Fobid from database
                                 log_info(f"Updating permissions for record: {rec_id}")
                                 expected_perms = self.get_expected_permissions(fob_id, cidr)
+                                target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
                                 # Update the controller
-                                response = data_manager.set_permissions(target_perms, rec_id)
+                                response = data_manager.set_permissions(target_perms_new, rec_id)
                                 changes_made += 1
                                 continue
                             else:
@@ -259,8 +263,12 @@ class AccessSynchronizer:
         log_info(f"Starting schedule check loop for controller: {controller_url}")
         
         # Initial startup synchronization to ensure consistency
-        log_info(f"Executing initial startup synchronization for {controller_url}...")
-        self.synchronize_access(controller_url, limit_changes=limit_changes)
+        now = datetime.now()
+        if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
+            log_info(f"Skipping initial startup synchronization for {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
+        else:
+            log_info(f"Executing initial startup synchronization for {controller_url}...")
+            self.synchronize_access(controller_url, limit_changes=limit_changes)
             
         last_sync_time = datetime.now()
         log_info(f"Initial synchronization complete for {controller_url}. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")

@@ -145,13 +145,22 @@ class RemoveOrphanedFobs:
         log_info(f"Starting schedule check loop for controller: {controller_url} with recurrence interval {recurrence_interval} seconds")
         
         # Initial run on startup
-        log_info(f"Executing initial startup orphan removal for {controller_url}...")
-        self.remove_orphans(controller_url, limit_changes=limit_changes)
+        now = datetime.now()
+        if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
+            log_info(f"Skipping initial startup orphan removal for {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
+        else:
+            log_info(f"Executing initial startup orphan removal for {controller_url}...")
+            self.remove_orphans(controller_url, limit_changes=limit_changes)
         
         while True:
             try:
                 # Sleep for the configured recurrence interval
                 time.sleep(recurrence_interval)
+                
+                now = datetime.now()
+                if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
+                    log_info(f"Skipping scheduled orphan removal for controller {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
+                    continue
                 
                 log_info(f"Triggering scheduled orphan removal for controller {controller_url}...")
                 self.remove_orphans(controller_url, limit_changes=limit_changes)
