@@ -4,6 +4,8 @@ services:
     image: ghcr.io/ebpowell/BeSeenDoorController/key-management-app:latest
     container_name: keymanagement
     restart: unless-stopped
+    environment:
+      - TZ=America/New_York
     volumes:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
@@ -30,6 +32,8 @@ services:
     image: ghcr.io/ebpowell/BeSeenDoorController/cli-synch-tools:latest
     container_name: cli-synch-tools
     restart: unless-stopped
+    environment:
+      - TZ=America/New_York
     volumes:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
@@ -68,3 +72,7 @@ services:
       - POSTGRES_DB=wntworth_db
       - TZ=America/New_York
       - PGTZ=America/New_York
+    volumes:
+      - /mnt/sda1/postgresql:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d/
+      - /etc/localtime:/etc/localtime:ro
