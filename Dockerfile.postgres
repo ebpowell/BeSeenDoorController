@@ -1,2 +1,12 @@
 FROM postgres:16-alpine
-RUN apk add --no-cache python3
+RUN apk add --no-cache python3 py3-pip
+
+# Set working directory and copy requirements
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt --break-system-packages
+
+# Copy application code
+COPY door_controller /app/door_controller
+COPY setup.py /app/setup.py
+RUN pip install --no-cache-dir . --break-system-packages
