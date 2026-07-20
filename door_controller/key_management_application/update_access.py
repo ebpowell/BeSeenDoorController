@@ -125,11 +125,11 @@ class AccessSynchronizer:
                 rec_id = data_manager.get_record_id(fob_id)
             except Exception as e:
                 log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
-                continue
+                # continue
                 
             if not rec_id:
                 log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                owner_name = self.db_mgr.get_owner_for_fobid(fob_id)
+                owner_name = self.db_mgr.get_owner_for_fobid(fob_id)[:30]
                 if not owner_name:
                     owner_name = f"Fob {fob_id}"
                 try:
@@ -162,8 +162,32 @@ class AccessSynchronizer:
                 current_perms_rows = data_manager.get_permissions_record(rec_id)
                 if current_perms_rows is None:
                     log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
-                    continue
-                    
+                    # continue
+                    # Add the fob and set permissions
+                    try:
+                        add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
+                        if add_fob_result:
+                            if add_fob_result[1]:
+                                rec_id = add_fob_result[1]
+                                log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
+                                
+                                # Get permissions for Fobid from database
+                                log_info(f"Updating permissions for record: {rec_id}")
+                                expected_perms = self.get_expected_permissions(fob_id, cidr)
+                                # Update the controller
+                                response = data_manager.set_permissions(target_perms, rec_id)
+                                changes_made += 1
+                                continue
+                            else:
+                                log_error(f"Fob: {fob_id} not added;")
+                                continue
+                        else:
+                            log_error(f"Fob: {fob_id} addition failed;")
+                            continue
+                    except Exception as e:
+                        log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
+                        continue
+
                 current_perms = {}
                 for perm_row in current_perms_rows:
                     door_name = perm_row[2]
