@@ -8,6 +8,9 @@ services:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
+      # Make sure container and host use the ame Timezone
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
     environment:
       # Tell your app where to find config files
@@ -34,6 +37,9 @@ services:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
+      # Make sure container and host use the ame Timezone
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
     environment:
       # Tell your app where to find config files
@@ -62,9 +68,14 @@ services:
       - /mnt/sda1/postgresql:/var/lib/postgresql/data
 #      - /opt/postgresql:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d/
+      # Make sure container and host use the ame Timezone
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
     environment:
       - POSTGRES_PASSWORD=ww_s3cret
       - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
       - TZ=America/New_York
       - PGTZ=America/New_York
+      
