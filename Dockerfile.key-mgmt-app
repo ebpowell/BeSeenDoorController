@@ -1,8 +1,6 @@
 # Stage 1: Builder
 FROM python:3.10-slim-buster AS builder
 
-# Add timesone package
-RUN apk add --no-cache tzdata
 # Set environment variables for Python in the container
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
