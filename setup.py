@@ -19,7 +19,8 @@ setup(
             'BeSeen_web=door_controller.key_management_application.web_app.app:main',
             'sync_controller=door_controller.key_management_application.update_access:main',
             'trim_fobs=door_controller.key_management_application.trim_fobs:main',
-            'update_access=door_controller.key_management_application.update_access:main'
+            'update_access=door_controller.key_management_application.update_access:main',
+            'deploy_triggers=door_controller.key_management_application.deploy_triggers:main'
         ]
     },
     package_data={

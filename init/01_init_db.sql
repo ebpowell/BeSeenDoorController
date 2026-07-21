@@ -7,7 +7,7 @@ CREATE SCHEMA IF NOT EXISTS door_controller;
 CREATE SCHEMA IF NOT EXISTS dataload;
 
 -- Drop existing tables to rebuild with new model
-DROP TABLE IF EXISTS key_fobs.fobs CASCADE;
+DROP TABLE IF EXISTS key_fobs.keyfobs CASCADE;
 DROP TABLE IF EXISTS key_fobs.property_owners CASCADE;
 DROP TABLE IF EXISTS key_fobs.properties CASCADE;
 DROP TABLE IF EXISTS key_fobs.fob_replacements CASCADE;
@@ -33,8 +33,9 @@ CREATE TABLE key_fobs.property_owners (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create key_fobs.fobs table (Fobs linked to property_id)
-CREATE TABLE key_fobs.fobs (
+-- Create key_fobs.keyfobs table (Fobs linked to property_id)
+CREATE TABLE key_fobs.keyfobs (
+    keyfob_id SERIAL,
     fob_id INT PRIMARY KEY,
     property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -226,7 +227,7 @@ INSERT INTO key_fobs.property_owners (property_id, owner_name) VALUES
 ON CONFLICT (property_id) DO NOTHING;
 
 -- Seed Fobs assigned to Properties
-INSERT INTO key_fobs.fobs (fob_id, property_id) VALUES
+INSERT INTO key_fobs.keyfobs (fob_id, property_id) VALUES
 (1001, 10001),
 (1002, 10002),
 (1003, 10003),
