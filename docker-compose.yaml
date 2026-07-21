@@ -1,18 +1,16 @@
 services:
   keymanagement:
     #image: key-management-app:latest
-    image: ghcr.io/ebpowell/BeSeenDoorController/key-management-app:latest
+    image: ghcr.io/ebpowell/beseendoorcontroller/key-management-app:latest
     container_name: keymanagement
     restart: unless-stopped
-    environment:
-      - TZ=America/New_York
     volumes:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
       # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+ #     - /etc/timezone:/etc/timezone:ro
 
     environment:
       # Tell your app where to find config files
@@ -32,18 +30,16 @@ services:
 
   doorcontroller:
     #image: cli-synch-tools:latest
-    image: ghcr.io/ebpowell/BeSeenDoorController/cli-synch-tools:latest
+    image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
     container_name: cli-synch-tools
     restart: unless-stopped
-    environment:
-      - TZ=America/New_York
     volumes:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
       # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+ #     - /etc/timezone:/etc/timezone:ro
 
     environment:
       # Tell your app where to find config files
@@ -60,7 +56,7 @@ services:
       - postgres
 
   postgres:
-    image: postgres:16-alpine
+    image: ghcr.io/ebpowell/beseendoorcontroller/postgres:sha-1412556
     build:
       context: .
       dockerfile: Dockerfile.postgres
@@ -74,11 +70,11 @@ services:
       - ./init:/docker-entrypoint-initdb.d/
       # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+#      - /etc/timezone:/etc/timezone:ro
 
     environment:
+      - TZ+America/New_York
+      - PGTZ+America/New_Yor
       - POSTGRES_PASSWORD=ww_s3cret
       - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
-      - TZ=America/New_York
-      - PGTZ=America/New_York
