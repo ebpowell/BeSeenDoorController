@@ -67,6 +67,21 @@ To support synchronization schedules and automatic database-to-controller update
 *   **`03_fob_sync_trigger.sql`**: Enables the untrusted PL/Python 3 extension (`plpython3u`) and registers the trigger function `process_fob_changes_py()` on the `key_fobs.keyfobs` table.
     *   *Transaction Safety & Verification*: Before committing any database transaction (like an `INSERT` or `DELETE` on a fob), the trigger propagates the change to all controllers. If any controller fails, the trigger raises a `plpy.error` exception, rolling back the transaction.
 
+### 3. Deploying / Updating Triggers via Deployment Tool
+
+If you make modifications to the PL/Python trigger script and want to redeploy/update them on an existing database instance without rebuilding the database container, you can use the built-in trigger deployment command.
+
+This deployment tool loads your database credentials from `config/config.yaml`, reads the trigger SQL script, and applies it safely inside a database transaction block:
+
+*   **Run inside the Docker container**:
+    ```bash
+    docker compose exec doorcontroller deploy_triggers
+    ```
+*   **Run in the local host environment**:
+    ```bash
+    deploy_triggers
+    ```
+
 ---
 
 ## Timezone Configuration
@@ -161,7 +176,50 @@ The scheduler recurrence interval for `trim_fobs` is configured in `config/confi
 ```yaml
 settings:
   recurrence: 3600 # Sync interval in seconds (e.g. 1 hour)
-```
+```services:
+  keymanagement:
+    image: key-management-app:latest
+    container_name: keymanagement
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
+      - /etc/localtime:/etc/localtime:ro
+
+  doorcontroller:
+    image: cli-synch-tools:latest
+    container_name: cli-synch-tools
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
+      - /etc/localtime:/etc/localtime:ro
+
+  postgres:
+    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=ww_s3cret
+      - POSTGRES_USER=wentworth_user
+      - POSTGRES_DB=wntworth_db
+      - TZ=America/New_York
+      - PGTZ=America/New_York
+    volumes:
+      - /mnt/sda1/postgresql:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d/
+      - /etc/localtime:/etc/localtime:ro
 
 - **Update Access Permissions (update_access)**:
   Synchronizes database fob list and ACL permissions to all configured door controllers. It executes multi-threaded runs where each controller is updated in parallel on its own schedule.
