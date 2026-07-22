@@ -71,10 +71,12 @@ services:
       # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
 #      - /etc/timezone:/etc/timezone:ro
+      - /opt/data/door_controller/config:/app/config
 
     environment:
-      - TZ+America/New_York
-      - PGTZ+America/New_Yor
+      - TZ=America/New_York
+      - PGTZ=America/New_York
+      - APP_CONFIG_DIR=/app/config
       - POSTGRES_PASSWORD=ww_s3cret
       - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
