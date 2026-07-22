@@ -118,7 +118,7 @@ class DataManager(key_fobs):
                 record_id = self.get_record_id(fob_id)
                 if record_id is None:
                     print(f"Could not find record ID for fob ID {fob_id}.") 
-                    return None
+                    return 200
                 the_number = record_id - 1
                 key = f"D{the_number}"
                 del_data = {key: 'Delete'}
