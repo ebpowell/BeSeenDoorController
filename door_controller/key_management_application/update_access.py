@@ -131,9 +131,8 @@ class AccessSynchronizer:
                 
             if not rec_id:
                 log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                owner_name = self.db_mgr.get_owner_for_fobid(fob_id)[:30]
-                if not owner_name:
-                    owner_name = f"Fob {fob_id}"
+                owner = self.db_mgr.get_owner_for_fobid(fob_id)
+                owner_name = owner[:30] if owner else f"Fob {fob_id}"
                 try:
                     add_fob_result = data_manager.add_fob(fob_id, owner_name)
                     if add_fob_result:
