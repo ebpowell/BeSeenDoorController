@@ -239,3 +239,76 @@ Since the `doorcontroller` container runs continuously in the background as the 
 ```
 Note: The `-T` option is recommended for cron jobs as it disables pseudo-TTY allocation.
 
+---
+
+## Observability & Database Metrics (Grafana)
+
+To monitor the integrity of the door controller permissions and detect discrepancies (such as missing fobs on controllers or unassigned fobs running on controllers), a dedicated metrics collection and statistical auditing utility is provided.
+
+### 1. Database Observability Views
+During initialization, the database container sets up helper views under the `door_controller` schema:
+*   **`vint_system_assigned_fob_compare`**: Core comparison query that performs a full outer join of active assigned fobs against active fobs on the controllers.
+*   **`vext_system_missing_assigned_fobs`**: Identifies which assigned fobs in the system are currently missing on specific door controllers.
+*   **`vext_system_unassigned_fobs`**: Identifies which fobs are currently active on the controllers but not registered/assigned in the system.
+
+### 2. Metrics Collection Tool (`collect_metrics`)
+The `collect_metrics` command queries the discrepancy views and runs a statistical audit on a random sample of active fobs to verify that permissions match what is defined in the database (via `f_get_permissions`).
+
+Results are saved to the `door_controller.controller_metrics` time-series table.
+
+*   **Run Once**:
+    ```bash
+    docker compose exec doorcontroller collect_metrics
+    ```
+*   **Configure Auditing Sample Size**:
+    ```bash
+    # Audit a random sample of 50 fobs (or 10% of total active fobs, whichever is larger)
+    docker compose exec doorcontroller collect_metrics --sample-size 50 --sample-percent 10
+    ```
+*   **Cron Schedule Setup**:
+    Add a cron job to collect metrics every hour on the host:
+    ```cron
+    0 * * * * cd /opt/scripts/BeSeenDoorController && docker compose exec -T doorcontroller collect_metrics > /dev/null 2>&1
+    ```
+
+### 3. Visualizing in Grafana
+To visualize these metrics, add your PostgreSQL database (`wntworth_db`) as a standard PostgreSQL Data Source in Grafana. You can then configure dashboard panels using the following SQL queries:
+
+#### Panel A: Permissions Integrity Score (Line Graph)
+Shows the percentage of fobs with correct controller permissions (1.0 = 100% integrity).
+```sql
+SELECT 
+  metric_time AS time, 
+  metric_value AS "Integrity Score", 
+  controller_ip::text AS metric
+FROM door_controller.controller_metrics
+WHERE metric_name = 'integrity_score' AND $__timeFilter(metric_time)
+ORDER BY metric_time;
+```
+
+#### Panel B: Discrepant Fobs Count (Bar or Line Graph)
+Tracks missing assigned fobs vs. unassigned fobs count over time.
+```sql
+SELECT 
+  metric_time AS time, 
+  metric_value, 
+  controller_ip::text || ' - ' || metric_name AS metric
+FROM door_controller.controller_metrics
+WHERE metric_name IN ('missing_assigned_fobs_count', 'unassigned_fobs_count') AND $__timeFilter(metric_time)
+ORDER BY metric_time;
+```
+
+#### Panel C: Audit Errors Detail (Table Panel)
+Displays a detailed list of mismatched and missing fob IDs for manual reconciliation.
+```sql
+SELECT 
+  metric_time, 
+  controller_ip::text, 
+  metric_value AS "Mismatch Rate", 
+  metadata->'mismatched_fob_ids' AS mismatched_fobs, 
+  metadata->'missing_fob_ids' AS missing_fobs
+FROM door_controller.controller_metrics
+WHERE metric_name = 'mismatch_rate' AND metric_value > 0 AND $__timeFilter(metric_time)
+ORDER BY metric_time DESC;
+```
+
