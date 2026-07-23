@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS door_controller.controller_metrics (
 );
 
 -- View: compare assigned fobs vs fobs present on controllers
+drop view if exists door_controller.vint_system_assigned_fob_compare;
 CREATE OR REPLACE VIEW door_controller.vint_system_assigned_fob_compare AS
 WITH latest_system_fobs AS (
     SELECT DISTINCT ON (fob_id, controller_ip)
@@ -34,6 +35,7 @@ FULL OUTER JOIN latest_system_fobs s
 ON a.fob_id = s.fob_id;
 
 -- View: assigned fobs missing from specific controllers
+drop view if exists door_controller.vext_system_missing_assigned_fobs;
 CREATE OR REPLACE VIEW door_controller.vext_system_missing_assigned_fobs AS
 WITH active_controllers AS (
     SELECT DISTINCT controller_ip 
@@ -61,6 +63,7 @@ ON efc.fob_id = lsf.fob_id AND efc.controller_ip = lsf.controller_ip
 WHERE lsf.fob_id IS NULL;
 
 -- View: fobs present on controllers that are not assigned in the system
+drop view if exists door_controller.vext_system_unassigned_fobs;
 CREATE OR REPLACE VIEW door_controller.vext_system_unassigned_fobs AS
 WITH latest_system_fobs AS (
     SELECT DISTINCT ON (fob_id, controller_ip)
