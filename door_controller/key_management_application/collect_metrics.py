@@ -65,8 +65,8 @@ def record_metric(cur, controller_ip, name, value, metadata=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Door Controller Observability Metrics Collector")
-    parser.add_argument("--sample-size", type=int, default=20, help="Minimum number of fobs to audit")
-    parser.add_argument("--sample-percent", type=float, default=5.0, help="Percentage of total fobs to audit")
+    parser.add_argument("--sample-size", type=int, default=None, help="Minimum number of fobs to audit")
+    parser.add_argument("--sample-percent", type=float, default=None, help="Percentage of total fobs to audit")
     args = parser.parse_args()
 
     log_info("Starting door controller metrics collection...")
@@ -77,6 +77,16 @@ def main():
     username = settings.get('username')
     password = settings.get('password')
     urls = settings.get('urls', [])
+
+    # Resolve sample parameters: CLI parameter takes highest priority, then config settings, then default fallback values
+    cli_sample_size = args.sample_size
+    cli_sample_percent = args.sample_percent
+
+    config_sample_size = settings.get('metrics_sample_size')
+    config_sample_percent = settings.get('metrics_sample_percent')
+
+    sample_size = cli_sample_size if cli_sample_size is not None else (config_sample_size if config_sample_size is not None else 20)
+    sample_percent = cli_sample_percent if cli_sample_percent is not None else (config_sample_percent if config_sample_percent is not None else 5.0)
 
     if not conn_str:
         log_error("postgres_connect_string not found in configuration. Exiting.")
@@ -123,7 +133,7 @@ def main():
 
         # 2. Select statistical sample of active fobs to audit
         total_fobs = len(active_fobs)
-        sample_count = max(args.sample_size, int(total_fobs * (args.sample_percent / 100.0)))
+        sample_count = max(sample_size, int(total_fobs * (sample_percent / 100.0)))
         sample_count = min(sample_count, total_fobs)
 
         if sample_count > 0:

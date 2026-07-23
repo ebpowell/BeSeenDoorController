@@ -135,5 +135,51 @@ class TestCollectMetrics(unittest.TestCase):
                 main()
         self.assertEqual(cm.exception.code, 1)
 
+    @patch('door_controller.key_management_application.collect_metrics.load_config')
+    @patch('door_controller.key_management_application.collect_metrics.psycopg2.connect')
+    @patch('door_controller.key_management_application.collect_metrics.DataManager')
+    @patch('door_controller.key_management_application.collect_metrics.random.sample')
+    def test_collect_metrics_config_parameters(self, mock_sample, mock_dm_class, mock_connect, mock_load_config):
+        mock_load_config.return_value = {
+            'settings': {
+                'postgres_connect_string': 'postgresql://db',
+                'username': 'admin',
+                'password': 'password123',
+                'urls': ['http://69.21.119.147'],
+                'metrics_sample_size': 5,
+                'metrics_sample_percent': 10.0
+            }
+        }
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_connect.return_value = mock_conn
+        mock_conn.cursor.return_value = mock_cur
+
+        mock_cur.fetchall.side_effect = [
+            [( '69.21.119.147', )], # active controllers
+            [(1001,), (1002,), (1003,), (1004,), (1005,), (1006,)], # active fobs (6 fobs)
+            [( '69.21.119.147', 0)], # missing
+            [( '69.21.119.147', 0)], # unassigned
+            [(1, 1)] # expected perms
+        ]
+
+        mock_dm = MagicMock()
+        mock_dm_class.return_value = mock_dm
+        mock_dm.navigate.return_value = MagicMock(status_code=200)
+        mock_dm.get_record_id.return_value = 21
+        mock_dm.get_permissions_record.return_value = []
+
+        # With 6 active fobs, config metrics_sample_size=5 and metrics_sample_percent=10% (0.6).
+        # The expected sample size is max(5, int(6 * 0.1)) = 5.
+        mock_sample.return_value = [1001, 1002, 1003, 1004, 1005]
+
+        with patch.object(sys, 'argv', ['collect_metrics']):
+            main()
+
+        # Check random.sample was called with length of sample_count = 5
+        mock_sample.assert_called_once()
+        args, kwargs = mock_sample.call_args
+        self.assertEqual(args[1], 5)
+
 if __name__ == "__main__":
     unittest.main()

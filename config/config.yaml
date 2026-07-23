@@ -12,6 +12,8 @@ settings:
   # limit_changes: 30
   retry_sleep_seconds: 1
   recurrence: 3600
+  metrics_sample_size: 20
+  metrics_sample_percent: 5.0
   urls:
     - http://69.21.119.147
     # - http://69.21.119.148
