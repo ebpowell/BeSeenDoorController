@@ -17,7 +17,7 @@ class TestDeployTriggers(unittest.TestCase):
                 'postgres_connect_string': 'postgresql://wentworth_user:ww_s3cret@localhost/wntworth_db'
             }
         }
-        mock_exists.side_effect = lambda path: path == "init/03_fob_sync_trigger.sql"
+        mock_exists.side_effect = lambda path: path in ("init/03_fob_sync_trigger.sql", "init/04_observability.sql")
         
         mock_conn = MagicMock()
         mock_cur = MagicMock()
@@ -28,7 +28,8 @@ class TestDeployTriggers(unittest.TestCase):
         
         # Assert database commands were executed
         mock_connect.assert_called_once_with('postgresql://wentworth_user:ww_s3cret@localhost/wntworth_db')
-        mock_cur.execute.assert_called_once_with("CREATE TRIGGER test;")
+        self.assertEqual(mock_cur.execute.call_count, 2)
+        mock_cur.execute.assert_any_call("CREATE TRIGGER test;")
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
 
@@ -66,7 +67,7 @@ class TestDeployTriggers(unittest.TestCase):
                 'postgres_connect_string': 'postgresql://db'
             }
         }
-        mock_exists.side_effect = lambda path: path == "init/03_fob_sync_trigger.sql"
+        mock_exists.side_effect = lambda path: path in ("init/03_fob_sync_trigger.sql", "init/04_observability.sql")
         
         mock_conn = MagicMock()
         mock_cur = MagicMock()
