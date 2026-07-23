@@ -55,6 +55,7 @@ COPY --from=builder /usr/local/bin/sync_controller /usr/local/bin/
 COPY --from=builder /usr/local/bin/trim_fobs /usr/local/bin/
 COPY --from=builder /usr/local/bin/update_access /usr/local/bin/
 COPY --from=builder /usr/local/bin/deploy_triggers /usr/local/bin/
+COPY --from=builder /usr/local/bin/collect_metrics /usr/local/bin/
 
 # Default command for user guidance/informational output when run without arguments
-CMD ["echo", "Ready. Run CLI tools: get_swipes, get_acl_from_controller, get_foblist_from_controller, list_fobs, list_fobs_simple, BeSeen_driver, sync_controller, trim_fobs, update_access, or deploy_triggers"]
+CMD ["echo", "Ready. Run CLI tools: get_swipes, get_acl_from_controller, get_foblist_from_controller, list_fobs, list_fobs_simple, BeSeen_driver, sync_controller, trim_fobs, update_access, deploy_triggers, or collect_metrics"]

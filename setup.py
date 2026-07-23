@@ -20,7 +20,8 @@ setup(
             'sync_controller=door_controller.key_management_application.update_access:main',
             'trim_fobs=door_controller.key_management_application.trim_fobs:main',
             'update_access=door_controller.key_management_application.update_access:main',
-            'deploy_triggers=door_controller.key_management_application.deploy_triggers:main'
+            'deploy_triggers=door_controller.key_management_application.deploy_triggers:main',
+            'collect_metrics=door_controller.key_management_application.collect_metrics:main'
         ]
     },
     package_data={
