@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: wentworth_user
+    database: wntworth_db
+    secureJsonData:
+      password: ww_s3cret
+    jsonData:
+      sslmode: disable
+      postgresVersion: 16
+      timescaledb: false

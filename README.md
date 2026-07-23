@@ -271,8 +271,19 @@ Results are saved to the `door_controller.controller_metrics` time-series table.
     0 * * * * cd /opt/scripts/BeSeenDoorController && docker compose exec -T doorcontroller collect_metrics > /dev/null 2>&1
     ```
 
-### 3. Visualizing in Grafana
-To visualize these metrics, add your PostgreSQL database (`wntworth_db`) as a standard PostgreSQL Data Source in Grafana. You can then configure dashboard panels using the following SQL queries:
+### 3. Dedicated Grafana Container & Automatic Provisioning
+A dedicated Grafana service is integrated in `docker-compose.yaml`. It automatically provisions a PostgreSQL datasource pointing to the database container.
+
+1. **Access Grafana**:
+   Open your browser and navigate to `http://localhost:3000`.
+2. **Log In**:
+   Use default credentials:
+   *   **Username**: `admin`
+   *   **Password**: `admin` (or whatever was configured in `docker-compose.yaml` under `GF_SECURITY_ADMIN_PASSWORD`).
+3. **Provisioned Datasource**:
+   The `PostgreSQL` datasource is pre-configured and immediately available for queries.
+
+To visualize metrics in your dashboard panels, use the following SQL queries:
 
 #### Panel A: Permissions Integrity Score (Line Graph)
 Shows the percentage of fobs with correct controller permissions (1.0 = 100% integrity).
