@@ -86,7 +86,7 @@ select count(*), kf.fob_id, swipe_timestamp::date rec_date, d.door_desc, o.last_
 from door_controller.t_keyswipes tk 
 inner join key_fobs.keyfobs kf
 on tk.fob_id = kf.fob_id
-inner join key_fobs.door d 
+inner join door_controller.door d 
 on d.door_no = tk.door
 inner join key_fobs.properties p 
 on p.property_id = kf.property_id
@@ -104,7 +104,7 @@ select count(*), tk.fob_id, swipe_timestamp::date, d.door_desc
 from door_controller.t_keyswipes tk 
 full outer join key_fobs.keyfobs kf
 on tk.fob_id = kf.fob_id
-inner join key_fobs.door d 
+inner join door_controller.door d 
 on d.door_no = tk.door
 where tk.status = 'Forbid' and kf.fob_id is null
 group by tk.fob_id, swipe_timestamp::date, d.door_desc
