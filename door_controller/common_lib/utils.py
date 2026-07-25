@@ -3,9 +3,13 @@ import datetime
 import logging
 import os
 import webbrowser
+import sys
 
 # Configure basic logging for all tools using this utility
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.StreamHandler(sys.stdout)
+                    ]
+)
 
 
 def get_current_timestamp():

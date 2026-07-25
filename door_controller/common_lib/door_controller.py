@@ -39,8 +39,8 @@ class door_controller:
             try:
                 response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
                 # Debugging code
-                raw_sent_string = response.request.body
-                print(raw_sent_string)
+                # raw_sent_string = response.request.body
+                # print(raw_sent_string)
                 # Check for successful response
                 if response.status_code == 200:
                     return response

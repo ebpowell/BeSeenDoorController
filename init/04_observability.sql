@@ -81,31 +81,38 @@ ON lsf.fob_id = k.fob_id
 WHERE k.fob_id IS NULL;
 
 -- Generate data set of resident fobs incorrectly denied by week, door, fob_id, and family
-create or replace view door_controller.v_export_resident_forbids as
-select count(*), kf.fob_id, swipe_timestamp::date rec_date, d.door_desc, o.last_name
-from door_controller.t_keyswipes tk 
-inner join key_fobs.keyfobs kf
-on tk.fob_id = kf.fob_id
-inner join door_controller.door d 
-on d.door_no = tk.door
-inner join key_fobs.properties p 
-on p.property_id = kf.property_id
-inner join key_fobs.owners o
-on o.property_id = p.property_id
-where tk.status = 'Forbid'
-group by kf.fob_id, swipe_timestamp::date, d.door_desc, o.last_name
-order by swipe_timestamp::date desc;
+-- door_controller.v_export_resident_forbids source
+
+CREATE OR REPLACE VIEW door_controller.v_export_resident_forbids
+AS SELECT count(*) AS count,
+    kf.fob_id,
+    tk.swipe_timestamp::date AS rec_date,
+    d.door_desc,
+    o.last_name
+   FROM door_controller.t_keyswipes tk
+     JOIN key_fobs.keyfobs kf ON tk.fob_id = kf.fob_id
+     JOIN door_controller.door d ON d.door_no = tk.door
+     and d.controller_ip = concat(split_part(tk.door_controller_ip,'//',2),'/32')::cidr
+     JOIN key_fobs.properties p ON p.property_id = kf.property_id
+     JOIN key_fobs.owners o ON o.property_id = p.property_id
+  WHERE tk.status = 'Forbid'::text
+  GROUP BY kf.fob_id, (tk.swipe_timestamp::date), d.door_desc, o.last_name
+  ORDER BY (tk.swipe_timestamp::date) DESC;
 
 -- Opposite of above - list of fob_ids denied access that are not registered with the 
 -- official list representing fobs that shouldn't be in circulation
 drop view if exists door_controller.v_export_valid_forbids;
-create or replace view door_controller.v_export_valid_forbids as
-select count(*), tk.fob_id, swipe_timestamp::date, d.door_desc
-from door_controller.t_keyswipes tk 
-full outer join key_fobs.keyfobs kf
-on tk.fob_id = kf.fob_id
-inner join door_controller.door d 
-on d.door_no = tk.door
-where tk.status = 'Forbid' and kf.fob_id is null
-group by tk.fob_id, swipe_timestamp::date, d.door_desc
-order by swipe_timestamp::date desc;
+-- door_controller.v_export_valid_forbids source
+
+CREATE OR REPLACE VIEW door_controller.v_export_valid_forbids
+AS SELECT count(*) AS count,
+    tk.fob_id,
+    tk.swipe_timestamp::date AS swipe_timestamp,
+    d.door_desc
+   FROM door_controller.t_keyswipes tk
+     FULL JOIN key_fobs.keyfobs kf ON tk.fob_id = kf.fob_id
+     JOIN door_controller.door d ON d.door_no = tk.door
+     and d.controller_ip = concat(split_part(tk.door_controller_ip,'//',2),'/32')::cidr
+  WHERE tk.status = 'Forbid'::text AND kf.fob_id IS NULL
+  GROUP BY tk.fob_id, (tk.swipe_timestamp::date), d.door_desc
+  ORDER BY (tk.swipe_timestamp::date) DESC;
