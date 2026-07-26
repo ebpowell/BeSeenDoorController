@@ -4,10 +4,11 @@ import re
 import threading
 from datetime import datetime, date, timedelta
 
-from door_controller.common_lib.utils import log_info, log_error, load_config
+from door_controller.common_lib.utils import log_info, log_error, load_config, extract_cidr, parse_door_name
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.key_management_application.db_manager import FobDatabaseManager
+from door_controller.common_lib.controller_scheduler import ControllerScheduler
 
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns a non-200 status code."""
@@ -17,87 +18,50 @@ class ExternalSystemError(Exception):
         super().__init__(f"Request failed with status code: {status_code}")
 
 
-class AccessSynchronizer:
+class AccessSynchronizer(ControllerScheduler):
     """
         Update the permissions for the fobs on a door controller based on the database schedule rules
         Add any missing fobs to the controller and set permissions. 
     """
     def __init__(self, username, password, db_config):  
+        # Initialize the superclass
+
         self.username = username
         self.password = password
         self.db_config = db_config
         self.db_mgr = FobDatabaseManager(db_config)
 
-    def extract_cidr(self, url):
-        """
-        Extracts the IP and appends '/32' subnet mask from a given controller URL.
-        """
-        ip_port = url.split("://")[-1]
-        ip = ip_port.split(":")[0]
-        return f"{ip}/32"
-
-    def parse_door_name(self, door_name):
-        """
-        Parses door name like "Door 01" to an integer.
-        """
-        if not door_name:
-            return None
-        digits = ''.join(c for c in door_name if c.isdigit())
-        if digits:
-            return int(digits)
-        return None
-
-    def get_expected_permissions(self, fob_id, cidr):
-        """
-        Helper to get expected permissions for a fob_id on a given controller from database.
-        """
-        query = """
-            SELECT door_no, allow
-            FROM key_fobs.vint_acl_data
-            WHERE fob_id = %s AND controller_ip = %s
-            and start_time <= now()::time and (end_time is null or end_time >= now()::time)
-            and start_date <= now()::date and (end_date is null or end_date >= now()::date);
-        """
-        expected = {}
-        with self.db_mgr._get_connection() as conn:
-            with conn.cursor() as cur:
-                # print(query, (fob_id, cidr))
-                cur.execute(query, (fob_id, cidr))
-                for door_no, allow in cur.fetchall():
-                    expected[int(door_no)] = allow
-        return expected
-
-    def derive_run_schedule(self, controller_ip, reference_time=None):
-        """
-        Derives the run-schedule for the next 24 hours based on when permissions change
-        throughout the day using key_fobs.f_get_runtimes.
-        """
-        ref = reference_time or datetime.now()
-        today = ref.date()
-        tomorrow = today + timedelta(days=1)
+    # def derive_run_schedule(self, controller_ip, reference_time=None):
+    #     """
+    #     Derives the run-schedule for the next 24 hours based on when permissions change
+    #     throughout the day using key_fobs.f_get_runtimes.
+    #     """
+    #     ref = reference_time or datetime.now()
+    #     today = ref.date()
+    #     tomorrow = today + timedelta(days=1)
         
-        # Fetch runtimes for today and tomorrow
-        today_times = self.db_mgr.get_runtimes_for_date(today, controller_ip)
-        tomorrow_times = self.db_mgr.get_runtimes_for_date(tomorrow, controller_ip)
+    #     # Fetch runtimes for today and tomorrow
+    #     today_times = self.db_mgr.get_runtimes_for_date(today, controller_ip)
+    #     tomorrow_times = self.db_mgr.get_runtimes_for_date(tomorrow, controller_ip)
         
-        schedule = []
+    #     schedule = []
         
-        # Helper to combine date and time
-        def add_to_schedule(d, t_list):
-            for t in t_list:
-                if (t.hour == 0 and t.minute == 0) or (t.hour == 23 and t.minute == 59):
-                    continue
-                dt = datetime.combine(d, t)
-                # Filter for future times within the next 24 hours relative to reference_time
-                if ref < dt <= ref + timedelta(hours=24):
-                    schedule.append(dt)
+    #     # Helper to combine date and time
+    #     def add_to_schedule(d, t_list):
+    #         for t in t_list:
+    #             if (t.hour == 0 and t.minute == 0) or (t.hour == 23 and t.minute == 59):
+    #                 continue
+    #             dt = datetime.combine(d, t)
+    #             # Filter for future times within the next 24 hours relative to reference_time
+    #             if ref < dt <= ref + timedelta(hours=24):
+    #                 schedule.append(dt)
                     
-        add_to_schedule(today, today_times)
-        add_to_schedule(tomorrow, tomorrow_times)
+    #     add_to_schedule(today, today_times)
+    #     add_to_schedule(tomorrow, tomorrow_times)
         
-        schedule.sort()
-        print(f"Controller {controller_ip} schedule: \n", schedule)
-        return schedule
+    #     schedule.sort()
+    #     print(f"Controller {controller_ip} schedule: \n", schedule)
+    #     return schedule
 
     def synchronize_access(self, controller_url, limit_changes=None):
         """
@@ -106,7 +70,7 @@ class AccessSynchronizer:
         log_info(f"Starting synchronization for controller: {controller_url}")
         
         changes_made = 0
-        cidr = self.extract_cidr(controller_url)
+        cidr = extract_cidr(controller_url)
         
         # Fetch expected fobs from database
         try:
@@ -142,7 +106,7 @@ class AccessSynchronizer:
                             
                             # Get permissions for Fobid from database
                             log_info(f"Updating permissions for record: {rec_id}")
-                            expected_perms = self.get_expected_permissions(fob_id, cidr)
+                            expected_perms = self.db_mgr.get_expected_permissions(fob_id, cidr)
                             target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
                             # Update the controller
                             response = data_manager.set_permissions(target_perms_new, rec_id)
@@ -175,7 +139,7 @@ class AccessSynchronizer:
                                 
                                 # Get permissions for Fobid from database
                                 log_info(f"Updating permissions for record: {rec_id}")
-                                expected_perms = self.get_expected_permissions(fob_id, cidr)
+                                expected_perms = self.db_mgr.get_expected_permissions(fob_id, cidr)
                                 target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
                                 # Update the controller
                                 response = data_manager.set_permissions(target_perms_new, rec_id)
@@ -194,14 +158,14 @@ class AccessSynchronizer:
                 current_perms = {}
                 for perm_row in current_perms_rows:
                     door_name = perm_row[2]
-                    door_no = self.parse_door_name(door_name)
+                    door_no = parse_door_name(door_name)
                     allow_str = perm_row[3]
                     allow = (allow_str == "Allow")
                     if door_no is not None:
                         current_perms[door_no] = allow
                         
                 # Get expected permissions from database
-                expected_perms = self.get_expected_permissions(fob_id, cidr)
+                expected_perms = self.db_mgr.get_expected_permissions(fob_id, cidr)
                 
                 # Compare
                 delta = False
@@ -255,69 +219,69 @@ class AccessSynchronizer:
         log_info(f"Finished synchronization for controller: {controller_url}")
         return True
 
-    def run_controller_sync_loop(self, controller_url, limit_changes=None):
-        """
-        The main daemon scheduling loop running in its own thread for a specific controller.
-        """
-        log_info(f"Starting schedule check loop for controller: {controller_url}")
+    # def run_controller_sync_loop(self, controller_url, limit_changes=None):
+    #     """
+    #     The main daemon scheduling loop running in its own thread for a specific controller.
+    #     """
+    #     log_info(f"Starting schedule check loop for controller: {controller_url}")
         
-        # Initial startup synchronization to ensure consistency
-        now = datetime.now()
-        if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
-            log_info(f"Skipping initial startup synchronization for {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
-        else:
-            log_info(f"Executing initial startup synchronization for {controller_url}...")
-            self.synchronize_access(controller_url, limit_changes=limit_changes)
+    #     # Initial startup synchronization to ensure consistency
+    #     now = datetime.now()
+    #     if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
+    #         log_info(f"Skipping initial startup synchronization for {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
+    #     else:
+    #         log_info(f"Executing initial startup synchronization for {controller_url}...")
+    #         self.synchronize_access(controller_url, limit_changes=limit_changes)
             
-        last_sync_time = datetime.now()
-        log_info(f"Initial synchronization complete for {controller_url}. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    #     last_sync_time = datetime.now()
+    #     log_info(f"Initial synchronization complete for {controller_url}. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
-        controller_ip = self.extract_cidr(controller_url)
+    #     controller_ip = extract_cidr(controller_url)
         
-        while True:
-            try:
-                now = datetime.now()
-                # Handle time backward adjustments or resets
-                if now < last_sync_time:
-                    last_sync_time = now
+    #     while True:
+    #         try:
+    #             now = datetime.now()
+    #             # Handle time backward adjustments or resets
+    #             if now < last_sync_time:
+    #                 last_sync_time = now
                     
-                # Cap the lookback window to 24 hours to keep schedule calculation bounded
-                if now - last_sync_time > timedelta(hours=24):
-                    log_info(f"last_sync_time for {controller_url} is older than 24 hours. Resetting check window to the last 24 hours.")
-                    last_sync_time = now - timedelta(hours=24)
+    #             # Cap the lookback window to 24 hours to keep schedule calculation bounded
+    #             if now - last_sync_time > timedelta(hours=24):
+    #                 log_info(f"last_sync_time for {controller_url} is older than 24 hours. Resetting check window to the last 24 hours.")
+    #                 last_sync_time = now - timedelta(hours=24)
                     
-                # Derive schedule from the last sync time
-                schedule = self.derive_run_schedule(controller_ip, reference_time=last_sync_time)
+    #             # Derive schedule from the last sync time
+    #             schedule = self.derive_run_schedule(controller_ip, reference_time=last_sync_time)
                 
-                # Check for any events that have occurred up to 'now'
-                pending_events = [dt for dt in schedule if dt <= now]
+    #             # Check for any events that have occurred up to 'now'
+    #             pending_events = [dt for dt in schedule if dt <= now]
                 
-                if pending_events:
-                    log_info(f"Triggering synchronization for {controller_url} scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
-                    self.synchronize_access(controller_url, limit_changes=limit_changes)
-                    last_sync_time = now
+    #             if pending_events:
+    #                 log_info(f"Triggering synchronization for {controller_url} scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
+    #                 self.synchronize_access(controller_url, limit_changes=limit_changes)
+    #                 last_sync_time = now
                     
-            except Exception as e:
-                log_error(f"Error in scheduler daemon loop for {controller_url}: {e}", exc_info=True)
+    #         except Exception as e:
+    #             log_error(f"Error in scheduler daemon loop for {controller_url}: {e}", exc_info=True)
                 
-            time.sleep(30)
+    #         time.sleep(30)
 
-    def start_scheduler_threads(self, controller_urls, limit_changes=None):
-        """
-        Spawns a separate daemon thread for each controller in the controller_urls list.
-        Each thread executes run_controller_sync_loop on its own schedule.
-        """
-        threads = []
-        for url in controller_urls:
-            t = threading.Thread(
-                target=self.run_controller_sync_loop,
-                args=(url, limit_changes),
-                name=f"SyncThread-{url}"
-            )
-            t.daemon = True
-            t.start()
-            threads.append(t)
-        return threads
+    # def start_scheduler_threads(self, controller_urls, limit_changes=None):
+    #     """
+    #     Spawns a separate daemon thread for each controller in the controller_urls list.
+    #     Each thread executes run_controller_sync_loop on its own schedule.
+    #     """
+    #     threads = []
+    #     for url in controller_urls:
+    #         t = threading.Thread(
+    #             target=self.run_controller_sync_loop,
+    #             args=(url, limit_changes),
+    #             name=f"SyncThread-{url}"
+    #         )
+    #         t.daemon = True
+    #         t.start()
+    #         threads.append(t)
+    #     return threads
 
 
 def main(argv=None):

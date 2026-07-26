@@ -103,4 +103,23 @@ def render_output(html_string):
     # Or save to a file and open the file
     with open("temp.html", "w") as f:
         f.write(html_string)
-    webbrowser.open_new_tab("temp.html")
+    webbrowser.open_new_tab("temp.html")\
+
+def extract_cidr(url):
+    """
+    Extracts the IP and appends '/32' subnet mask from a given controller URL.
+    """
+    ip_port = url.split("://")[-1]
+    ip = ip_port.split(":")[0]
+    return f"{ip}/32"
+
+def parse_door_name(door_name):
+    """
+    Parses door name like "Door 01" to an integer.
+    """
+    if not door_name:
+        return None
+    digits = ''.join(c for c in door_name if c.isdigit())
+    if digits:
+        return int(digits)
+    return None

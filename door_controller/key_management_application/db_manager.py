@@ -730,3 +730,23 @@ class FobDatabaseManager:
                 cur.execute(query, (fob_id,))
                 row = cur.fetchone()
                 return row[0] if row else None
+
+    def get_expected_permissions(self, fob_id, cidr):
+            """
+            Helper to get expected permissions for a fob_id on a given controller from database.
+            """
+            query = """
+                SELECT door_no, allow
+                FROM key_fobs.vint_acl_data
+                WHERE fob_id = %s AND controller_ip = %s
+                and start_time <= now()::time and (end_time is null or end_time >= now()::time)
+                and start_date <= now()::date and (end_date is null or end_date >= now()::date);
+            """
+            expected = {}
+            with self.db_mgr._get_connection() as conn:
+                with conn.cursor() as cur:
+                    # print(query, (fob_id, cidr))
+                    cur.execute(query, (fob_id, cidr))
+                    for door_no, allow in cur.fetchall():
+                        expected[int(door_no)] = allow
+            return expected

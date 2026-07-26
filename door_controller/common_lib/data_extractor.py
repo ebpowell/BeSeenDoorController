@@ -12,34 +12,36 @@ class ww_data_extractor:
         self.obj_db = the_db
         self.iterations =  5
 
-    def get_historical_fob_swipes(self):
-        self.obj_db.purge_db('system_swipes')
-        obj_swipe = fob_swipes(self.url, self.username, self.password)
-        lst_swipes = obj_swipe.get_new_swipes(5)
-        self.obj_db.write_db(lst_swipes, obj_swipe.sql)
-        print("get_new_swipes Complete")
-        # Query the database to get the last recordid
-        query = F""""SELECT min(record_id) FROM system_swipes where door_controller=('{self.url}'"""
-        max_id = self.obj_db.get_maxid(query)
-        print("Starting ID:", max_id)
-        for x in range(0, 21):
-            try:
-                for y in range(0, 5):
-                    try:
-                        print("get_swipe_range Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
-                        lst_swipes = obj_swipe.get_swipe_range(self.iterations, max_id)
-                        break
-                    except:
-                        pass
-                        time.sleep(10)
-            except:
-                raise
-            self.obj_db.write_db(lst_swipes, obj_swipe.sql)
-            time.sleep(5)
-            # ASK THE DATABASE WHERE TO RESTART
-            max_id = self.obj_db.get_maxid(query)
-            if max_id == 1:
-                break
+    # DEPRECATED FUNCTION
+
+    # def get_historical_fob_swipes(self):
+    #     self.obj_db.purge_db('system_swipes')
+    #     obj_swipe = fob_swipes(self.url, self.username, self.password)
+    #     lst_swipes = obj_swipe.get_new_swipes(5)
+    #     self.obj_db.write_db(lst_swipes, obj_swipe.sql)
+    #     print("get_new_swipes Complete")
+    #     # Query the database to get the last recordid
+    #     query = F""""SELECT min(record_id) FROM system_swipes where door_controller=('{self.url}'"""
+    #     max_id = self.obj_db.get_maxid(query)
+    #     print("Starting ID:", max_id)
+    #     for x in range(0, 21):
+    #         try:
+    #             for y in range(0, 5):
+    #                 try:
+    #                     print("get_swipe_range Connect Attempt:", y, 'Pass:', x, 'Starting Record ID', max_id)
+    #                     lst_swipes = obj_swipe.get_swipe_range(self.iterations, max_id)
+    #                     break
+    #                 except:
+    #                     pass
+    #                     time.sleep(10)
+    #         except:
+    #             raise
+    #         self.obj_db.write_db(lst_swipes, obj_swipe.sql)
+    #         time.sleep(5)
+    #         # ASK THE DATABASE WHERE TO RESTART
+    #         max_id = self.obj_db.get_maxid(query)
+    #         if max_id == 1:
+    #             break
 
     def get_recent_fob_swipes(self):
         # Function to pull only Fob swipes added tp system since last poll to keep external
