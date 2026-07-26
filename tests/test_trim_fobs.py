@@ -109,7 +109,7 @@ class TestRemoveOrphanedFobs(unittest.TestCase):
         mock_remove_orphans.assert_any_call('http://69.21.119.147', None)
         mock_remove_orphans.assert_any_call('http://69.21.119.148', None)
 
-    @patch('door_controller.key_management_application.trim_fobs.datetime')
+    @patch('door_controller.common_lib.controller_scheduler.datetime')
     @patch('door_controller.key_management_application.trim_fobs.time.sleep')
     @patch.object(RemoveOrphanedFobs, 'remove_orphans')
     def test_run_controller_sync_loop_skips_at_edge_times(self, mock_remove_orphans, mock_sleep, mock_datetime):

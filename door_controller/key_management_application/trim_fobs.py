@@ -16,13 +16,23 @@ class RemoveOrphanedFobs(ControllerScheduler):
     Remove FobIDs from the controller that are not present in the database.
     """
 
-    def __init__(self, username, password, db_config):  
-        # Initialize the the superclass
-
+    def __init__(self, username, password, db_mgr_or_config, recurrence_interval=3600):  
+        if hasattr(db_mgr_or_config, '_get_connection') or hasattr(db_mgr_or_config, 'list_fobs'):
+            db_mgr = db_mgr_or_config
+        else:
+            db_mgr = FobDatabaseManager(db_mgr_or_config)
+            
+        super().__init__(db_mgr, recurrence_interval=recurrence_interval, use_runtime_schedule=False)
         self.username = username
         self.password = password
-        self.db_config = db_config
-        self.db_mgr = FobDatabaseManager(db_config)
+        self.db_config = db_mgr.conn_str
+        self.db_mgr = db_mgr
+
+    def execute_action(self, controller_url, limit_changes=None):
+        return self.remove_orphans(controller_url, limit_changes=limit_changes)
+
+    def extract_cidr(self, url):
+        return extract_cidr(url)
 
   
     def get_all_fobs_from_controller(self, url, data_manager):
@@ -131,54 +141,6 @@ class RemoveOrphanedFobs(ControllerScheduler):
         
         log_info(f"Finished orphan removal for controller: {controller_url}")
         return True
-
-    # def run_controller_sync_loop(self, controller_url, recurrence_interval, limit_changes=None):
-    #     """
-    #     The main daemon scheduling loop running in its own thread for a specific controller.
-    #     It runs remove_orphans periodically based on the recurrence interval.
-    #     """
-    #     log_info(f"Starting schedule check loop for controller: {controller_url} with recurrence interval {recurrence_interval} seconds")
-        
-    #     # Initial run on startup
-    #     now = datetime.now()
-    #     if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
-    #         log_info(f"Skipping initial startup orphan removal for {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
-    #     else:
-    #         log_info(f"Executing initial startup orphan removal for {controller_url}...")
-    #         self.remove_orphans(controller_url, limit_changes=limit_changes)
-        
-    #     while True:
-    #         try:
-    #             # Sleep for the configured recurrence interval
-    #             time.sleep(recurrence_interval)
-                
-    #             now = datetime.now()
-    #             if (now.hour == 0 and now.minute == 0) or (now.hour == 23 and now.minute == 59):
-    #                 log_info(f"Skipping scheduled orphan removal for controller {controller_url} at {now.strftime('%H:%M')} because it matches 12:00am/11:59pm.")
-    #                 continue
-                
-    #             log_info(f"Triggering scheduled orphan removal for controller {controller_url}...")
-    #             self.remove_orphans(controller_url, limit_changes=limit_changes)
-    #         except Exception as e:
-    #             log_error(f"Error in scheduler daemon loop for {controller_url}: {e}", exc_info=True)
-
-    # def start_scheduler_threads(self, controller_urls, recurrence_interval, limit_changes=None):
-    #     """
-    #     Spawns a separate daemon thread for each controller in the controller_urls list.
-    #     Each thread executes run_controller_sync_loop on its own recurrence schedule.
-    #     """
-    #     threads = []
-    #     for url in controller_urls:
-    #         t = threading.Thread(
-    #             target=self.run_controller_sync_loop,
-    #             args=(url, recurrence_interval, limit_changes),
-    #             name=f"SyncThread-{url}"
-    #         )
-    #         t.daemon = True
-    #         t.start()
-    #         threads.append(t)
-    #     return threads
-
 
 def main(argv=None):
     import sys

@@ -743,7 +743,7 @@ class FobDatabaseManager:
                 and start_date <= now()::date and (end_date is null or end_date >= now()::date);
             """
             expected = {}
-            with self.db_mgr._get_connection() as conn:
+            with self._get_connection() as conn:
                 with conn.cursor() as cur:
                     # print(query, (fob_id, cidr))
                     cur.execute(query, (fob_id, cidr))

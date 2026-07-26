@@ -33,17 +33,20 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(self.sync.parse_door_name(None), None)
 
     def test_get_expected_permissions(self):
+        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        real_db_mgr = FobDatabaseManager('postgresql://db')
         mock_conn = MagicMock()
         mock_cur = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cur
-        self.mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
-
-        mock_cur.fetchall.return_value = [
-            (1, True),
-            (2, False)
-        ]
-        perms = self.sync.get_expected_permissions(1001, '69.21.119.147/32')
-        self.assertEqual(perms, {1: True, 2: False})
+        
+        with patch.object(real_db_mgr, '_get_connection') as mock_get_conn:
+            mock_get_conn.return_value.__enter__.return_value = mock_conn
+            mock_cur.fetchall.return_value = [
+                (1, True),
+                (2, False)
+            ]
+            perms = real_db_mgr.get_expected_permissions(1001, '69.21.119.147/32')
+            self.assertEqual(perms, {1: True, 2: False})
 
     def test_derive_run_schedule(self):
         ref_time = datetime(2026, 6, 16, 22, 30, 0)
@@ -160,7 +163,7 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(schedule[1], datetime(2026, 6, 17, 8, 0, 0))
         self.assertEqual(schedule[2], datetime(2026, 6, 17, 22, 0, 0))
 
-    @patch('door_controller.key_management_application.update_access.datetime')
+    @patch('door_controller.common_lib.controller_scheduler.datetime')
     @patch('door_controller.key_management_application.update_access.time.sleep')
     @patch.object(AccessSynchronizer, 'synchronize_access')
     @patch.object(AccessSynchronizer, 'derive_run_schedule')
