@@ -55,6 +55,30 @@ services:
     depends_on:
       - postgres
 
+  trimfobs:
+    image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    container_name: trimfobs
+    restart: unless-stopped
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
+      # Make sure container and host use the same Timezone
+      - /etc/localtime:/etc/localtime:ro
+
+    environment:
+      # Tell your app where to find config files
+      APP_CONFIG_DIR: /app/config
+      TZ: America/New_York
+
+    # Set the user to run processes inside the container
+    user: doorcontroller
+
+    # Run trim fobs daemon on startup
+    command: ["trim_fobs", "--daemon"]
+    depends_on:
+      - postgres
+
   postgres:
     image: ghcr.io/ebpowell/beseendoorcontroller/postgres:sha-1412556
     build:

@@ -176,7 +176,10 @@ The scheduler recurrence interval for `trim_fobs` is configured in `config/confi
 ```yaml
 settings:
   recurrence: 3600 # Sync interval in seconds (e.g. 1 hour)
-```services:
+```
+
+```yaml
+services:
   keymanagement:
     image: key-management-app:latest
     container_name: keymanagement
@@ -192,6 +195,18 @@ settings:
   doorcontroller:
     image: cli-synch-tools:latest
     container_name: cli-synch-tools
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
+      - /etc/localtime:/etc/localtime:ro
+
+  trimfobs:
+    image: cli-synch-tools:latest
+    container_name: trimfobs
     restart: unless-stopped
     environment:
       - TZ=America/New_York
@@ -220,6 +235,8 @@ settings:
       - /mnt/sda1/postgresql:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d/
       - /etc/localtime:/etc/localtime:ro
+```
+
 
 - **Update Access Permissions (update_access)**:
   Synchronizes database fob list and ACL permissions to all configured door controllers. It executes multi-threaded runs where each controller is updated in parallel on its own schedule.
