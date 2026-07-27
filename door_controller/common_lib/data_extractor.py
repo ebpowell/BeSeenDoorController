@@ -2,6 +2,7 @@
 import time
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.swipes import fob_swipes
+from door_controller.common_lib.utils import log_info, log_error
 
 
 class ww_data_extractor:
@@ -57,7 +58,7 @@ class ww_data_extractor:
         lst_swipes = obj_swipe.get_new_swipes(5)
         # new Swipes starts at newest swipe and works backwards
         self.obj_db.insert_swipe_record(lst_swipes, db_max_id)
-        print("get_new_swipes Complete")
+        log_info("get_new_swipes Complete")
         rec_count = len(lst_swipes)
         if rec_count > 0:
             max_id = lst_swipes[rec_count-1][0]
@@ -65,7 +66,7 @@ class ww_data_extractor:
             return
         # if target_id < int(db_max_id):
         if db_max_id < int(max_id):
-            print("Starting ID:", max_id)
+            log_info("Starting ID:", max_id)
             for x in range(0, 21):
                 # try:
                 for y in range(0, 5):
@@ -84,9 +85,9 @@ class ww_data_extractor:
                 # Pull next batch of records where the previous batch ended
                 rec_count = len(lst_swipes)
                 if rec_count > 0:
-                    print('Records Returned: ',rec_count)
+                    log_info('Records Returned: ',rec_count)
                     max_id = lst_swipes[rec_count-1][0]
-                print('Max_id:', max_id)
+                log_info('Max_id:', max_id)
                 # db_max_id = self.obj_db.get_maxid(query)
                 if int(max_id) <= db_max_id:
                     break

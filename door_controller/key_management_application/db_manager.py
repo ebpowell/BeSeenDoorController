@@ -704,7 +704,7 @@ class FobDatabaseManager:
         """
         if isinstance(target_date, datetime.datetime):
             target_date = target_date.date()
-        log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
+        # log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
         if controller_ip:
             query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date, %s::cidr) ORDER BY run_times ASC;"
             params = (target_date, controller_ip)
