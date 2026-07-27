@@ -625,6 +625,161 @@
                 opacity: 0;
             }
         }
+
+        /* Mobile & Tablet Responsive Enhancements */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem 0.75rem 2rem 0.75rem;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+                margin-bottom: 1.25rem;
+                padding-bottom: 1rem;
+            }
+
+            .header-actions {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+                gap: 0.75rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .nav-tabs {
+                display: flex;
+                gap: 0.5rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 0.5rem;
+                margin-bottom: 1.25rem;
+                scrollbar-width: none;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+                display: none;
+            }
+
+            .nav-tab {
+                white-space: nowrap;
+                padding: 0.65rem 0.95rem;
+                font-size: 0.85rem;
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                border-radius: 8px;
+            }
+
+            .glass-card {
+                padding: 1.25rem 1rem;
+                margin-bottom: 1.25rem;
+                border-radius: 14px;
+            }
+
+            h2 {
+                font-size: 1.2rem;
+            }
+
+            input, select {
+                font-size: 16px; /* Prevents auto-zoom on iOS */
+                min-height: 44px;
+                padding: 0.75rem;
+            }
+
+            .btn {
+                min-height: 44px;
+            }
+
+            .toast-container {
+                bottom: 1rem;
+                right: 0.75rem;
+                left: 0.75rem;
+                min-width: auto;
+            }
+
+            .toast {
+                min-width: auto;
+                width: 100%;
+                font-size: 0.9rem;
+                padding: 0.85rem 1rem;
+            }
+
+            .modal-content {
+                padding: 1.25rem;
+                width: 95%;
+            }
+
+            /* Responsive Table Mobile Cards */
+            .table-responsive.mobile-cards table,
+            .table-responsive.mobile-cards thead,
+            .table-responsive.mobile-cards tbody,
+            .table-responsive.mobile-cards th,
+            .table-responsive.mobile-cards td,
+            .table-responsive.mobile-cards tr {
+                display: block;
+            }
+
+            .table-responsive.mobile-cards {
+                border: none;
+            }
+
+            .table-responsive.mobile-cards thead {
+                display: none;
+            }
+
+            .table-responsive.mobile-cards tr {
+                background: rgba(15, 17, 26, 0.7);
+                border: 1px solid var(--card-border);
+                border-radius: 12px;
+                margin-bottom: 0.85rem;
+                padding: 0.85rem 1rem;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            }
+
+            .table-responsive.mobile-cards td {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.65rem 0;
+                font-size: 0.9rem;
+                text-align: right;
+            }
+
+            .table-responsive.mobile-cards td:last-child {
+                border-bottom: none;
+                padding-bottom: 0.2rem;
+            }
+
+            .table-responsive.mobile-cards td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-secondary);
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-right: 1rem;
+                text-align: left;
+                flex-shrink: 0;
+            }
+
+            .table-responsive.mobile-cards td.no-data {
+                display: block;
+                text-align: center;
+                padding: 2rem 1rem;
+            }
+
+            .table-responsive.mobile-cards td.no-data::before {
+                display: none;
+            }
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -635,7 +790,7 @@
                 <div class="logo-dot"></div>
                 <h1>BeSeen Door Controller</h1>
             </div>
-            <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <div class="header-actions">
                 <div class="status-badge">
                     <div class="status-dot"></div>
                     <span>Database Connected</span>

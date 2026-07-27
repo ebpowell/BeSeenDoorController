@@ -63,7 +63,7 @@
                 </div>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table id="fobTable">
                     <thead>
                         <tr>
@@ -77,10 +77,10 @@
                         {% if fobs %}
                             {% for fob in fobs %}
                                 <tr>
-                                    <td><span class="fob-id-badge">{{ fob.fob_id }}</span></td>
-                                    <td><span class="address-badge">{{ fob.address }}</span></td>
-                                    <td><span class="owner-name">{% if fob.owner_name %}{{ fob.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
-                                    <td style="text-align: right;">
+                                    <td data-label="Fob ID"><span class="fob-id-badge">{{ fob.fob_id }}</span></td>
+                                    <td data-label="Assigned Address"><span class="address-badge">{{ fob.address }}</span></td>
+                                    <td data-label="Inherited Owner"><span class="owner-name">{% if fob.owner_name %}{{ fob.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td data-label="Actions" style="text-align: right;">
                                         <form action="/fob/remove/{{ fob.fob_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete fob {{ fob.fob_id }}?');">
                                             <button type="submit" class="btn btn-danger-outline">Delete</button>
                                         </form>
@@ -105,7 +105,7 @@
                 </svg>
                 Fob Replacement Logs (Metadata History)
             </h2>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table>
                     <thead>
                         <tr>
@@ -120,11 +120,11 @@
                         {% if replacement_logs %}
                             {% for log in replacement_logs %}
                                 <tr>
-                                    <td>{{ log.replacement_id }}</td>
-                                    <td><span class="address-badge">{{ log.address }}</span></td>
-                                    <td><span class="fob-id-badge">{{ log.replaced_fob_id }}</span></td>
-                                    <td><span class="fob-id-badge">{{ log.new_fob_id }}</span></td>
-                                    <td class="timestamp">{{ log.replaced_at.strftime('%Y-%m-%d %H:%M:%S') if log.replaced_at else 'N/A' }}</td>
+                                    <td data-label="Log ID">{{ log.replacement_id }}</td>
+                                    <td data-label="Property Address"><span class="address-badge">{{ log.address }}</span></td>
+                                    <td data-label="Replaced Fob ID"><span class="fob-id-badge">{{ log.replaced_fob_id }}</span></td>
+                                    <td data-label="New Fob ID"><span class="fob-id-badge">{{ log.new_fob_id }}</span></td>
+                                    <td data-label="Timestamp" class="timestamp">{{ log.replaced_at.strftime('%Y-%m-%d %H:%M:%S') if log.replaced_at else 'N/A' }}</td>
                                 </tr>
                             {% endfor %}
                         {% else %}
@@ -145,7 +145,7 @@
                 </svg>
                 User Action Audit Logs
             </h2>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table>
                     <thead>
                         <tr>
@@ -159,10 +159,10 @@
                         {% if audit_logs %}
                             {% for log in audit_logs %}
                                 <tr>
-                                    <td><strong>{{ log.username }}</strong></td>
-                                    <td>{{ log.action }}</td>
-                                    <td>{{ log.details }}</td>
-                                    <td class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                    <td data-label="User"><strong>{{ log.username }}</strong></td>
+                                    <td data-label="Action">{{ log.action }}</td>
+                                    <td data-label="Details">{{ log.details }}</td>
+                                    <td data-label="Timestamp" class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
                                 </tr>
                             {% endfor %}
                         {% else %}

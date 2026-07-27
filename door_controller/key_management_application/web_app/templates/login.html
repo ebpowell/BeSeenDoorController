@@ -231,6 +231,45 @@
             50% { transform: scale(1.4); opacity: 0; }
             100% { transform: scale(1); opacity: 0; }
         }
+
+        /* Mobile Responsive Enhancements */
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem;
+            }
+
+            .login-card {
+                padding: 1.75rem 1.25rem;
+                border-radius: 16px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            input {
+                font-size: 16px; /* Prevents auto-zoom on iOS */
+                min-height: 44px;
+                padding: 0.75rem 1rem;
+            }
+
+            .btn {
+                min-height: 44px;
+            }
+
+            .toast-container {
+                bottom: 1rem;
+                right: 0.75rem;
+                left: 0.75rem;
+            }
+
+            .toast {
+                min-width: auto;
+                width: 100%;
+                font-size: 0.9rem;
+                padding: 0.85rem 1rem;
+            }
+        }
     </style>
 </head>
 <body>

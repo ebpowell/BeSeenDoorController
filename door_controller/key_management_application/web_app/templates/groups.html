@@ -56,7 +56,7 @@
                 </svg>
                 <input type="text" class="search-input" id="searchBox" placeholder="Search by name, group, or address..." onkeyup="filterGroups()">
             </div>
-            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <div class="table-responsive mobile-cards" style="max-height: 400px; overflow-y: auto;">
                 <table id="groupMappingsTable">
                     <thead>
                         <tr>
@@ -71,10 +71,10 @@
                         {% if role_properties %}
                             {% for mapping in role_properties %}
                                 <tr>
-                                    <td><span class="user-role">{{ mapping.group_name }}</span></td>
-                                    <td><span class="address-badge">{{ mapping.address }}</span></td>
-                                    <td><span class="owner-name">{% if mapping.owner_name %}{{ mapping.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
-                                    <td>
+                                    <td data-label="Group"><span class="user-role">{{ mapping.group_name }}</span></td>
+                                    <td data-label="Address"><span class="address-badge">{{ mapping.address }}</span></td>
+                                    <td data-label="Owner Full Name"><span class="owner-name">{% if mapping.owner_name %}{{ mapping.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td data-label="Last Name">
                                         <strong>
                                             {% if mapping.owner_name and mapping.owner_name.split() %}
                                                 {{ mapping.owner_name.split()[-1] }}
@@ -83,7 +83,7 @@
                                             {% endif %}
                                         </strong>
                                     </td>
-                                    <td style="text-align: right;">
+                                    <td data-label="Action" style="text-align: right;">
                                         <form action="/group/unassign" method="POST" style="display:inline;">
                                             <input type="hidden" name="group_id" value="{{ mapping.group_id }}">
                                             <input type="hidden" name="property_id" value="{{ mapping.property_id }}">
@@ -110,7 +110,7 @@
                 </svg>
                 User Action Audit Logs
             </h2>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table>
                     <thead>
                         <tr>
@@ -124,10 +124,10 @@
                         {% if audit_logs %}
                             {% for log in audit_logs %}
                                 <tr>
-                                    <td><strong>{{ log.username }}</strong></td>
-                                    <td>{{ log.action }}</td>
-                                    <td>{{ log.details }}</td>
-                                    <td class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                    <td data-label="User"><strong>{{ log.username }}</strong></td>
+                                    <td data-label="Action">{{ log.action }}</td>
+                                    <td data-label="Details">{{ log.details }}</td>
+                                    <td data-label="Timestamp" class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
                                 </tr>
                             {% endfor %}
                         {% else %}
