@@ -154,8 +154,11 @@ class door_controller:
             target_url = self.url + '/ACT_ID_701'
 
         data = {f"UNCLOSE{door_no}": f"Remote Open #{door_no} Door {door_desc}"}
+        # UNCLOSE1=Remote+Open+%231+Door+WW+Clubhouse
         try:
             response = self.get_httpresponse(target_url, data)
+            raw_sent_string = response.request.body
+            print(raw_sent_string)
             if response and getattr(response, 'status_code', None) == 200:
                 log_info(f"Door {door_desc} remotely opened via app")
                 return response
