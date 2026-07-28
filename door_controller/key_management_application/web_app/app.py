@@ -380,6 +380,66 @@ def toggle_agreement(reservation_id):
 
     return redirect(url_for('reservations'))
 
+@app.route('/doors')
+@login_required
+def doors():
+    try:
+        door_list = get_db_mgr().get_door_details()
+        audit_logs = get_db_mgr().list_audit_logs()
+        return render_template('doors.html', doors=door_list, audit_logs=audit_logs)
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load door details. {e}")
+        flash(f"Error loading doors from database: {e}", "danger")
+        return render_template('doors.html', doors=[], audit_logs=[])
+
+@app.route('/doors/unlock/<int:door_id>', methods=['POST'])
+@login_required
+def unlock_door_route(door_id):
+    try:
+        from door_controller.common_lib.data_manager import DataManager
+        from door_controller.common_lib.utils import load_config
+        
+        doors_info = get_db_mgr().get_door_details()
+        target_door = next((d for d in doors_info if d['door_id'] == door_id), None)
+        
+        if not target_door:
+            flash(f"Door ID {door_id} not found.", "warning")
+            return redirect(url_for('doors'))
+            
+        door_no = target_door['door_no']
+        door_desc = target_door['door_desc']
+        controller_ip = target_door['controller_ip']
+        
+        config = load_config()
+        username = config.get('settings', {}).get('username')
+        password = config.get('settings', {}).get('password')
+        
+        controller_url = controller_ip if str(controller_ip).startswith('http') else f"http://{controller_ip}"
+        
+        data_mgr = DataManager(controller_url, username, password)
+        response = data_mgr.unlock_door(door_desc, door_no, controller_ip)
+        
+        current_user = session.get('username', 'system')
+        with get_db_mgr()._get_connection() as conn:
+            with conn.cursor() as cur:
+                get_db_mgr().log_audit_action(
+                    cur,
+                    current_user,
+                    "Remote Door Unlock",
+                    f"Unlocked door '{door_desc}' (Door #{door_no}) on controller {controller_ip}"
+                )
+            conn.commit()
+            
+        if response:
+            flash(f"Remote unlock signal successfully sent to '{door_desc}'!", "success")
+        else:
+            flash(f"Failed to send remote unlock command to '{door_desc}'. Check controller response.", "danger")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to unlock door {door_id}. {e}")
+        flash(f"Error executing remote door unlock: {e}", "danger")
+
+    return redirect(url_for('doors'))
+
 @app.route('/api/properties/search')
 @login_required
 def api_search_properties():

@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 import time
+from door_controller.common_lib.utils import log_error, log_info
 
 class door_controller:
     def __init__(self, url, username, password):
@@ -141,4 +142,26 @@ class door_controller:
                 except Exception as e:
                     raise e
         except Exception as e:
+            raise e
+
+    def unlock_door(self, door_desc, door_no, controller_ip=None):
+        self.navigate()
+        self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+        if controller_ip:
+            base_url = controller_ip if str(controller_ip).startswith('http') else f"http://{controller_ip}"
+            target_url = f"{base_url.rstrip('/')}/ACT_ID_701"
+        else:
+            target_url = self.url + '/ACT_ID_701'
+
+        data = {f"UNCLOSE{door_no}": f"Remote Open #{door_no} Door {door_desc}"}
+        try:
+            response = self.get_httpresponse(target_url, data)
+            if response and getattr(response, 'status_code', None) == 200:
+                log_info(f"Door {door_desc} remotely opened via app")
+                return response
+            else:
+                log_info(f"Door {door_desc} Remote open failed")
+                return None
+        except Exception as e:
+            log_error(f"Remote Door Open Error {e.args}")
             raise e

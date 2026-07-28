@@ -750,3 +750,15 @@ class FobDatabaseManager:
                     for door_no, allow in cur.fetchall():
                         expected[int(door_no)] = allow
             return expected
+
+    def get_door_details(self):
+        """
+        Retrieves door details (door_id, door_no, door_desc, controller_ip) from door_controller.door.
+        """
+        log_info("Database: Fetching door details.")
+        query = "SELECT door_id, door_no, door_desc, controller_ip FROM door_controller.door ORDER BY door_id ASC;"
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query)
+                return cur.fetchall()
+

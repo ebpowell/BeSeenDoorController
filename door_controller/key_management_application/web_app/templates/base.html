@@ -813,6 +813,9 @@
             <a href="{{ url_for('reservations') }}" class="nav-tab {% if request.path == url_for('reservations') %}active{% endif %}">
                 Clubhouse Reservations
             </a>
+            <a href="{{ url_for('doors') }}" class="nav-tab {% if request.path == url_for('doors') %}active{% endif %}">
+                Remote Door Unlock
+            </a>
             {% if session.get('role') in ['Secretary', 'SysAdmin'] %}
             <a href="{{ url_for('ownership') }}" class="nav-tab {% if request.path == url_for('ownership') %}active{% endif %}">
                 Ownership Management
