@@ -751,20 +751,30 @@ class FobDatabaseManager:
                         expected[int(door_no)] = allow
             return expected
 
-    def get_door_details(self, controller_ip):
+    def get_door_details(self, controller_ip=None):
         """
         Retrieves door details (door_id, door_no, door_desc, controller_ip) from door_controller.door.
+        controller_ip is an optional paramter if you want to limit the list to a single door
         """
-        cidr = extract_cidr(controller_ip)
+        if controller_ip:
+            cidr = extract_cidr(controller_ip)
+            query = """
+                SELECT door_id, door_no, door_desc, controller_ip 
+                FROM door_controller.door 
+                where controller_ip = %s 
+                ORDER BY door_id ASC;"""
+        else:
+            query = """
+                            SELECT door_id, door_no, door_desc, controller_ip 
+                            FROM door_controller.door 
+                            ORDER BY door_id ASC;"""
+
         log_info("Database: Fetching door details.")
-        query = """
-            SELECT door_id, door_no, door_desc, controller_ip 
-            FROM door_controller.door 
-            where controller_ip = %s 
-            ORDER BY door_id ASC;"""
         with self._get_connection() as conn:
-            # with conn.cursor(cursor_factory=RealDictCursor) as cur:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (cidr,))
+                if cidr:
+                    cur.execute(query, (cidr,))
+                else:
+                    cur.execute(query)
                 return cur.fetchall()
 
