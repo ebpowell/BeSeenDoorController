@@ -764,6 +764,7 @@ class FobDatabaseManager:
                 where controller_ip = %s 
                 ORDER BY door_id ASC;"""
         else:
+            cidr = None
             query = """
                             SELECT door_id, door_no, door_desc, controller_ip 
                             FROM door_controller.door 
@@ -772,7 +773,7 @@ class FobDatabaseManager:
         log_info("Database: Fetching door details.")
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                if cidr:
+                if cidr is not None:
                     cur.execute(query, (cidr,))
                 else:
                     cur.execute(query)
