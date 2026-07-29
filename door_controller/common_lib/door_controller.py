@@ -145,8 +145,11 @@ class door_controller:
             raise e
 
     def unlock_door(self, door_desc, door_no, controller_ip=None):
-        self.navigate()
+        self.connect()
         self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+        # Strip the '/32' off of controller ip, if the CIDR is handed in
+        if controller_ip.find('/32/')>0:
+            controller_ip = controller_ip[0:len(controller_ip)-3]
         if controller_ip:
             base_url = controller_ip if str(controller_ip).startswith('http') else f"http://{controller_ip}"
             target_url = f"{base_url.rstrip('/')}/ACT_ID_701"
@@ -158,10 +161,17 @@ class door_controller:
         try:
             response = self.get_httpresponse(target_url, data)
             raw_sent_string = response.request.body
-            print(raw_sent_string)
+            log_info(raw_sent_string)
             if response and getattr(response, 'status_code', None) == 200:
-                log_info(f"Door {door_desc} remotely opened via app")
-                return response
+                if response.text.find('successfully!') > 0:
+                    log_info(f"Door {door_desc} remotely opened via app")
+                    return response.status_code
+                else:
+                    log_info(raw_sent_string)
+                    log_info(response.headers)
+                    log_info(response.text)
+                    return None
+                
             else:
                 log_info(f"Door {door_desc} Remote open failed")
                 return None

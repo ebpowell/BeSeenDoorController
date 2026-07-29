@@ -3,7 +3,7 @@ import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
-from door_controller.common_lib.utils import load_config, log_info
+from door_controller.common_lib.utils import load_config, log_info, extract_cidr
 
 class FobDatabaseManager:
     def __init__(self, conn_str=None):
@@ -751,14 +751,20 @@ class FobDatabaseManager:
                         expected[int(door_no)] = allow
             return expected
 
-    def get_door_details(self):
+    def get_door_details(self, controller_ip):
         """
         Retrieves door details (door_id, door_no, door_desc, controller_ip) from door_controller.door.
         """
+        cidr = extract_cidr(controller_ip)
         log_info("Database: Fetching door details.")
-        query = "SELECT door_id, door_no, door_desc, controller_ip FROM door_controller.door ORDER BY door_id ASC;"
+        query = """
+            SELECT door_id, door_no, door_desc, controller_ip 
+            FROM door_controller.door 
+            where controller_ip = %s 
+            ORDER BY door_id ASC;"""
         with self._get_connection() as conn:
+            # with conn.cursor(cursor_factory=RealDictCursor) as cur:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query)
+                cur.execute(query, (cidr,))
                 return cur.fetchall()
 
