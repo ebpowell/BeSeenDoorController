@@ -50,7 +50,7 @@
                 Neighborhood
                 <span class="badge-read-only">Properties Fact Table</span>
             </h2>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table>
                     <thead>
                         <tr>
@@ -62,8 +62,8 @@
                         {% if properties %}
                             {% for prop in properties %}
                                 <tr>
-                                    <td><span class="address-badge">{{ prop.address }}</span></td>
-                                    <td><span class="owner-name">{% if prop.owner_name %}{{ prop.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td data-label="Address"><span class="address-badge">{{ prop.address }}</span></td>
+                                    <td data-label="Current Owner"><span class="owner-name">{% if prop.owner_name %}{{ prop.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
                                 </tr>
                             {% endfor %}
                         {% else %}
@@ -84,7 +84,7 @@
                 </svg>
                 User Action Audit Logs
             </h2>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table>
                     <thead>
                         <tr>
@@ -98,10 +98,10 @@
                         {% if audit_logs %}
                             {% for log in audit_logs %}
                                 <tr>
-                                    <td><strong>{{ log.username }}</strong></td>
-                                    <td>{{ log.action }}</td>
-                                    <td>{{ log.details }}</td>
-                                    <td class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                    <td data-label="User"><strong>{{ log.username }}</strong></td>
+                                    <td data-label="Action">{{ log.action }}</td>
+                                    <td data-label="Details">{{ log.details }}</td>
+                                    <td data-label="Timestamp" class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
                                 </tr>
                             {% endfor %}
                         {% else %}

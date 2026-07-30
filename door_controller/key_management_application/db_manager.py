@@ -3,7 +3,7 @@ import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
-from door_controller.common_lib.utils import load_config, log_info
+from door_controller.common_lib.utils import load_config, log_info, extract_cidr
 
 class FobDatabaseManager:
     def __init__(self, conn_str=None):
@@ -704,7 +704,7 @@ class FobDatabaseManager:
         """
         if isinstance(target_date, datetime.datetime):
             target_date = target_date.date()
-        log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
+        # log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
         if controller_ip:
             query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date, %s::cidr) ORDER BY run_times ASC;"
             params = (target_date, controller_ip)
@@ -750,3 +750,32 @@ class FobDatabaseManager:
                     for door_no, allow in cur.fetchall():
                         expected[int(door_no)] = allow
             return expected
+
+    def get_door_details(self, controller_ip=None):
+        """
+        Retrieves door details (door_id, door_no, door_desc, controller_ip) from door_controller.door.
+        controller_ip is an optional paramter if you want to limit the list to a single door
+        """
+        if controller_ip:
+            cidr = extract_cidr(controller_ip)
+            query = """
+                SELECT door_id, door_no, door_desc, controller_ip 
+                FROM door_controller.door 
+                where controller_ip = %s 
+                ORDER BY door_id ASC;"""
+        else:
+            cidr = None
+            query = """
+                            SELECT door_id, door_no, door_desc, controller_ip 
+                            FROM door_controller.door 
+                            ORDER BY door_id ASC;"""
+
+        log_info("Database: Fetching door details.")
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if cidr is not None:
+                    cur.execute(query, (cidr,))
+                else:
+                    cur.execute(query)
+                return cur.fetchall()
+

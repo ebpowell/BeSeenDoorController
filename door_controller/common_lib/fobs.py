@@ -5,6 +5,7 @@ import datetime
 from urllib import response
 
 from door_controller.common_lib.door_controller import door_controller
+from door_controller.common_lib.utils import log_info, log_error
 
 
 class key_fobs(door_controller):
@@ -43,7 +44,7 @@ class key_fobs(door_controller):
         if response.status_code != 200:
             return None
 
-        print("Starting controller sync...")
+        log_info("Starting controller sync...")
 
         while True:
             if page_iteration == 1:
@@ -60,11 +61,12 @@ class key_fobs(door_controller):
                 url = f"{self.url}/ACT_ID_325"
 
             try:
-                print(f"Fetching page {page_iteration} -> {url}")
-                print(f"Payload: {data}")
+                # print(f"Fetching page {page_iteration} -> {url}")
+                # print(f"Payload: {data}")
                 response = self.get_httpresponse(url, data)
             except Exception as e:
-                print(f"Network error on page {page_iteration}: {e}")
+                log_info(f"Network error on page {page_iteration}: {e}")
+                # Add to logger
                 raise e
 
             if response.status_code == 200:
@@ -74,9 +76,9 @@ class key_fobs(door_controller):
                         total_fobs_match = re.search(r"Total Users:\s* (\d+)", response.text)
                         if total_fobs_match:
                             total_fobs = int(total_fobs_match.group(1))
-                            print(f"Total key fobs to sync: {total_fobs}")
+                            log_info(f"Total key fobs to sync: {total_fobs}")
                         else:
-                            print("Could not determine total number of key fobs. Proceeding with pagination until no more records are returned.")
+                            log_info("Could not determine total number of key fobs. Proceeding with pagination until no more records are returned.")
                             total_fobs = None  # Unknown, will rely on termination condition
                     # Extract data from the returned page HTML
                     batch = self.parse_fobs_data(response.text) 
@@ -84,25 +86,25 @@ class key_fobs(door_controller):
                     start_idx += 20
                     batch_len = len(batch)      
                     if len(fobs) >= total_fobs if total_fobs is not None else False:
-                        print("Reached the end of available records based on total count. Finalizing sync.")
-                        print(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
+                        log_info("Reached the end of available records based on total count. Finalizing sync.")
+                        log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
                     if not batch:
-                        print("No more records returned. Ending pagination.")
-                        print(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
+                        log_info("No more records returned. Ending pagination.")
+                        log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
-                    print(f"Processed page {page_iteration}: {batch_len} records added. Next index target: {next_index}. Total fobs pulled so far: {len(fobs)}")              
-                    print(f"Batch Size: {batch_len} | Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
+                    # print(f"Processed page {page_iteration}: {batch_len} records added. Next index target: {next_index}. Total fobs pulled so far: {len(fobs)}")              
+                    log_info(f"Batch Size: {batch_len} | Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
                     
                 except Exception as e:
-                    print(f"Error occurred while parsing page response: {e}")
+                    log_error(f"Error occurred while parsing page response: {e}")
                     # Optional: break or raise here if parsing failure shouldn't infinite-loop
                     break
                     
                 time.sleep(self.timeout / 3)
                 page_iteration += 1  # Increment to move into subsequent pages step
             else:
-                print(f"Received non-200 status code ({response.status_code}). Stopping.")
+                log_error(f"Received non-200 status code ({response.status_code}). Stopping.")
                 break
 
         return fobs
@@ -130,7 +132,7 @@ class key_fobs(door_controller):
                           for perm in lst_tags if perm.find('option') > 0]
             return door_perms
         except IndexError:
-            print(markup)
+            log_error(markup)
             pass
         except Exception as e:
             raise e
@@ -173,15 +175,16 @@ class key_fobs(door_controller):
             try:
                 return int(user_id)
             except:
-                print(f"Failed to convert user_id to int: {user_id}")
+                log_info(f"Failed to convert user_id to int: {user_id}")
                 return None
         except IndexError:
             # Verify thet the markup contains the information "Found Users' Count: 0. Search Finished"
             if "Found Users' Count: 0. Search Finished" in markup:
-                print("No users found for the given fob_id.")
+                log_error("No users found for the given fob_id.")
                 return None
             else:
-                print(markup)
+                log_error(markup)
             pass
         except Exception as e:
+            log_error(e.args)
             raise e
