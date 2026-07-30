@@ -415,10 +415,12 @@ def unlock_door_route(door_id):
         password = config.get('settings', {}).get('password')
         # Convert to IP address from CIDR
         if controller_ip.find('/32')>0:
-                    controller_ip = controller_ip[0:len(controller_ip)-3]
-        log_info(controller_ip)
+            controller_ip = controller_ip[0:len(controller_ip)-3]
+            log_info(controller_ip)
+        controller_url = f"http://{controller_ip}"
+        log_info(controller_url)
         # Log into the proper door controller
-        data_mgr = DataManager(controller_ip, username, password)
+        data_mgr = DataManager(controller_url, username, password)
         response = data_mgr.unlock_door(door_desc, door_no)
         
         current_user = session.get('username', 'system')

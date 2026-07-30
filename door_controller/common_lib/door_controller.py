@@ -146,15 +146,8 @@ class door_controller:
 
     def unlock_door(self, door_desc, door_no):
         self.connect()
-        log_info(door_desc, door_no, controller_ip)
+        log_info([door_desc, door_no])
         self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-        # Strip the '/32' off of controller ip, if the CIDR is handed in
-        # if controller_ip.find('/32')>0:
-        #     controller_ip = controller_ip[0:len(controller_ip)-3]
-        # if controller_ip:
-        #     base_url = controller_ip if str(controller_ip).startswith('http') else f"http://{controller_ip}"
-        #     target_url = f"{base_url.rstrip('/')}/ACT_ID_701"
-        # else:
         target_url = self.url + '/ACT_ID_701'
         log_info(target_url)
         data = {f"UNCLOSE{door_no}": f"Remote Open #{door_no} Door {door_desc}"}
