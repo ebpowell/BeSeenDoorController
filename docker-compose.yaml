@@ -121,3 +121,18 @@ services:
     depends_on:
       - postgres
 
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300 # Checks for new images every 300 seconds (5 minutes)
+    command:
+      - doorcontroller
+      - trimfobs
+      - keymanagement
+      - postgres
+      - grafana
