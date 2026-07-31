@@ -66,7 +66,7 @@ class ww_data_extractor:
             return
         # if target_id < int(db_max_id):
         if db_max_id < int(max_id):
-            log_info("Starting ID:", max_id)
+            log_info(f"Starting ID: {max_id}")
             for x in range(0, 21):
                 # try:
                 for y in range(0, 5):
@@ -85,9 +85,9 @@ class ww_data_extractor:
                 # Pull next batch of records where the previous batch ended
                 rec_count = len(lst_swipes)
                 if rec_count > 0:
-                    log_info('Records Returned: ',rec_count)
+                    log_info(f"Records Returned: {rec_count}")
                     max_id = lst_swipes[rec_count-1][0]
-                log_info('Max_id:', max_id)
+                log_info(f"Max_id: {max_id}")
                 # db_max_id = self.obj_db.get_maxid(query)
                 if int(max_id) <= db_max_id:
                     break
