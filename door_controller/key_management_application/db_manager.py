@@ -869,4 +869,48 @@ class FobDatabaseManager:
         """
         return self.remove_group_permission(perm_id, username=username)
 
+    def update_access_rule_times(self, perm_id, start_time=None, end_time=None, username='system'):
+        """
+        Update the unlock (start_time) and lock (end_time) times for an existing access rule by perm_id.
+        Returns True if updated, False if not found.
+        """
+        log_info(f"Database: Updating times for access rule {perm_id} (start_time={start_time}, end_time={end_time}) by user '{username}'")
+        start_time_val = start_time if start_time else None
+        end_time_val = end_time if end_time else None
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Fetch details for audit log
+                cur.execute(
+                    """
+                    SELECT g.name, d.door_desc 
+                    FROM key_fobs.group_permissions gp
+                    JOIN key_fobs.groups g ON gp.group_id = g.group_id
+                    JOIN door_controller.door d ON gp.door_id = d.door_id
+                    WHERE gp.perm_id = %s;
+                    """,
+                    (perm_id,)
+                )
+                rule_row = cur.fetchone()
+                if not rule_row:
+                    return False
+                
+                group_name, door_desc = rule_row
+
+                cur.execute(
+                    """
+                    UPDATE key_fobs.group_permissions
+                    SET start_time = %s, end_time = %s
+                    WHERE perm_id = %s;
+                    """,
+                    (start_time_val, end_time_val, perm_id)
+                )
+                rowcount = cur.rowcount
+                if rowcount > 0:
+                    details = f"Updated times for access rule #{perm_id} (Group '{group_name}', Door '{door_desc}'): unlock={start_time_val}, lock={end_time_val}"
+                    self.log_audit_action(cur, username, "Update Access Rule Times", details)
+            conn.commit()
+        return rowcount > 0
+
+
 

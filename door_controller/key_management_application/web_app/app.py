@@ -528,6 +528,31 @@ def delete_access_rule_route(perm_id):
 
     return redirect(url_for('access_rules'))
 
+@app.route('/access_rules/update/<int:perm_id>', methods=['POST'])
+@secretary_or_sysadmin_required
+def update_access_rule_times_route(perm_id):
+    unlock_time = request.form.get('unlock_time', '').strip()
+    lock_time = request.form.get('lock_time', '').strip()
+
+    try:
+        username = session.get('username', 'system')
+        updated = get_db_mgr().update_access_rule_times(
+            perm_id,
+            start_time=unlock_time if unlock_time else None,
+            end_time=lock_time if lock_time else None,
+            username=username
+        )
+        if updated:
+            flash(f"Times for access rule #{perm_id} updated successfully.", "success")
+        else:
+            flash(f"Access rule #{perm_id} not found.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to update access rule {perm_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('access_rules'))
+
+
 
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")

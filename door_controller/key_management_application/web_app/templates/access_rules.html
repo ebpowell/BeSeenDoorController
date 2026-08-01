@@ -48,6 +48,31 @@
         border-radius: 6px;
         font-size: 0.85rem;
     }
+
+    .btn-edit-outline {
+        background: transparent;
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        color: #818cf8;
+        width: auto;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-edit-outline:hover {
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 0 12px var(--primary-glow);
+        border-color: var(--primary);
+    }
+
+    .action-buttons {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -207,7 +232,7 @@
                             <th>Unlock Time</th>
                             <th>Lock Time</th>
                             <th>Status</th>
-                            <th>Action</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -235,10 +260,15 @@
                                             <span class="status-denied">Denied</span>
                                         {% endif %}
                                     </td>
-                                    <td data-label="Action">
-                                        <form action="/access_rules/delete/{{ rule.perm_id }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete access rule #{{ rule.perm_id }}?');">
-                                            <button type="submit" class="btn-danger-outline">Delete</button>
-                                        </form>
+                                    <td data-label="Actions">
+                                        <div class="action-buttons">
+                                            <button type="button" class="btn-edit-outline" onclick="openEditModal({{ rule.perm_id }}, '{{ rule.group_name }}', '{{ rule.door_desc }}', '{{ rule.start_time if rule.start_time else '' }}', '{{ rule.end_time if rule.end_time else '' }}')">
+                                                Edit Times
+                                            </button>
+                                            <form action="/access_rules/delete/{{ rule.perm_id }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete access rule #{{ rule.perm_id }}?');">
+                                                <button type="submit" class="btn-danger-outline">Delete</button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -251,6 +281,33 @@
                 </table>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Edit Times Modal -->
+<div id="editTimesModal" class="modal-backdrop">
+    <div class="modal-content">
+        <button type="button" class="modal-close" onclick="closeEditModal()">&times;</button>
+        <div class="modal-title">Edit Rule Times</div>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Update unlock and lock times for rule #<span id="modalPermIdText"></span> (<span id="modalRuleInfo"></span>)
+        </p>
+
+        <form id="editTimesForm" method="POST" action="">
+            <div class="form-group">
+                <label for="modalUnlockTime">Unlock Time (Start)</label>
+                <input type="time" id="modalUnlockTime" name="unlock_time" step="1">
+            </div>
+            <div class="form-group">
+                <label for="modalLockTime">Lock Time (End)</label>
+                <input type="time" id="modalLockTime" name="lock_time" step="1">
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Changes</button>
+                <button type="button" class="btn" style="flex: 1; background: rgba(255,255,255,0.05); color: var(--text-secondary);" onclick="closeEditModal()">Cancel</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -272,5 +329,18 @@
             });
         }
     });
+
+    function openEditModal(permId, groupName, doorDesc, startTIme, endTime) {
+        document.getElementById('modalPermIdText').textContent = permId;
+        document.getElementById('modalRuleInfo').textContent = `${groupName} - ${doorDesc}`;
+        document.getElementById('editTimesForm').action = `/access_rules/update/${permId}`;
+        document.getElementById('modalUnlockTime').value = startTIme;
+        document.getElementById('modalLockTime').value = endTime;
+        document.getElementById('editTimesModal').classList.add('show');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editTimesModal').classList.remove('show');
+    }
 </script>
 {% endblock %}

@@ -156,5 +156,36 @@ class TestAccessRules(unittest.TestCase):
         self.assertTrue(response.location.endswith('/access_rules'))
         mock_db.delete_access_rule.assert_called_once_with(50, username='admin')
 
+    @patch('door_controller.key_management_application.db_manager.psycopg2.connect')
+    def test_update_access_rule_times_db(self, mock_connect):
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_connect.return_value.__enter__.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+        mock_cur.fetchone.return_value = ('Residents', 'Pool Gate')
+        mock_cur.rowcount = 1
+
+        db_mgr = FobDatabaseManager(conn_str="postgres://user:pass@localhost/db")
+        result = db_mgr.update_access_rule_times(perm_id=50, start_time='09:00:00', end_time='21:00:00', username='admin')
+        self.assertTrue(result)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_update_access_rule_times_route(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin', role='SysAdmin')
+        mock_db = MagicMock()
+        mock_db.update_access_rule_times.return_value = True
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/access_rules/update/50', data={
+            'unlock_time': '09:00:00',
+            'lock_time': '21:00:00'
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith('/access_rules'))
+        mock_db.update_access_rule_times.assert_called_once_with(50, start_time='09:00:00', end_time='21:00:00', username='admin')
+
 if __name__ == '__main__':
     unittest.main()
+
