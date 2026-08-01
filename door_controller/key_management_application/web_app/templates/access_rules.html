@@ -182,20 +182,15 @@
                     </div>
                 </div>
 
-                <!-- Permission Status -->
-                <div class="form-group">
-                    <label for="allow">Access Status</label>
-                    <select id="allow" name="allow">
-                        <option value="true" selected>Allowed (Grant Access)</option>
-                        <option value="false">Denied (Revoke Access)</option>
-                    </select>
-                </div>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem; margin-bottom: 1.25rem;">
+                    <em>Note: Access is strictly controlled via positive Allow intervals. Unspecified doors and time windows implicitly default to Forbid.</em>
+                </p>
 
                 <button type="submit" class="btn btn-primary">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Save Access Rule
+                    Save Allow Access Rule
                 </button>
             </form>
         </div>

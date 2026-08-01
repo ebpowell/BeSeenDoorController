@@ -782,11 +782,10 @@ class FobDatabaseManager:
     def list_access_rules(self):
         """
         List all door access control rules (group permissions).
-        Returns a list of dicts with perm_id, group_id, group_name, door_id, door_desc,
-        start_date, end_date, start_month, start_day, end_month, end_day,
-        start_time (unlock_time), end_time (lock_time), and allow.
+        Only positive 'Allow' rules are stored and retrieved. If no allow rule exists
+        for a group/door/time, access is implicitly forbidden.
         """
-        log_info("Database: Fetching all access rules.")
+        log_info("Database: Fetching all positive allow access rules.")
         query = """
             SELECT 
                 gp.perm_id,
@@ -806,6 +805,7 @@ class FobDatabaseManager:
             FROM key_fobs.group_permissions gp
             JOIN key_fobs.groups g ON gp.group_id = g.group_id
             JOIN door_controller.door d ON gp.door_id = d.door_id
+            WHERE COALESCE(gp.allow, TRUE) = TRUE
             ORDER BY g.name ASC, d.door_desc ASC, gp.perm_id ASC;
         """
         with self._get_connection() as conn:
@@ -816,10 +816,10 @@ class FobDatabaseManager:
     def add_access_rule(self, group_id, door_id, start_month, start_day, end_month, end_day,
                         start_time=None, end_time=None, allow=True, username='system'):
         """
-        Add a new access rule specifying start month, start day, end month, end day,
-        door_id, group_id, unlock/lock times.
+        Add a new positive Allow access rule specifying start month, start day, end month, end day,
+        door_id, group_id, unlock/lock times. All stored rules are positive Allow intervals.
         """
-        log_info(f"Database: Adding access rule for group_id={group_id}, door_id={door_id} by user={username}")
+        log_info(f"Database: Adding positive allow access rule for group_id={group_id}, door_id={door_id} by user={username}")
         current_year = datetime.date.today().year
         try:
             start_date = datetime.date(current_year, int(start_month), int(start_day))
@@ -830,6 +830,7 @@ class FobDatabaseManager:
         # Empty strings to None conversion for optional time fields
         start_time_val = start_time if start_time else None
         end_time_val = end_time if end_time else None
+        allow_val = True  # Always store positive allow rules
 
         with self._get_connection() as conn:
             with conn.cursor() as cur:
@@ -853,15 +854,15 @@ class FobDatabaseManager:
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING perm_id;
                 """
-                cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow))
+                cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow_val))
                 perm_id = cur.fetchone()[0]
 
-                access_type = "allowed" if allow else "denied"
-                details = f"Added access rule ID {perm_id}: Group '{group_name}', Door '{door_desc}', Dates: {start_date} to {end_date}, Times: {start_time_val} to {end_time_val} ({access_type})"
+                details = f"Added positive Allow access rule ID {perm_id}: Group '{group_name}', Door '{door_desc}', Dates: {start_date} to {end_date}, Times: {start_time_val} to {end_time_val}"
                 self.log_audit_action(cur, username, "Add Access Rule", details)
 
             conn.commit()
         return perm_id
+
 
     def delete_access_rule(self, perm_id, username='system'):
         """

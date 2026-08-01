@@ -469,7 +469,6 @@ def access_rules():
         end_day = request.form.get('end_day', '').strip()
         unlock_time = request.form.get('unlock_time', '').strip()
         lock_time = request.form.get('lock_time', '').strip()
-        allow = request.form.get('allow', 'true').lower() == 'true'
 
         if not group_id_str or not door_id_str or not start_month or not start_day or not end_month or not end_day:
             flash("Group, Door, Start Month/Day, and End Month/Day are required.", "warning")
@@ -489,10 +488,10 @@ def access_rules():
                 end_day=end_day,
                 start_time=unlock_time if unlock_time else None,
                 end_time=lock_time if lock_time else None,
-                allow=allow,
+                allow=True,
                 username=username
             )
-            flash("Access rule created successfully.", "success")
+            flash("Allow access rule created successfully.", "success")
         except ValueError as ve:
             flash(str(ve), "danger")
         except Exception as e:

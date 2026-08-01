@@ -125,8 +125,7 @@ class TestAccessRules(unittest.TestCase):
             'end_month': '9',
             'end_day': '30',
             'unlock_time': '08:00:00',
-            'lock_time': '20:00:00',
-            'allow': 'true'
+            'lock_time': '20:00:00'
         })
 
         self.assertEqual(response.status_code, 302)
