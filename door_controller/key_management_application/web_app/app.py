@@ -457,6 +457,78 @@ def api_search_properties():
         log_info(f"API Error: Failed to search properties. {e}")
         return jsonify([]), 500
 
+@app.route('/access_rules', methods=['GET', 'POST'])
+@secretary_or_sysadmin_required
+def access_rules():
+    if request.method == 'POST':
+        group_id_str = request.form.get('group_id', '').strip()
+        door_id_str = request.form.get('door_id', '').strip()
+        start_month = request.form.get('start_month', '').strip()
+        start_day = request.form.get('start_day', '').strip()
+        end_month = request.form.get('end_month', '').strip()
+        end_day = request.form.get('end_day', '').strip()
+        unlock_time = request.form.get('unlock_time', '').strip()
+        lock_time = request.form.get('lock_time', '').strip()
+        allow = request.form.get('allow', 'true').lower() == 'true'
+
+        if not group_id_str or not door_id_str or not start_month or not start_day or not end_month or not end_day:
+            flash("Group, Door, Start Month/Day, and End Month/Day are required.", "warning")
+            return redirect(url_for('access_rules'))
+
+        try:
+            group_id = int(group_id_str)
+            door_id = int(door_id_str)
+            username = session.get('username', 'system')
+
+            get_db_mgr().add_access_rule(
+                group_id=group_id,
+                door_id=door_id,
+                start_month=start_month,
+                start_day=start_day,
+                end_month=end_month,
+                end_day=end_day,
+                start_time=unlock_time if unlock_time else None,
+                end_time=lock_time if lock_time else None,
+                allow=allow,
+                username=username
+            )
+            flash("Access rule created successfully.", "success")
+        except ValueError as ve:
+            flash(str(ve), "danger")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add access rule. {e}")
+            flash(f"Database error: {e}", "danger")
+
+        return redirect(url_for('access_rules'))
+
+    # GET request
+    try:
+        rules = get_db_mgr().list_access_rules()
+        doors = get_db_mgr().get_door_details()
+        groups = get_db_mgr().list_groups()
+        return render_template('access_rules.html', rules=rules, doors=doors, groups=groups)
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load access rules page. {e}")
+        flash(f"Error loading access rules: {e}", "danger")
+        return render_template('access_rules.html', rules=[], doors=[], groups=[])
+
+@app.route('/access_rules/delete/<int:perm_id>', methods=['POST'])
+@secretary_or_sysadmin_required
+def delete_access_rule_route(perm_id):
+    try:
+        username = session.get('username', 'system')
+        deleted = get_db_mgr().delete_access_rule(perm_id, username=username)
+        if deleted:
+            flash(f"Access rule {perm_id} deleted successfully.", "success")
+        else:
+            flash(f"Access rule {perm_id} not found.", "warning")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to delete access rule {perm_id}. {e}")
+        flash(f"Database error: {e}", "danger")
+
+    return redirect(url_for('access_rules'))
+
+
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")
     app.run(host='0.0.0.0', port=5000, debug=True)

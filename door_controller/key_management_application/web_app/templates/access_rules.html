@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Access Rules{% endblock %}
+
+{% block extra_head %}
+<style>
+    .month-day-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    
+    .status-allowed {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--success);
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .status-denied {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: var(--danger);
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .time-badge {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        color: #818cf8;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
+    .date-badge {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        color: #f59e0b;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Left Column: Form to Define Access Rules -->
+    <div>
+        <div class="glass-card">
+            <h2>
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Define Access Rule
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+                Specify door access rules for group members across specific seasonal date windows and daily unlock/lock schedules.
+            </p>
+
+            <form action="/access_rules" method="POST">
+                <!-- Group Selection -->
+                <div class="form-group">
+                    <label for="group_id">Group Name</label>
+                    <select id="group_id" name="group_id" required>
+                        <option value="" disabled selected>-- Select Group --</option>
+                        {% for group in groups %}
+                            <option value="{{ group.group_id }}">{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Door Selection -->
+                <div class="form-group">
+                    <label for="door_id">Door Description</label>
+                    <select id="door_id" name="door_id" required>
+                        <option value="" disabled selected>-- Select Door --</option>
+                        {% for door in doors %}
+                            <option value="{{ door.door_id }}">{{ door.door_desc }} (Door #{{ door.door_no }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Start Date Window (Month & Day) -->
+                <div class="form-group">
+                    <label>Start Date Window</label>
+                    <div class="month-day-grid">
+                        <select name="start_month" required>
+                            <option value="" disabled selected>Start Month</option>
+                            <option value="1">1 - January</option>
+                            <option value="2">2 - February</option>
+                            <option value="3">3 - March</option>
+                            <option value="4">4 - April</option>
+                            <option value="5">5 - May</option>
+                            <option value="6">6 - June</option>
+                            <option value="7">7 - July</option>
+                            <option value="8">8 - August</option>
+                            <option value="9">9 - September</option>
+                            <option value="10">10 - October</option>
+                            <option value="11">11 - November</option>
+                            <option value="12">12 - December</option>
+                        </select>
+                        <select name="start_day" required>
+                            <option value="" disabled selected>Start Day</option>
+                            {% for d in range(1, 32) %}
+                                <option value="{{ d }}">{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- End Date Window (Month & Day) -->
+                <div class="form-group">
+                    <label>End Date Window</label>
+                    <div class="month-day-grid">
+                        <select name="end_month" required>
+                            <option value="" disabled selected>End Month</option>
+                            <option value="1">1 - January</option>
+                            <option value="2">2 - February</option>
+                            <option value="3">3 - March</option>
+                            <option value="4">4 - April</option>
+                            <option value="5">5 - May</option>
+                            <option value="6">6 - June</option>
+                            <option value="7">7 - July</option>
+                            <option value="8">8 - August</option>
+                            <option value="9">9 - September</option>
+                            <option value="10">10 - October</option>
+                            <option value="11">11 - November</option>
+                            <option value="12">12 - December</option>
+                        </select>
+                        <select name="end_day" required>
+                            <option value="" disabled selected>End Day</option>
+                            {% for d in range(1, 32) %}
+                                <option value="{{ d }}">{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Unlock & Lock Times -->
+                <div class="month-day-grid" style="margin-bottom: 1.25rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="unlock_time">Unlock Time (Start)</label>
+                        <input type="time" id="unlock_time" name="unlock_time" placeholder="HH:MM" step="1">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="lock_time">Lock Time (End)</label>
+                        <input type="time" id="lock_time" name="lock_time" placeholder="HH:MM" step="1">
+                    </div>
+                </div>
+
+                <!-- Permission Status -->
+                <div class="form-group">
+                    <label for="allow">Access Status</label>
+                    <select id="allow" name="allow">
+                        <option value="true" selected>Allowed (Grant Access)</option>
+                        <option value="false">Denied (Revoke Access)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Save Access Rule
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Visualizing Access Rules -->
+    <div>
+        <div class="glass-card">
+            <h2>
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                Visualizing Access Rules
+            </h2>
+
+            <!-- Real-time Filter -->
+            <div class="search-container">
+                <span class="search-icon">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </span>
+                <input type="text" id="rulesSearch" class="search-input" placeholder="Search by group, door description, or month/day...">
+            </div>
+
+            <div class="table-responsive mobile-cards">
+                <table id="rulesTable">
+                    <thead>
+                        <tr>
+                            <th>Group Name</th>
+                            <th>Door Description</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Unlock Time</th>
+                            <th>Lock Time</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rules %}
+                            {% for rule in rules %}
+                                <tr>
+                                    <td data-label="Group Name"><strong>{{ rule.group_name }}</strong></td>
+                                    <td data-label="Door Description">{{ rule.door_desc }}</td>
+                                    <td data-label="Start Date">
+                                        <span class="date-badge">Month {{ rule.start_month }}, Day {{ rule.start_day }}</span>
+                                    </td>
+                                    <td data-label="End Date">
+                                        <span class="date-badge">Month {{ rule.end_month }}, Day {{ rule.end_day }}</span>
+                                    </td>
+                                    <td data-label="Unlock Time">
+                                        <span class="time-badge">{{ rule.start_time if rule.start_time else '00:00:00' }}</span>
+                                    </td>
+                                    <td data-label="Lock Time">
+                                        <span class="time-badge">{{ rule.end_time if rule.end_time else '23:59:59' }}</span>
+                                    </td>
+                                    <td data-label="Status">
+                                        {% if rule.allow %}
+                                            <span class="status-allowed">Allowed</span>
+                                        {% else %}
+                                            <span class="status-denied">Denied</span>
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Action">
+                                        <form action="/access_rules/delete/{{ rule.perm_id }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete access rule #{{ rule.perm_id }}?');">
+                                            <button type="submit" class="btn-danger-outline">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="no-data">No access rules defined yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('rulesSearch');
+        const tableRows = document.querySelectorAll('#rulesTable tbody tr');
+
+        if (searchInput && tableRows) {
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase().trim();
+                tableRows.forEach(row => {
+                    if (row.querySelector('.no-data')) return;
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(term) ? '' : 'none';
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

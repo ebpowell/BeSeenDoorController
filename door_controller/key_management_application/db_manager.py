@@ -779,3 +779,94 @@ class FobDatabaseManager:
                     cur.execute(query)
                 return cur.fetchall()
 
+    def list_access_rules(self):
+        """
+        List all door access control rules (group permissions).
+        Returns a list of dicts with perm_id, group_id, group_name, door_id, door_desc,
+        start_date, end_date, start_month, start_day, end_month, end_day,
+        start_time (unlock_time), end_time (lock_time), and allow.
+        """
+        log_info("Database: Fetching all access rules.")
+        query = """
+            SELECT 
+                gp.perm_id,
+                g.group_id,
+                g.name AS group_name,
+                d.door_id,
+                d.door_desc,
+                gp.start_date,
+                gp.end_date,
+                EXTRACT(MONTH FROM gp.start_date)::INT AS start_month,
+                EXTRACT(DAY FROM gp.start_date)::INT AS start_day,
+                EXTRACT(MONTH FROM gp.end_date)::INT AS end_month,
+                EXTRACT(DAY FROM gp.end_date)::INT AS end_day,
+                gp.start_time,
+                gp.end_time,
+                gp.allow
+            FROM key_fobs.group_permissions gp
+            JOIN key_fobs.groups g ON gp.group_id = g.group_id
+            JOIN door_controller.door d ON gp.door_id = d.door_id
+            ORDER BY g.name ASC, d.door_desc ASC, gp.perm_id ASC;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query)
+                return cur.fetchall()
+
+    def add_access_rule(self, group_id, door_id, start_month, start_day, end_month, end_day,
+                        start_time=None, end_time=None, allow=True, username='system'):
+        """
+        Add a new access rule specifying start month, start day, end month, end day,
+        door_id, group_id, unlock/lock times.
+        """
+        log_info(f"Database: Adding access rule for group_id={group_id}, door_id={door_id} by user={username}")
+        current_year = datetime.date.today().year
+        try:
+            start_date = datetime.date(current_year, int(start_month), int(start_day))
+            end_date = datetime.date(current_year, int(end_month), int(end_day))
+        except (ValueError, TypeError) as ve:
+            raise ValueError(f"Invalid month/day range: {ve}")
+
+        # Empty strings to None conversion for optional time fields
+        start_time_val = start_time if start_time else None
+        end_time_val = end_time if end_time else None
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Verify group
+                cur.execute("SELECT name FROM key_fobs.groups WHERE group_id = %s;", (group_id,))
+                group_row = cur.fetchone()
+                if not group_row:
+                    raise ValueError(f"Group ID {group_id} not found.")
+                group_name = group_row[0]
+
+                # Verify door
+                cur.execute("SELECT door_desc FROM door_controller.door WHERE door_id = %s;", (door_id,))
+                door_row = cur.fetchone()
+                if not door_row:
+                    raise ValueError(f"Door ID {door_id} not found.")
+                door_desc = door_row[0]
+
+                query = """
+                    INSERT INTO key_fobs.group_permissions 
+                        (group_id, door_id, start_date, end_date, start_time, end_time, allow)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING perm_id;
+                """
+                cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow))
+                perm_id = cur.fetchone()[0]
+
+                access_type = "allowed" if allow else "denied"
+                details = f"Added access rule ID {perm_id}: Group '{group_name}', Door '{door_desc}', Dates: {start_date} to {end_date}, Times: {start_time_val} to {end_time_val} ({access_type})"
+                self.log_audit_action(cur, username, "Add Access Rule", details)
+
+            conn.commit()
+        return perm_id
+
+    def delete_access_rule(self, perm_id, username='system'):
+        """
+        Delete an access rule by perm_id.
+        """
+        return self.remove_group_permission(perm_id, username=username)
+
+

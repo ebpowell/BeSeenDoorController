@@ -823,6 +823,9 @@
             <a href="{{ url_for('groups') }}" class="nav-tab {% if request.path == url_for('groups') %}active{% endif %}">
                 Group Access Control
             </a>
+            <a href="{{ url_for('access_rules') }}" class="nav-tab {% if request.path == url_for('access_rules') %}active{% endif %}">
+                Access Rules
+            </a>
             {% endif %}
         </nav>
 

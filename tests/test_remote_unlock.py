@@ -89,7 +89,7 @@ class TestRemoteDoorUnlock(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.location.endswith('/doors'))
 
-        mock_data_mgr_inst.unlock_door.assert_called_once_with('Pool Gate', 1, '69.21.119.147')
+        mock_data_mgr_inst.unlock_door.assert_called_once_with('Pool Gate', 1)
 
 if __name__ == '__main__':
     unittest.main()
