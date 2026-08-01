@@ -442,7 +442,15 @@ class FobDatabaseManager:
                 # Insert group permission
                 try:
                     cur.execute(
-                        "INSERT INTO key_fobs.group_permissions (start_date, end_date, start_time, end_time, door_id, allow, group_id) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING perm_id;",
+                        """
+                        INSERT INTO key_fobs.group_permissions 
+                            (perm_id, start_date, end_date, start_time, end_time, door_id, allow, group_id)
+                        VALUES (
+                            (SELECT COALESCE(MAX(perm_id), 0) + 1 FROM key_fobs.group_permissions),
+                            %s, %s, %s, %s, %s, %s, %s
+                        )
+                        RETURNING perm_id;
+                        """,
                         (start_date, end_date, start_time, end_time, door_id, allow, group_id)
                     )
                     perm_id = cur.fetchone()[0]
@@ -754,7 +762,10 @@ class FobDatabaseManager:
         controller_ip is an optional paramter if you want to limit the list to a single door
         """
         if controller_ip:
-            cidr = extract_cidr(controller_ip)
+            if controller_ip[-3:] != '/32': # Assume just IP Address, not CIDR, so append /32 to make it a valid CIDR for the query
+                cidr = extract_cidr(controller_ip)
+            else:
+                cidr = controller_ip
             query = """
                 SELECT door_id, door_no, door_desc, controller_ip 
                 FROM door_controller.door 
@@ -847,8 +858,11 @@ class FobDatabaseManager:
 
                 query = """
                     INSERT INTO key_fobs.group_permissions 
-                        (group_id, door_id, start_date, end_date, start_time, end_time, allow)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (perm_id, group_id, door_id, start_date, end_date, start_time, end_time, allow)
+                    VALUES (
+                        (SELECT COALESCE(MAX(perm_id), 0) + 1 FROM key_fobs.group_permissions),
+                        %s, %s, %s, %s, %s, %s, %s
+                    )
                     RETURNING perm_id;
                 """
                 cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow_val))
