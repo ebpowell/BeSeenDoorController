@@ -1,7 +1,9 @@
+import datetime
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash
-from door_controller.common_lib.utils import load_config, log_info
+from door_controller.common_lib.utils import load_config, log_info, extract_cidr
 
 class FobDatabaseManager:
     def __init__(self, conn_str=None):
@@ -289,7 +291,7 @@ class FobDatabaseManager:
                         (property_id, replaced_fob_id, fob_id)
                     )
                     action = "Replace Fob"
-                    details = f"Fob {new_fob_id} assigned to property {property_id}, replacing old Fob {replaced_fob_id}"
+                    details = f"Fob {fob_id} assigned to property {property_id}, replacing old Fob {replaced_fob_id}"
                 else:
                     action = "Assign Fob"
                     details = f"Fob {fob_id} assigned to property {property_id}"
@@ -333,7 +335,7 @@ class FobDatabaseManager:
         Update (upsert) the owner of a property. All fobs under this property
         will inherit the new owner. Returns True on success.
         """
-        log_info(f"Database: Updating owner of property_iowner_named={property_id} to '{owner_name}' by user={username}")
+        log_info(f"Database: Updating owner of property_id={property_id} to '{owner_name}' by user={username}")
         # query = """
         #     INSERT INTO key_fobs.owners (property_id, first_name, last_name, updated_at)
         #     VALUES (%s, %s, CURRENT_TIMESTAMP)
@@ -696,13 +698,84 @@ class FobDatabaseManager:
                 cur.execute(query, (like_query, like_query, like_query, like_query))
                 return cur.fetchall()
 
-    def get_runtimes_for_date(self, target_date):
+    def get_runtimes_for_date(self, target_date, controller_ip=None):
         """
         Retrieves unique permission change runtimes for a given date.
         """
-        log_info(f"Database: Fetching permission change runtimes for {target_date}")
-        query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s) ORDER BY run_times ASC;"
+        if isinstance(target_date, datetime.datetime):
+            target_date = target_date.date()
+        # log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
+        if controller_ip:
+            query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date, %s::cidr) ORDER BY run_times ASC;"
+            params = (target_date, controller_ip)
+        else:
+            query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date) ORDER BY run_times ASC;"
+            params = (target_date,)
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (target_date,))
+                cur.execute(query, params)
+                # results = cur.fetchall()
                 return [row[0] for row in cur.fetchall()]
+            
+    def get_owner_for_fobid(self, fob_id):
+        """
+        Retrieves the owner for a given FobID
+        """
+        query = 'SELECT concat(o.first_name, \' \', o.last_name) from key_fobs.owners o ' \
+                'join key_fobs.properties p on o.property_id = p.property_id ' \
+                'join key_fobs.keyfobs kf on p.property_id = kf.property_id ' \
+                'where kf.fob_id = %s;'
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (fob_id,))
+                row = cur.fetchone()
+                return row[0] if row else None
+
+    def get_expected_permissions(self, fob_id, cidr):
+            """
+            Helper to get expected permissions for a fob_id on a given controller from database.
+            """
+            query = """
+                SELECT door_no, allow
+                FROM key_fobs.vint_acl_data
+                WHERE fob_id = %s AND controller_ip = %s
+                and start_time <= now()::time and (end_time is null or end_time >= now()::time)
+                and start_date <= now()::date and (end_date is null or end_date >= now()::date);
+            """
+            expected = {}
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    # print(query, (fob_id, cidr))
+                    cur.execute(query, (fob_id, cidr))
+                    for door_no, allow in cur.fetchall():
+                        expected[int(door_no)] = allow
+            return expected
+
+    def get_door_details(self, controller_ip=None):
+        """
+        Retrieves door details (door_id, door_no, door_desc, controller_ip) from door_controller.door.
+        controller_ip is an optional paramter if you want to limit the list to a single door
+        """
+        if controller_ip:
+            cidr = extract_cidr(controller_ip)
+            query = """
+                SELECT door_id, door_no, door_desc, controller_ip 
+                FROM door_controller.door 
+                where controller_ip = %s 
+                ORDER BY door_id ASC;"""
+        else:
+            cidr = None
+            query = """
+                            SELECT door_id, door_no, door_desc, controller_ip 
+                            FROM door_controller.door 
+                            ORDER BY door_id ASC;"""
+
+        log_info("Database: Fetching door details.")
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if cidr is not None:
+                    cur.execute(query, (cidr,))
+                else:
+                    cur.execute(query)
+                return cur.fetchall()
+

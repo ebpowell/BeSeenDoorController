@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Remote Door Unlock{% endblock %}
+
+{% block extra_head %}
+<style>
+    .doors-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+
+    .door-card {
+        background: rgba(15, 17, 26, 0.6);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .door-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .door-card:hover {
+        border-color: rgba(99, 102, 241, 0.4);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .door-card:hover::before {
+        opacity: 1;
+    }
+
+    .door-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .door-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .door-info h3 {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 0.25rem;
+    }
+
+    .door-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .door-no-badge {
+        background: rgba(168, 85, 247, 0.15);
+        border: 1px solid rgba(168, 85, 247, 0.3);
+        color: #d8b4fe;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .controller-ip-badge {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--card-border);
+        color: var(--text-secondary);
+        font-family: monospace;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .btn-unlock {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        font-weight: 700;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 15px var(--primary-glow);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-unlock:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+        filter: brightness(1.1);
+    }
+
+    .btn-unlock:active {
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <h2>
+        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+        </svg>
+        Remote Door Control Panel
+    </h2>
+    <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.25rem;">
+        Click any door button below to send an immediate remote unlock command to the door controller.
+    </p>
+
+    {% if doors %}
+        <div class="doors-grid">
+            {% for door in doors %}
+                <div class="door-card">
+                    <div class="door-header">
+                        <div class="door-icon-box">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                            </svg>
+                        </div>
+                        <div class="door-info">
+                            <h3>{{ door.door_desc }}</h3>
+                            <div class="door-meta">
+                                <span class="door-no-badge">Door #{{ door.door_no }}</span>
+                                <span class="controller-ip-badge">{{ door.controller_ip }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <form action="/doors/unlock/{{ door.door_id }}" method="POST" onsubmit="return confirm('Are you sure you want to remotely unlock {{ door.door_desc }} (Door #{{ door.door_no }})?');">
+                        <button type="submit" class="btn-unlock">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                            </svg>
+                            Unlock Door
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-data" style="padding: 3rem; text-align: center; color: var(--text-secondary);">
+            No doors configured in the database.
+        </div>
+    {% endif %}
+</div>
+
+<!-- User Audit Logs Card -->
+<div class="glass-card">
+    <h2>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        User Action Audit Logs
+    </h2>
+    <div class="table-responsive mobile-cards">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if audit_logs %}
+                    {% for log in audit_logs %}
+                        <tr>
+                            <td data-label="User"><strong>{{ log.username }}</strong></td>
+                            <td data-label="Action">{{ log.action }}</td>
+                            <td data-label="Details">{{ log.details }}</td>
+                            <td data-label="Timestamp" class="timestamp">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="no-data">No action history recorded yet.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

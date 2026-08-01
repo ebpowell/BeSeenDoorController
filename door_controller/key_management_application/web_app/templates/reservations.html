@@ -166,7 +166,21 @@
                     <input type="date" id="reservation_date" name="reservation_date" required>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+<style>
+    .time-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    @media (max-width: 480px) {
+        .time-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+                <div class="time-grid">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="from_time">From Time (Optional)</label>
                         <input type="time" id="from_time" name="from_time">
@@ -211,7 +225,7 @@
         <div class="glass-card">
             <h2>
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m-2 3h.01M5.5 21h3m-3-4h3m-3-4h3m-3-4h3M9 4v3m4-3v3m1 4h6m-3-3v6"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 v1m2 4a2 2 0 00-2-2m-2 3h.01M5.5 21h3m-3-4h3m-3-4h3m-3-4h3M9 4v3m4-3v3m1 4h6m-3-3v6"></path>
                 </svg>
                 Clubhouse Reservations Registry
             </h2>
@@ -223,7 +237,7 @@
                 <input type="text" class="search-input" id="searchReservations" placeholder="Search by Address or Owner..." onkeyup="filterReservations()">
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table id="reservationsTable">
                     <thead>
                         <tr>
@@ -241,10 +255,10 @@
                         {% if reservations %}
                             {% for res in reservations %}
                                 <tr>
-                                    <td><span class="address-badge">{{ res.address }}</span></td>
-                                    <td><span class="owner-name">{% if res.owner_name %}{{ res.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
-                                    <td><strong>{{ res.reservation_date.strftime('%Y-%m-%d') if res.reservation_date.strftime else res.reservation_date }}</strong></td>
-                                    <td>
+                                    <td data-label="Address"><span class="address-badge">{{ res.address }}</span></td>
+                                    <td data-label="Owner Name"><span class="owner-name">{% if res.owner_name %}{{ res.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
+                                    <td data-label="Date"><strong>{{ res.reservation_date.strftime('%Y-%m-%d') if res.reservation_date.strftime else res.reservation_date }}</strong></td>
+                                    <td data-label="Timeslot">
                                         {% if res.from_time or res.to_time %}
                                             <span style="font-family: monospace; font-size: 0.9rem;">
                                                 {{ res.from_time.strftime('%H:%M') if res.from_time.strftime else res.from_time }} - 
@@ -254,7 +268,7 @@
                                             <span style="color: var(--text-secondary); font-size: 0.9rem;">All Day</span>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td data-label="Payment Status">
                                         <form action="/reservations/toggle_payment/{{ res.reservation_id }}" method="POST" class="toggle-form">
                                             <input type="hidden" name="current_value" value="{{ 'true' if res.payment_made else 'false' }}">
                                             <button type="submit" class="badge-btn">
@@ -266,7 +280,7 @@
                                             </button>
                                         </form>
                                     </td>
-                                    <td>
+                                    <td data-label="Deposit Status">
                                         <form action="/reservations/toggle_deposit/{{ res.reservation_id }}" method="POST" class="toggle-form">
                                             <input type="hidden" name="current_value" value="{{ 'true' if res.deposit_on_file else 'false' }}">
                                             <button type="submit" class="badge-btn">
@@ -278,7 +292,7 @@
                                             </button>
                                         </form>
                                     </td>
-                                    <td>
+                                    <td data-label="Agreement Status">
                                         <form action="/reservations/toggle_agreement/{{ res.reservation_id }}" method="POST" class="toggle-form">
                                             <input type="hidden" name="current_value" value="{{ 'true' if res.agreement_received else 'false' }}">
                                             <button type="submit" class="badge-btn">
@@ -290,7 +304,7 @@
                                             </button>
                                         </form>
                                     </td>
-                                    <td style="text-align: right;">
+                                    <td data-label="Actions" style="text-align: right;">
                                         <form action="/reservations/delete/{{ res.reservation_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
                                             <button type="submit" class="btn btn-danger-outline">Cancel</button>
                                         </form>

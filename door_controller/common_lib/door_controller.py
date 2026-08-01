@@ -1,7 +1,9 @@
 import re
 import requests
+from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 import time
+from door_controller.common_lib.utils import log_error, log_info
 
 class door_controller:
     def __init__(self, url, username, password):
@@ -26,24 +28,30 @@ class door_controller:
         self.sql = ''
         self.timeout = 10
         self.max_retries = 6
+        self.login_data = {'username': self.username,
+        'pwd': self.password,
+        'logid': '20101222'}
+        self._logged_in = False
+        self._login_response = None
 
 
     def get_httpresponse(self, url, data):
         for x in range (0, self.max_retries):
             try:
-                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # Debugging code
+                # raw_sent_string = response.request.body
+                # print(raw_sent_string)
                 # Check for successful response
                 if response.status_code == 200:
-                    print("door_controller.get_httpresponse: Connected")
-
                     return response
                 else:
                     print(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
                     print(response.text)
                     return
             except Exception as e:
-                #raise e
-                pass
+                raise e
+                # pass
         return
 
     def is_convertible_to_int(self, token):
@@ -82,42 +90,51 @@ class door_controller:
         # print(results)
         return results
 
-    def connect(self, data):
+    def connect(self):
+        if getattr(self, '_logged_in', False) and getattr(self, '_login_response', None) is not None:
+            return self._login_response
         url = self.url+'/ACT_ID_1'
         for x in range(0, self.max_retries):
             try:
-                response = requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
+                # TO DO: Use self.get_httpresponse instead of direct requests.post to maintain session and headers
+                response = self.get_httpresponse(url, data = self.login_data)
+                # response = self.session.post(url, headers=self.session.headers, data=self.login_data, auth=self.auth, timeout=self.timeout)
                 # Check for successful response
-                if response.status_code == 200:
-                    print("door_controller.connect: Connected")
+                if response and response.status_code == 200:
+                    # print("door_controller.connect: Connected")
+                    self._logged_in = True
+                    self._login_response = response
                     return response
                 else:
-                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code}")
-                    print(response.text)
-                    return
-            except:
+                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code if response else 'No Response'}")
+                    if response:
+                        print(response.text)
+                    return response
+            except Exception as e:
+                # raise e
                 pass
         print('Connection Failed')
         return
 
     def users_page(self):
+        response = self.connect()
+        if response and response.status_code == 200:
+            self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+            url = self.url + '/ACT_ID_21'
+            data ={'s2':'Users'}
+            for x in range(0, self.max_retries):
+                try:
+                    response = self.get_httpresponse(url, data=data)
+                    #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
+                    return response
+                except:
+                    time.sleep(self.timeout/3)
+                    pass
 
-        self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-        url = self.url + '/ACT_ID_21'
-        data ={'s2':'Users'}
-        for x in range(0, self.max_retries):
-            try:
-                response = self.get_httpresponse(url, data=data)
-                #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
-                return response
-            except:
-                time.sleep(self.timeout/3)
-                pass
-
-    def navigate(self, data):
+    def navigate(self):
         # obj_ACL = AccessControlList(self.username, self.password, self.url)
         try:
-            response = self.connect(data)
+            response = self.connect()
             if response.status_code == 200:
                 try:
                     response = self.users_page()
@@ -127,7 +144,31 @@ class door_controller:
         except Exception as e:
             raise e
 
-
-
-
-
+    def unlock_door(self, door_desc, door_no):
+        self.connect()
+        log_info([door_desc, door_no])
+        self.session.headers['Referer'] = self.url + '/ACT_ID_1'
+        target_url = self.url + '/ACT_ID_701'
+        log_info(target_url)
+        data = {f"UNCLOSE{door_no}": f"Remote Open #{door_no} Door {door_desc}"}
+        # UNCLOSE1=Remote+Open+%231+Door+WW+Clubhouse
+        try:
+            response = self.get_httpresponse(target_url, data)
+            raw_sent_string = response.request.body
+            # log_info(raw_sent_string)
+            if response and getattr(response, 'status_code', None) == 200:
+                if response.text.find('successfully!') > 0:
+                    log_info(f"Door {door_desc} remotely opened via app")
+                    return response.status_code
+                else:
+                    log_info(raw_sent_string)
+                    log_info(response.headers)
+                    # log_info(response.text)
+                    return None
+                
+            else:
+                log_info(f"Door {door_desc} Remote open failed")
+                return None
+        except Exception as e:
+            log_error(f"Remote Door Open Error {e.args}")
+            raise e

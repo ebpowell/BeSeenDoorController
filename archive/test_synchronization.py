@@ -52,34 +52,65 @@ class TestSynchronization(unittest.TestCase):
         perms = get_expected_permissions(mock_db_mgr, 1001, '69.21.119.147/32')
         self.assertEqual(perms, {1: True, 2: False})
 
-    @patch('door_controller.key_management_application.synchronization.key_fobs')
-    def test_get_all_fobs_from_controller(self, mock_key_fobs_class):
-        mock_kf = mock_key_fobs_class.return_value
-        mock_kf.connect.return_value.status_code = 200
+    @patch('door_controller.key_management_application.synchronization.postgres')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_get_all_fobs_from_controller(self, mock_extractor_class, mock_postgres_class):
+        mock_pg_db = mock_postgres_class.return_value
+        mock_extractor = mock_extractor_class.return_value
         
-        # Mock pages
-        mock_response_1 = MagicMock()
-        mock_response_1.status_code = 200
-        mock_response_1.text = "page 1 html"
+        # Setup mock db_mgr
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+        mock_db_mgr.conn_str = "postgres://conn"
         
-        mock_response_2 = MagicMock()
-        mock_response_2.status_code = 200
-        mock_response_2.text = "page 2 html"
-
-        mock_kf.get_httpresponse.side_effect = [mock_response_1, mock_response_2]
-        
-        # parse_fobs_data mock returns:
-        # page 1: [["21", "1001"], ["22", "1002"]]
-        # page 2: [["23", "1003"]]
-        mock_kf.parse_fobs_data.side_effect = [
-            [["21", "1001"], ["22", "1002"]],
-            [["23", "1003"]]
+        # Database query fetchall returns the fobs list
+        mock_cur.fetchall.return_value = [
+            (21, 1001),
+            (22, 1002),
+            (23, 1003)
         ]
         
-        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password')
+        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr)
+        
         self.assertEqual(len(fobs), 3)
-        self.assertEqual(fobs[0][1], "1001")
-        self.assertEqual(fobs[2][1], "1003")
+        self.assertEqual(fobs[0], ["21", "1001"])
+        self.assertEqual(fobs[2], ["23", "1003"])
+        
+        # Verify calls
+        mock_postgres_class.assert_called_once_with("postgres://conn")
+        mock_extractor_class.assert_called_once_with("admin", "password", "http://69.21.119.147", mock_pg_db)
+        mock_extractor.get_system_fob_list.assert_called_once()
+        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
+
+    @patch('door_controller.key_management_application.synchronization.postgres')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_get_all_fobs_from_controller_empty(self, mock_extractor_class, mock_postgres_class):
+        mock_pg_db = mock_postgres_class.return_value
+        mock_extractor = mock_extractor_class.return_value
+        
+        # Setup mock db_mgr
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+        mock_db_mgr.conn_str = "postgres://conn"
+        
+        # Database query fetchall returns empty list
+        mock_cur.fetchall.return_value = []
+        
+        fobs = get_all_fobs_from_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr)
+        
+        self.assertEqual(len(fobs), 0)
+        
+        # Verify calls
+        mock_postgres_class.assert_called_once_with("postgres://conn")
+        mock_extractor_class.assert_called_once_with("admin", "password", "http://69.21.119.147", mock_pg_db)
+        mock_extractor.get_system_fob_list.assert_called_once()
+        mock_pg_db.purge_fob_records.assert_called_once_with("'69.21.119.147/32'")
 
     @patch('door_controller.key_management_application.synchronization.get_all_fobs_from_controller')
     @patch('door_controller.key_management_application.synchronization.get_owner_for_fob')
@@ -134,10 +165,7 @@ class TestSynchronization(unittest.TestCase):
         self.assertTrue(res)
 
         # Verify deletion of fob 1003 (record id 23)
-        mock_dm.del_fob.assert_called_once_with(
-            {'username': 'admin', 'pwd': 'password', 'logid': '20101222'},
-            23
-        )
+        mock_dm.del_fob.assert_called_once_with(23)
 
         # Verify addition of fob 1002 (owner "Bob Owner")
         mock_dm.add_fob.assert_called_once_with(1002, "Bob Owner")
@@ -167,10 +195,10 @@ class TestSynchronization(unittest.TestCase):
 
         self.assertEqual(mock_sync_controller.call_count, 2)
         mock_sync_controller.assert_any_call(
-            'http://69.21.119.147', 'admin', 'password', mock_db_mgr_class.return_value
+            'http://69.21.119.147', 'admin', 'password', mock_db_mgr_class.return_value, limit_changes=None
         )
         mock_sync_controller.assert_any_call(
-            'http://69.21.119.148', 'admin', 'password', mock_db_mgr_class.return_value
+            'http://69.21.119.148', 'admin', 'password', mock_db_mgr_class.return_value, limit_changes=None
         )
 
     @patch('door_controller.key_management_application.synchronization.time.sleep')
@@ -235,6 +263,124 @@ class TestSynchronization(unittest.TestCase):
         self.assertEqual(schedule[0], datetime(2026, 6, 17, 6, 0, 0))
         self.assertEqual(schedule[1], datetime(2026, 6, 17, 8, 0, 0))
         self.assertEqual(schedule[2], datetime(2026, 6, 17, 22, 0, 0))
+
+    @patch('door_controller.key_management_application.synchronization.get_all_fobs_from_controller')
+    @patch('door_controller.key_management_application.synchronization.get_owner_for_fob')
+    @patch('door_controller.key_management_application.synchronization.get_expected_permissions')
+    @patch('door_controller.key_management_application.synchronization.DataManager')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_synchronize_controller_with_limit(self, mock_extractor_class, mock_dm_class, mock_get_expected_perms, mock_get_owner, mock_get_all_fobs):
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+
+        mock_db_mgr.list_fobs.return_value = [
+            {'fob_id': 1001},
+            {'fob_id': 1002}
+        ]
+
+        mock_get_all_fobs.side_effect = [
+            [["21", "1001"], ["23", "1003"]],
+            [["21", "1001"]]
+        ]
+
+        mock_get_owner.return_value = "Bob Owner"
+
+        mock_get_expected_perms.side_effect = [
+            {1: True, 2: False}
+        ]
+
+        mock_extractor = mock_extractor_class.return_value
+        mock_extractor.get_permissions_record.side_effect = [
+            [["21", "1001", "Door 01", "Allow", "url"], ["21", "1001", "Door 02", "Allow", "url"]]
+        ]
+
+        mock_dm = mock_dm_class.return_value
+        mock_dm.del_fob.return_value = 200
+
+        res = synchronize_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr, limit_changes=1)
+        
+        self.assertTrue(res)
+
+        mock_dm.del_fob.assert_called_once_with(23)
+        mock_dm.add_fob.assert_not_called()
+        mock_dm.set_permissions.assert_not_called()
+
+    @patch('door_controller.key_management_application.synchronization.get_all_fobs_from_controller')
+    @patch('door_controller.key_management_application.synchronization.get_owner_for_fob')
+    @patch('door_controller.key_management_application.synchronization.get_expected_permissions')
+    @patch('door_controller.key_management_application.synchronization.DataManager')
+    @patch('door_controller.key_management_application.synchronization.ww_data_extractor')
+    def test_synchronize_controller_zero_limit(self, mock_extractor_class, mock_dm_class, mock_get_expected_perms, mock_get_owner, mock_get_all_fobs):
+        mock_db_mgr = MagicMock()
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_db_mgr._get_connection.return_value.__enter__.return_value = mock_conn
+
+        mock_db_mgr.list_fobs.return_value = [
+            {'fob_id': 1001},
+            {'fob_id': 1002}
+        ]
+
+        mock_get_all_fobs.side_effect = [
+            [["21", "1001"], ["23", "1003"]]
+        ]
+
+        mock_dm = mock_dm_class.return_value
+
+        res = synchronize_controller('http://69.21.119.147', 'admin', 'password', mock_db_mgr, limit_changes=0)
+        
+        self.assertTrue(res)
+
+        mock_dm.del_fob.assert_not_called()
+        mock_dm.add_fob.assert_not_called()
+        mock_dm.set_permissions.assert_not_called()
+
+    @patch('door_controller.key_management_application.synchronization.load_config')
+    @patch('door_controller.key_management_application.synchronization.FobDatabaseManager')
+    @patch('door_controller.key_management_application.synchronization.synchronize_controller')
+    def test_main_with_limit_cli(self, mock_sync_controller, mock_db_mgr_class, mock_load_config):
+        mock_load_config.return_value = {
+            'settings': {
+                'postgres_connect_string': 'postgresql://db',
+                'username': 'admin',
+                'password': 'password',
+                'urls': ['http://69.21.119.147']
+            }
+        }
+        mock_db_mgr_class.return_value.get_runtimes_for_date.return_value = []
+
+        main(argv=["--limit-changes", "5"])
+
+        self.assertEqual(mock_sync_controller.call_count, 1)
+        mock_sync_controller.assert_called_with(
+            'http://69.21.119.147', 'admin', 'password', mock_db_mgr_class.return_value, limit_changes=5
+        )
+
+    @patch('door_controller.key_management_application.synchronization.load_config')
+    @patch('door_controller.key_management_application.synchronization.FobDatabaseManager')
+    @patch('door_controller.key_management_application.synchronization.synchronize_controller')
+    def test_main_with_limit_config(self, mock_sync_controller, mock_db_mgr_class, mock_load_config):
+        mock_load_config.return_value = {
+            'settings': {
+                'postgres_connect_string': 'postgresql://db',
+                'username': 'admin',
+                'password': 'password',
+                'limit_changes': 3,
+                'urls': ['http://69.21.119.147']
+            }
+        }
+        mock_db_mgr_class.return_value.get_runtimes_for_date.return_value = []
+
+        main(argv=[])
+
+        self.assertEqual(mock_sync_controller.call_count, 1)
+        mock_sync_controller.assert_called_with(
+            'http://69.21.119.147', 'admin', 'password', mock_db_mgr_class.return_value, limit_changes=3
+        )
 
 
 if __name__ == '__main__':

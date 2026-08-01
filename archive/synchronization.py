@@ -2,10 +2,13 @@ import time
 import os
 import re
 from datetime import datetime, date, timedelta
+
+
 from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.data_extractor import ww_data_extractor
+from door_controller.common_lib.pg_database import postgres
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 
 
@@ -21,71 +24,34 @@ def parse_door_name(door_name):
     return None
 
 
-def get_all_fobs_from_controller(url, username, password):
+def get_all_fobs_from_controller(url, username, password, db_mgr):
     """
-    Retrieves all fobs from the controller in memory.
+    Retrieves all fobs from the controller by using ww_data_extractor.
     """
-    obj_keyfobs = key_fobs(url, username, password)
+    pg_db = postgres(db_mgr.conn_str)
+    extractor = ww_data_extractor(username, password, url, pg_db)
     
-    # 1. Authenticate
-    data = {
-        'username': username,
-        'pwd': password,
-        'logid': '20101222'
-    }
-    response = obj_keyfobs.connect(data)
-    if not response or response.status_code != 200:
-        raise Exception(f"Failed to authenticate with controller {url}")
-        
+    # Extract fob list to dataload.fobs_slop
+    extractor.get_system_fob_list()
+    
+    # Query all fobs from dataload.fobs_slop
+    cidr = url[7:] + '/32'
+    query = """
+        SELECT record_id, fob_id
+        FROM dataload.fobs_slop
+        WHERE controller_ip = %s;
+    """
     fobs = []
+    with db_mgr._get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (cidr,))
+            for record_id, fob_id in cur.fetchall():
+                # Format: [record_id, fob_id] as strings to match original format
+                fobs.append([str(record_id), str(fob_id)])
+                
+    # Clean up/purge the slop table
+    pg_db.purge_fob_records(f"'{cidr}'")
     
-    # 2. Fetch page 1
-    obj_keyfobs.session.headers['Referer'] = url + '/ACT_ID_1'
-    page_url = url + '/ACT_ID_21'
-    page_data = {'s2': 'Users'}
-    response = obj_keyfobs.get_httpresponse(page_url, page_data)
-    if not response or response.status_code != 200:
-        return fobs
-        
-    batch = obj_keyfobs.parse_fobs_data(response.text)
-    if not batch:
-        return fobs
-        
-    fobs.extend(batch)
-    
-    # Keep paging until we get an empty batch or the same last index
-    next_index = int(batch[-1][0])
-    visited_indices = {next_index}
-    
-    for _ in range(100):
-        # Fetch next page
-        obj_keyfobs.session.headers['Referer'] = url + '/ACT_ID_21' if len(fobs) <= 20 else url + '/ACT_ID_325'
-        page_url = url + '/ACT_ID_325'
-        page_data = {
-            'PC': f"000{next_index-19}",
-            'PE': f"000{next_index}",
-            'PN': 'Next'
-        }
-        response = obj_keyfobs.get_httpresponse(page_url, page_data)
-        if not response or response.status_code != 200:
-            break
-            
-        batch = obj_keyfobs.parse_fobs_data(response.text)
-        if not batch:
-            break
-            
-        new_records = [r for r in batch if int(r[0]) not in [int(f[0]) for f in fobs]]
-        if not new_records:
-            break
-            
-        fobs.extend(new_records)
-        if len(batch) < 20:
-            break
-        next_index = int(batch[-1][0])
-        if next_index in visited_indices:
-            break
-        visited_indices.add(next_index)
-        
     return fobs
 
 
@@ -94,10 +60,10 @@ def get_owner_for_fob(db_mgr, fob_id):
     Helper to get property owner name for a fob_id from database.
     """
     query = """
-        SELECT o.owner_name
+        SELECT concat(o.first_name, ' ', o.last_name) owner_name
         FROM key_fobs.keyfobs f
         JOIN key_fobs.properties p ON f.property_id = p.property_id
-        LEFT JOIN key_fobs.property_owners o ON p.property_id = o.property_id
+        LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
         WHERE f.fob_id = %s;
     """
     with db_mgr._get_connection() as conn:
@@ -116,7 +82,9 @@ def get_expected_permissions(db_mgr, fob_id, cidr):
     query = """
         SELECT door_no, allow
         FROM key_fobs.vint_acl_data
-        WHERE fob_id = %s AND controller_ip = %s;
+        WHERE fob_id = %s AND controller_ip = %s
+        and start_time <= now()::time and (end_time is null or end_time >= now()::time)
+        and start_date <= now()::date and (end_date is null or end_date >= now()::date);
     """
     expected = {}
     with db_mgr._get_connection() as conn:
@@ -127,17 +95,18 @@ def get_expected_permissions(db_mgr, fob_id, cidr):
     return expected
 
 
-def synchronize_controller(url, username, password, db_mgr):
+def synchronize_controller(url, username, password, db_mgr, limit_changes=None):
     """
     Executes synchronization for a single controller.
     """
     log_info(f"Starting synchronization for controller: {url}")
     
+    changes_made = 0
     cidr = url[7:] + '/32'
     
     # 1. Fetch current fobs from controller
     try:
-        fobs_on_controller = get_all_fobs_from_controller(url, username, password)
+        fobs_on_controller = get_all_fobs_from_controller(url, username, password, db_mgr)
     except Exception as e:
         log_error(f"Error fetching fobs from controller {url}: {e}")
         return False
@@ -170,22 +139,36 @@ def synchronize_controller(url, username, password, db_mgr):
     
     # 3. Expunge extra fobs on controller
     fobs_to_expunge = controller_fobs_keys - db_fobs_keys
+    actual_fob_changes = False
     if fobs_to_expunge:
         log_info(f"Expunging {len(fobs_to_expunge)} fobs from controller {url}")
         for fob_id in fobs_to_expunge:
             rec_id = controller_fobs[fob_id]
+            if limit_changes is not None and changes_made >= limit_changes:
+                log_info(f"Change limit of {limit_changes} reached. Skipping deletion of Fob {fob_id} (Record ID: {rec_id}) from controller {url}.")
+                # debugging 
+                changes_made = 0 # Reset to test other functions
+                break
             log_info(f"Deleting Fob {fob_id} (Record ID: {rec_id}) from controller {url}")
             try:
                 # Call del_fob
-                res_code = data_manager.del_fob(login_data, rec_id)
-                # Log to DB audit logs
-                with db_mgr._get_connection() as conn:
-                    with conn.cursor() as cur:
-                        db_mgr.log_audit_action(
-                            cur, 'system', 'Sync Expunge Fob',
-                            f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {url} (status: {res_code})"
-                        )
-                    conn.commit()
+                res_code = data_manager.del_fob(rec_id)
+                if res_code is None:
+                    log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. No response code returned.")
+                    continue
+                elif res_code == 200:    
+                    changes_made += 1
+                    actual_fob_changes = True
+                    # Log to DB audit logs
+                    with db_mgr._get_connection() as conn:
+                        with conn.cursor() as cur:
+                            db_mgr.log_audit_action(
+                                cur, 'system', 'Sync Expunge Fob',
+                                f"Deleted Fob {fob_id} (Record ID {rec_id}) from controller {url} (status: {res_code})"
+                            )
+                        conn.commit()
+                else:
+                    log_error(f"Failed to delete Fob {fob_id} (Record ID: {rec_id}) from controller {url}. HTTP status code: {res_code}")
             except Exception as e:
                 log_error(f"Failed to delete Fob {fob_id} from controller {url}: {e}")
                 
@@ -195,25 +178,38 @@ def synchronize_controller(url, username, password, db_mgr):
         log_info(f"Adding {len(fobs_to_add)} missing fobs to controller {url}")
         for fob_id in fobs_to_add:
             owner_name = get_owner_for_fob(db_mgr, fob_id)
+            if limit_changes is not None and changes_made >= limit_changes:
+                log_info(f"Change limit of {limit_changes} reached. Skipping addition of Fob {fob_id} (Owner: {owner_name}) to controller {url}.")
+                # debugging
+                chnages_made = 0 # Reset to test other functions
+                break
             log_info(f"Adding Fob {fob_id} (Owner: {owner_name}) to controller {url}")
             try:
                 # Call add_fob
-                res_code = data_manager.add_fob(fob_id, owner_name)
-                # Log to DB audit logs
-                with db_mgr._get_connection() as conn:
-                    with conn.cursor() as cur:
-                        db_mgr.log_audit_action(
-                            cur, 'system', 'Sync Add Fob',
-                            f"Added Fob {fob_id} (Owner {owner_name}) to controller {url}"
-                        )
-                    conn.commit()
+                res_resp = data_manager.add_fob(fob_id, owner_name)
+                if res_resp is None:
+                    log_error(f"Failed to add Fob {fob_id} to controller {url}. No response returned.")
+                    continue
+                elif res_resp.status_code == 200:
+                    changes_made += 1
+                    actual_fob_changes = True
+                    # Log to DB audit logs
+                    with db_mgr._get_connection() as conn:
+                        with conn.cursor() as cur:
+                            db_mgr.log_audit_action(
+                                cur, 'system', 'Sync Add Fob',
+                                f"Added Fob {fob_id} (Owner {owner_name}) to controller {url} (status: {res_resp.status_code})"
+                            )
+                        conn.commit()
+                else:
+                    log_error(f"Failed to add Fob {fob_id} to controller {url}. HTTP status code: {res_resp.status_code}")
             except Exception as e:
                 log_error(f"Failed to add Fob {fob_id} to controller {url}: {e}")
                 
     # 5. Re-fetch current fobs from controller if any changes were made
-    if fobs_to_expunge or fobs_to_add:
+    if actual_fob_changes:
         try:
-            fobs_on_controller = get_all_fobs_from_controller(url, username, password)
+            fobs_on_controller = get_all_fobs_from_controller(url, username, password, db_mgr)
             controller_fobs = {}
             for row in fobs_on_controller:
                 try:
@@ -261,9 +257,15 @@ def synchronize_controller(url, username, password, db_mgr):
                     delta = True
                     
             if delta:
+                if limit_changes is not None and changes_made >= limit_changes:
+                    log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {url}.")
+                    # changes_made = 0 # Reset to test other functions
+                    # limit_changes = 0 # Reset to test other functions   
+                    break
                 log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {url}. "
                          f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
                 data_manager.set_permissions(target_perms, rec_id)
+                changes_made += 1
                 # Log to DB audit logs
                 with db_mgr._get_connection() as conn:
                     with conn.cursor() as cur:
@@ -324,6 +326,7 @@ def main(argv=None):
             
     parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
     parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
+    parser.add_argument("-l", "--limit-changes", type=int, default=None, help="Limit the number of mutating changes applied per controller.")
     args = parser.parse_args(argv)
 
     log_info("Starting global door controller synchronization routine.")
@@ -346,13 +349,20 @@ def main(argv=None):
         log_info("No door controller URLs configured for synchronization.")
         return
 
+    limit_changes = args.limit_changes
+    if limit_changes is None:
+        limit_changes = config.get('settings', {}).get('limit_changes')
+        
+    if limit_changes is not None:
+        log_info(f"Applying synchronization change limit: {limit_changes} changes per controller.")
+
     if args.daemon:
         log_info("Running in daemon/scheduler mode.")
         
         # Initial startup synchronization to ensure consistency
         log_info("Executing initial startup synchronization...")
         for url in urls:
-            synchronize_controller(url, username, password, db_mgr)
+            synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
             
         last_sync_time = datetime.now()
         log_info(f"Initial synchronization complete. Daemon scheduler started. last_sync_time={last_sync_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -378,7 +388,7 @@ def main(argv=None):
                 if pending_events:
                     log_info(f"Triggering synchronization for scheduled times: {[dt.strftime('%H:%M:%S') for dt in pending_events]}")
                     for url in urls:
-                        synchronize_controller(url, username, password, db_mgr)
+                        synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
                     last_sync_time = now
                     
             except Exception as e:
@@ -399,7 +409,8 @@ def main(argv=None):
             log_error(f"Failed to derive synchronization run-schedule: {e}")
         
         for url in urls:
-            synchronize_controller(url, username, password, db_mgr)
+            # TO DO - wrap in subprocess to isolate failures per controller / run in parallel
+            synchronize_controller(url, username, password, db_mgr, limit_changes=limit_changes)
             
         log_info("Global door controller synchronization routine completed.")
 

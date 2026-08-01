@@ -27,7 +27,7 @@ class TestDataManager(unittest.TestCase):
         # but since we want to verify the arguments passed to requests.post inside get_httpresponse,
         # we should patch requests.post.
 
-        with patch('door_controller.common_lib.door_controller.requests.post') as mock_post:
+        with patch('door_controller.common_lib.door_controller.requests.Session.post') as mock_post:
             mock_post.return_value = mock_response
             
             fob_id = 12345
@@ -48,14 +48,16 @@ class TestDataManager(unittest.TestCase):
             login_url = login_call[0][0]
             self.assertIn('ACT_ID_1', login_url)
             
-            # Check the final add fob call
-            # The last call should be the one adding the fob data
-            add_call = mock_post.call_args_list[-1]
+            # Find the add card call (ACT_ID_312) in the mock post calls
+            add_call = None
+            for call in mock_post.call_args_list:
+                if 'ACT_ID_312' in call[0][0]:
+                    add_call = call
+                    break
+            self.assertIsNotNone(add_call, "Could not find call to ACT_ID_312")
             args, kwargs = add_call
             url = args[0]
             data = kwargs['data'] # This is what we want to check order on
-            
-            self.assertIn('ACT_ID_312', url)
             
             # Verify data is a list of tuples and has correct order
             self.assertIsInstance(data, list)
@@ -63,6 +65,20 @@ class TestDataManager(unittest.TestCase):
             self.assertEqual(data[0], ('AD21', '12345'))
             self.assertEqual(data[1], ('AD22', 'TestUser'))
             self.assertEqual(data[2], ('25', 'Add'))
+
+    @patch('door_controller.common_lib.utils.load_config')
+    def test_init_loads_retry_sleep_from_config(self, mock_load_config):
+        mock_load_config.return_value = {
+            'settings': {
+                'retry_sleep_seconds': 5
+            }
+        }
+        dm = DataManager(self.url, self.username, self.password)
+        self.assertEqual(dm.retry_sleep, 5)
+
+    def test_init_with_explicit_retry_sleep(self):
+        dm = DataManager(self.url, self.username, self.password, retry_sleep=10)
+        self.assertEqual(dm.retry_sleep, 10)
 
 if __name__ == '__main__':
     unittest.main()

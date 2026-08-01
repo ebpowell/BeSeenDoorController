@@ -1,0 +1,78 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Test AccessSynchronizer",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_AccessSynchronizer.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Sync Controller (Daemon Mode)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
+            "logToFile": true,
+            "args": [
+                "--daemon"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Sync Controller (Limit 1 Change)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
+            "args": [
+                "--limit-changes",
+                "1"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "logToFile": true,
+            "redirectOutput": true,
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Pulls Swipes from Controller",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
+            "console": "integratedTerminal",
+            "args": [""],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Pulls Fobs from Controller",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_foblist_from_controller.py",
+            "console": "integratedTerminal",
+            "args": [""],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+
+    ]
+}

@@ -1,7 +1,11 @@
+from logging import exception
+import re
 import time
 import datetime
+from urllib import response
 
 from door_controller.common_lib.door_controller import door_controller
+from door_controller.common_lib.utils import log_info, log_error
 
 
 class key_fobs(door_controller):
@@ -24,123 +28,87 @@ class key_fobs(door_controller):
         [tpl_row.append([row[0], row[1],cidr, now]) for row in tpl_murow]
         return  tpl_row
 
-    def get_keyfobs(self, iterations):
+    def get_keyfobs(self):
+        batch_len = 20  # Number of records to fetch per page
+        start_idx = 1  # Starting index for the first page
         fobs = []
-        # Add iterations, start val parameters
-        data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
         next_index = 20
+        page_iteration = 1  # Track page step dynamically instead of using range()
+
         try:
-            response = self.connect(data)
-        except:
-            raise
-        if response.status_code == 200:
-            for x in range (1,iterations):
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s2':'Users'}
-                elif x == 2:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{next_index-19}",
-                           'PE': f"000{next_index}",
-                           'PN': 'Next'}
-                else:
-                    # Derive the PC value from the form element of the response text
-                    # Update passed data
-                    data = {'PC': f"000{next_index - 19}",
-                     'PE': f"000{next_index}",
-                     'PN': 'Next'}
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
-                    url = self.url + '/ACT_ID_325'
+            response = self.connect()
+            # response = self.navigate()
+        except Exception as e:
+            raise e
+
+        if response.status_code != 200:
+            return None
+
+        log_info("Starting controller sync...")
+
+        while True:
+            if page_iteration == 1:
+                data = {'s2':'Users'}
+                self.session.headers['Referer'] = f"{self.url}/ACT_ID_21"
+                url = f"{self.url}/ACT_ID_21"
+            else:
+                data = {
+                    'PC': start_idx,
+                    'PE': start_idx+19,
+                    'PN': 'Next'
+                }
+                self.session.headers['Referer'] = f"{self.url}/ACT_ID_325"
+                url = f"{self.url}/ACT_ID_325"
+
+            try:
+                # print(f"Fetching page {page_iteration} -> {url}")
+                # print(f"Payload: {data}")
+                response = self.get_httpresponse(url, data)
+            except Exception as e:
+                log_info(f"Network error on page {page_iteration}: {e}")
+                # Add to logger
+                raise e
+
+            if response.status_code == 200:
                 try:
-                    print(url)
-                    print(x, data)
-                    print(self.session.headers)
-                    response = self.get_httpresponse(url, data)
-                except:
-                    raise
-                try:
-                    if response.status_code ==200:
-                        # Extract data from the returned page
-                        batch = self.parse_fobs_data(response.text)
-                        if batch:
-                            fobs = fobs + batch
-                            next_index = int(batch[19][0])
-                            print('Next Index:', next_index, 'Records Added:', len(fobs), 'Total Count:', len(batch))
+                    # First iteration, extract total number of key fobs from the page to determine when to sto
+                    if page_iteration == 1:
+                        total_fobs_match = re.search(r"Total Users:\s* (\d+)", response.text)
+                        if total_fobs_match:
+                            total_fobs = int(total_fobs_match.group(1))
+                            log_info(f"Total key fobs to sync: {total_fobs}")
                         else:
-                            print ("No Records returned")
-                            # next_index =  swipes[len(swipes)-20][0]
-                        time.sleep(self.timeout/3)
-                except:
-                    pass
-            return fobs
-        return None
+                            log_info("Could not determine total number of key fobs. Proceeding with pagination until no more records are returned.")
+                            total_fobs = None  # Unknown, will rely on termination condition
+                    # Extract data from the returned page HTML
+                    batch = self.parse_fobs_data(response.text) 
+                    fobs.extend(batch)
+                    start_idx += 20
+                    batch_len = len(batch)      
+                    if len(fobs) >= total_fobs if total_fobs is not None else False:
+                        log_info("Reached the end of available records based on total count. Finalizing sync.")
+                        log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
+                        break
+                    if not batch:
+                        log_info("No more records returned. Ending pagination.")
+                        log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
+                        break
+                    # print(f"Processed page {page_iteration}: {batch_len} records added. Next index target: {next_index}. Total fobs pulled so far: {len(fobs)}")              
+                    log_info(f"Batch Size: {batch_len} | Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
+                    
+                except Exception as e:
+                    log_error(f"Error occurred while parsing page response: {e}")
+                    # Optional: break or raise here if parsing failure shouldn't infinite-loop
+                    break
+                    
+                time.sleep(self.timeout / 3)
+                page_iteration += 1  # Increment to move into subsequent pages step
+            else:
+                log_error(f"Received non-200 status code ({response.status_code}). Stopping.")
+                break
 
-    def get_keyfobs_range(self, iterations, start_rec):
-        fobs = []
-        next_index = start_rec
-        print("Start:",start_rec)
-        # Add iterations, start val parameters
-        data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
-        try:
-            response = self.connect(data)
-        except:
-            raise
-        if response.status_code == 200:
-            for x in range (1,iterations):
-                if x == 1:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_1'
-                    url = self.url + '/ACT_ID_21'
-                    data = {'s2':'Users'}
-                elif x == 2:
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-                    url = self.url + '/ACT_ID_325'
-                    data = {'PC': f"000{next_index-19}",
-                           'PE': f"000{(next_index)}",
-                           'PN': 'Next'}
-                else:
-                    # Derive the PC value from the form element of the response text
-                    # Update passed data
-                    data = {'PC':f"000{next_index-19}",
-                            'PE':f"000{next_index}",
-                            'PN':'Next'}
-                    # Update Request header to revise the referrer attribute
-                    self.session.headers['Referer'] = self.url+'/ACT_ID_325'
-                    url = self.url + '/ACT_ID_325'
-                try:
-                    response = self.get_httpresponse(url, data)
-                except:
-                    raise
-                if x > 1:
-                    try:
-                        if response.status_code ==200:
-                            # Extract data from the returned page
-                            batch = self.parse_fobs_data(response.text)
-                            if batch:
-                                fobs = fobs + batch
-                                next_index = int(batch[19][0])
-                                print ('Next Index:',next_index, 'Records Added:',len(fobs), 'Total Count:',len(batch))
-                            else:
-                                print ("No Records returned")
-                                # next_index =  swipes[len(swipes)-20][0]
-                            time.sleep(self.timeout/3)
-                    except:
-                        pass
-            return fobs
-        return None
+        return fobs
 
-    def get_fob_range(self, iterations, max_id):
-        pass
 
     def get_permissions_record(self, record_id):
         data = {f"E{record_id - 1}": 'Edit'}
@@ -153,11 +121,6 @@ class key_fobs(door_controller):
             raise
 
     def parse_permissions(self, markup):
-        # access permissions are on attribute names Door controller 1: 24, 25, 26, and 27,
-        # access permissions are on attribute names Door controller 2:  26, and 27,
-        # Values 0 : Forbid, 1 : Allow
-        # Chop the inital noise off of the record
-        # markup = markup[markup.find('<th>Operation</th></tr>'):markup.find('</p></form></body><HEAD>')]
         markup = markup[markup.find('</th></tr>') + 10:markup.find('</p></form></body><HEAD>') - 8]
         # Split into 5 columns
         tpl_murow = self.parse_tr_data(markup, r'<tr align=(.*?)</tr>', 5)
@@ -169,7 +132,7 @@ class key_fobs(door_controller):
                           for perm in lst_tags if perm.find('option') > 0]
             return door_perms
         except IndexError:
-            print(markup)
+            log_error(markup)
             pass
         except Exception as e:
             raise e
@@ -177,7 +140,7 @@ class key_fobs(door_controller):
     def parse_tag(self, permission_tag):
 
         door = permission_tag[0:7]
-        print(permission_tag, door)
+        # print(permission_tag, door)
         if permission_tag.find('selected') > 0:
             selected_tag = permission_tag[permission_tag.find('selected') + 9:]
             perm = selected_tag[:selected_tag.find('<')]
@@ -187,5 +150,41 @@ class key_fobs(door_controller):
             perm = 'Forbid'
         else:
             return
-        print([door, perm])
+        # print([door, perm])
         return [door, perm]
+
+    def get_record_id(self, fob_id):
+        self.navigate()
+        url = self.url + '/ACT_ID_323'
+        try:
+            self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+            data = {'US21':f"{fob_id}",
+                    '22': '0',
+                    '23': '',
+                    '24': 'Search'}
+            response = self.get_httpresponse(url, data)
+            return self.parse_user_id(response.text)
+        except Exception as e:
+            raise e
+        
+    def parse_user_id(self, markup):
+        data_row_regex = r'<tr align=center>(.*?)</tr>'
+        tpl_murow = self.parse_tr_data(markup, data_row_regex, tag_count=4)
+        try:
+            user_id = tpl_murow[0][0]
+            try:
+                return int(user_id)
+            except:
+                log_info(f"Failed to convert user_id to int: {user_id}")
+                return None
+        except IndexError:
+            # Verify thet the markup contains the information "Found Users' Count: 0. Search Finished"
+            if "Found Users' Count: 0. Search Finished" in markup:
+                log_error("No users found for the given fob_id.")
+                return None
+            else:
+                log_error(markup)
+            pass
+        except Exception as e:
+            log_error(e.args)
+            raise e
