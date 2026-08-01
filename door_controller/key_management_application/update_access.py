@@ -45,7 +45,19 @@ class AccessSynchronizer(ControllerScheduler):
         return parse_door_name(name)
 
     def get_expected_permissions(self, fob_id, cidr):
-        return self.db_mgr.get_expected_permissions(fob_id, cidr)
+        # Densify the expected permissions from the database for a given fob_id and controller CIDR
+        # Need a door count to generate a default permissions dictionary if no results are found
+        lst_doors = self.db_mgr.get_door_details(cidr)
+        if not lst_doors:
+            log_error(f"No doors found for CIDR {cidr}. Cannot generate expected permissions.")
+            return {}
+        lst_results = self.db_mgr.get_expected_permissions(fob_id, cidr)
+        if not lst_results:
+            # Generate a default permissions dictionary with all doors set to False
+            default_perms = {door_no: False for door_no in range(1, len(lst_doors) + 1)}  # Assuming doors are numbered 1 to 4
+            return default_perms
+        else:
+            return lst_results
 
     def synchronize_access(self, controller_url, limit_changes=None):
         """

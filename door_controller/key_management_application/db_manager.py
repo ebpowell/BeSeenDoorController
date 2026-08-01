@@ -737,10 +737,7 @@ class FobDatabaseManager:
             """
             query = """
                 SELECT door_no, allow
-                FROM key_fobs.vint_acl_data
-                WHERE fob_id = %s AND controller_ip = %s
-                and start_time <= now()::time and (end_time is null or end_time >= now()::time)
-                and start_date <= now()::date and (end_date is null or end_date >= now()::date);
+                FROM key_fobs.f_get_permissions(%s, %s);
             """
             expected = {}
             with self._get_connection() as conn:
