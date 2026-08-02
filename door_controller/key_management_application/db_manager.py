@@ -840,8 +840,23 @@ class FobDatabaseManager:
         end_time_val = end_time if end_time else None
         allow_val = True  # Always store positive allow rules
 
+        start_m = int(start_month)
+        start_d = int(start_day)
+        end_m = int(end_month)
+        end_d = int(end_day)
+
         with self._get_connection() as conn:
             with conn.cursor() as cur:
+                # Check table columns in key_fobs.group_permissions
+                cur.execute(
+                    """
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'key_fobs' AND table_name = 'group_permissions';
+                    """
+                )
+                cols = {row[0] for row in cur.fetchall()}
+
                 # Verify group
                 cur.execute("SELECT name FROM key_fobs.groups WHERE group_id = %s;", (group_id,))
                 group_row = cur.fetchone()
@@ -856,16 +871,31 @@ class FobDatabaseManager:
                     raise ValueError(f"Door ID {door_id} not found.")
                 door_desc = door_row[0]
 
-                query = """
-                    INSERT INTO key_fobs.group_permissions 
-                        (perm_id, group_id, door_id, start_date, end_date, start_time, end_time, allow)
-                    VALUES (
-                        (SELECT COALESCE(MAX(perm_id), 0) + 1 FROM key_fobs.group_permissions),
-                        %s, %s, %s, %s, %s, %s, %s
-                    )
-                    RETURNING perm_id;
-                """
-                cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow_val))
+                if 'start_day_of_month' in cols and 'start_month' in cols:
+                    query = """
+                        INSERT INTO key_fobs.group_permissions 
+                            (perm_id, group_id, door_id, start_date, end_date, start_time, end_time, allow,
+                             start_month, start_day_of_month, end_month, end_day_of_month)
+                        VALUES (
+                            (SELECT COALESCE(MAX(perm_id), 0) + 1 FROM key_fobs.group_permissions),
+                            %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s
+                        )
+                        RETURNING perm_id;
+                    """
+                    cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow_val,
+                                        start_m, start_d, end_m, end_d))
+                else:
+                    query = """
+                        INSERT INTO key_fobs.group_permissions 
+                            (perm_id, group_id, door_id, start_date, end_date, start_time, end_time, allow)
+                        VALUES (
+                            (SELECT COALESCE(MAX(perm_id), 0) + 1 FROM key_fobs.group_permissions),
+                            %s, %s, %s, %s, %s, %s, %s
+                        )
+                        RETURNING perm_id;
+                    """
+                    cur.execute(query, (group_id, door_id, start_date, end_date, start_time_val, end_time_val, allow_val))
                 perm_id = cur.fetchone()[0]
 
                 details = f"Added positive Allow access rule ID {perm_id}: Group '{group_name}', Door '{door_desc}', Dates: {start_date} to {end_date}, Times: {start_time_val} to {end_time_val}"
