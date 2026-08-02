@@ -14,6 +14,96 @@ class FobDatabaseManager:
             self.conn_str = config.get('settings', {}).get('postgres_connect_string')
             if not self.conn_str:
                 raise ValueError("postgres_connect_string not found in config.")
+        self._ensure_db_functions()
+
+    _functions_ensured = False
+
+    def _ensure_db_functions(self):
+        if FobDatabaseManager._functions_ensured:
+            return
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE OR REPLACE FUNCTION key_fobs.f_get_permissions (
+                            p_fob_id INT, 
+                            p_controller_ip CIDR
+                        )
+                        RETURNS TABLE (
+                            door_no INT,
+                            allow INT
+                        ) 
+                        LANGUAGE plpgsql
+                        AS $$
+                        BEGIN
+                            DROP TABLE IF EXISTS temp_doors;
+
+                            CREATE TEMP TABLE temp_doors AS
+                            SELECT d.door_no, 0 AS allow
+                            FROM door_controller.door d
+                            WHERE d.controller_ip = p_controller_ip;
+
+                            WITH permissions AS (
+                                SELECT k.fob_id, MAX(pgp.group_id) AS group_id 
+                                FROM key_fobs.keyfobs k 
+                                JOIN key_fobs.property_group_permissions pgp 
+                                  ON k.property_id = pgp.property_id 
+                                GROUP BY k.fob_id, k.property_id
+                            ),
+                            allow_times AS ( 
+                                SELECT 
+                                    p.fob_id,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
+                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.start_date,
+                                        '2000-01-01'::date
+                                    ) AS start_date,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
+                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.end_date,
+                                        '2099-12-31'::date
+                                    ) AS end_date,
+                                    gp.start_time,
+                                    gp.end_time,
+                                    d.door_no,
+                                    d.controller_ip
+                                FROM permissions p
+                                JOIN key_fobs.group_permissions gp 
+                                  ON p.group_id = gp.group_id
+                                JOIN door_controller.door d 
+                                  ON gp.door_id = d.door_id
+                                WHERE gp.allow = true
+                            )
+                            UPDATE temp_doors td
+                            SET allow = 1
+                            FROM allow_times atm
+                            WHERE td.door_no = atm.door_no
+                              AND atm.fob_id = p_fob_id
+                              AND atm.controller_ip = p_controller_ip
+                              AND (atm.start_time IS NULL OR CURRENT_TIME >= atm.start_time::time)
+                              AND (atm.end_time IS NULL OR CURRENT_TIME <= atm.end_time::time)
+                              AND CURRENT_DATE >= atm.start_date
+                              AND CURRENT_DATE <= atm.end_date;   
+
+                            RETURN QUERY
+                            SELECT td.door_no, td.allow FROM temp_doors td;
+
+                            DROP TABLE IF EXISTS temp_doors;
+                        END;
+                        $$;
+                    """)
+                conn.commit()
+            FobDatabaseManager._functions_ensured = True
+        except Exception as e:
+            log_info(f"Database function auto-update notice: {e}")
 
     def _get_connection(self):
         return psycopg2.connect(self.conn_str)
