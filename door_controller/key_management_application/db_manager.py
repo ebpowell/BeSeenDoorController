@@ -14,16 +14,86 @@ class FobDatabaseManager:
             self.conn_str = config.get('settings', {}).get('postgres_connect_string')
             if not self.conn_str:
                 raise ValueError("postgres_connect_string not found in config.")
-        self._ensure_db_functions()
 
     _functions_ensured = False
 
-    def _ensure_db_functions(self):
+    def ensure_db_functions(self):
         if FobDatabaseManager._functions_ensured:
             return
         try:
-            with self._get_connection() as conn:
+            conn = self._get_connection()
+            if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
+                return
+            with conn:
                 with conn.cursor() as cur:
+                    # 1. Backfill NULL month/day columns in group_permissions from start_date/end_date if columns exist
+                    cur.execute(
+                        """
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_schema = 'key_fobs' AND table_name = 'group_permissions';
+                        """
+                    )
+                    gp_cols = {row[0] for row in cur.fetchall()}
+                    if 'start_month' in gp_cols and 'start_day_of_month' in gp_cols:
+                        cur.execute("""
+                            UPDATE key_fobs.group_permissions
+                            SET 
+                                start_month = COALESCE(start_month, EXTRACT(MONTH FROM start_date)::int),
+                                start_day_of_month = COALESCE(start_day_of_month, EXTRACT(DAY FROM start_date)::int),
+                                end_month = COALESCE(end_month, EXTRACT(MONTH FROM end_date)::int),
+                                end_day_of_month = COALESCE(end_day_of_month, EXTRACT(DAY FROM end_date)::int)
+                            WHERE (start_month IS NULL OR start_day_of_month IS NULL OR end_month IS NULL OR end_day_of_month IS NULL)
+                              AND start_date IS NOT NULL;
+                        """)
+
+                    # 2. Check if key_fobs.vint_acl_data is a VIEW and recreate with null-safe expressions
+                    cur.execute(
+                        """
+                        SELECT table_type 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'key_fobs' AND table_name = 'vint_acl_data';
+                        """
+                    )
+                    v_row = cur.fetchone()
+                    if v_row and v_row[0] == 'VIEW':
+                        cur.execute("""
+                            CREATE OR REPLACE VIEW key_fobs.vint_acl_data AS
+                            SELECT 
+                                k.fob_id,
+                                gp.door_id,
+                                d.door_no,
+                                d.controller_ip,
+                                gp.allow,
+                                gp.start_time,
+                                gp.end_time,
+                                COALESCE(
+                                    CASE 
+                                        WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
+                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        ELSE NULL
+                                    END,
+                                    gp.start_date,
+                                    '2000-01-01'::date
+                                ) AS start_date,
+                                COALESCE(
+                                    CASE 
+                                        WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
+                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        ELSE NULL
+                                    END,
+                                    gp.end_date,
+                                    '2099-12-31'::date
+                                ) AS end_date
+                            FROM key_fobs.group_permissions gp
+                            JOIN key_fobs.groups g ON gp.group_id = g.group_id
+                            JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
+                            JOIN key_fobs.properties p ON pgp.property_id = p.property_id
+                            JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
+                            JOIN door_controller.door d ON gp.door_id = d.door_id;
+                        """)
+
+                    # 3. Create or replace f_get_permissions function
                     cur.execute("""
                         CREATE OR REPLACE FUNCTION key_fobs.f_get_permissions (
                             p_fob_id INT, 

@@ -15,6 +15,7 @@ def get_db_mgr():
     global db_mgr
     if db_mgr is None:
         db_mgr = FobDatabaseManager()
+        db_mgr.ensure_db_functions()
     return db_mgr
 
 def login_required(f):
