@@ -52,6 +52,7 @@ def deploy():
     # 2. Locate SQL script files
     trigger_path = find_sql_file("03_fob_sync_trigger.sql") or find_sql_file("fob_sync_trigger.sql")
     observability_path = find_sql_file("04_observability.sql") or find_sql_file("observability.sql")
+    group_permissions_path = find_sql_file("01_group_permissions.sql") or find_sql_file("group_permissions.sql")
     
     if not trigger_path:
         print("Error: Could not locate 03_fob_sync_trigger.sql or fob_sync_trigger.sql script.", file=sys.stderr)
@@ -60,16 +61,24 @@ def deploy():
     if not observability_path:
         print("Error: Could not locate 04_observability.sql or observability.sql script.", file=sys.stderr)
         sys.exit(1)
+
+    if not group_permissions_path:
+        print("Error: Could not locate 01_group_permissions.sql or group_permissions.sql script.", file=sys.stderr)
+        sys.exit(1)     
+
         
     print(f"Found trigger script: {trigger_path}")
     print(f"Found observability script: {observability_path}")
-    
+    print(f"Found group permissions script: {group_permissions_path}")
+
     # Read scripts
     try:
         with open(trigger_path, 'r', encoding='utf-8') as f:
             trigger_sql = f.read()
         with open(observability_path, 'r', encoding='utf-8') as f:
             observability_sql = f.read()
+        with open(group_permissions_path, 'r', encoding='utf-8') as f:
+            group_permissions_sql = f.read()
     except Exception as e:
         print(f"Error reading SQL files: {e}", file=sys.stderr)
         sys.exit(1)
@@ -86,6 +95,9 @@ def deploy():
             print(f"Applying metrics schema and views from: {observability_path} ...")
             cur.execute(observability_sql)
             
+            print(f"Applying group permissions from: {group_permissions_path} ...")
+            cur.execute(group_permissions_sql)
+        
             conn.commit()
             print("Triggers, PL/Python functions, and observability views deployed successfully!")
     except Exception as e:
