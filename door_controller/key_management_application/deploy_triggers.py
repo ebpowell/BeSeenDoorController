@@ -52,7 +52,13 @@ def deploy():
     # 2. Locate SQL script files
     trigger_path = find_sql_file("03_fob_sync_trigger.sql") or find_sql_file("fob_sync_trigger.sql")
     observability_path = find_sql_file("04_observability.sql") or find_sql_file("observability.sql")
-    group_permissions_path = find_sql_file("01_group_permissions.sql") or find_sql_file("group_permissions.sql")
+    group_permissions_path = (
+        find_sql_file("05__f_get_permissions.sql") or
+        find_sql_file("05_f_get_permissions.sql") or
+        find_sql_file("key_fobs_f_get_permissions.sql") or
+        find_sql_file("01_group_permissions.sql") or
+        find_sql_file("group_permissions.sql")
+    )
     
     if not trigger_path:
         print("Error: Could not locate 03_fob_sync_trigger.sql or fob_sync_trigger.sql script.", file=sys.stderr)
@@ -63,7 +69,7 @@ def deploy():
         sys.exit(1)
 
     if not group_permissions_path:
-        print("Error: Could not locate 01_group_permissions.sql or group_permissions.sql script.", file=sys.stderr)
+        print("Error: Could not locate 05__f_get_permissions.sql, key_fobs_f_get_permissions.sql, or group_permissions.sql script.", file=sys.stderr)
         sys.exit(1)     
 
         
