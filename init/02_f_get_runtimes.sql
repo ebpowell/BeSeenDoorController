@@ -6,15 +6,27 @@ returns table (run_times TIME,
 language sql
 as
 $$
-		with runtime as (
-		select distinct start_time runtime, vad.controller_ip
-		from key_fobs.vint_acl_data vad 
+
+		with rule_dates AS
+		(
+			select distinct start_time, end_time, d.controller_ip,
+			to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text) AS start_date,
+    		to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text) AS end_date
+			from key_fobs.group_permissions gp
+			inner join door_controller.door d 
+			on gp.door_id = d.door_id 
+			where gp.controller_ip = p_controller_ip
+			and gp.allow = true
+		), runtime as 
+		(
+		select distinct start_time runtime, rd.controller_ip
+		from rule_dates rd 
 		where start_date<= p_date
 		and end_date >= p_date
 		and controller_ip = p_controller_ip
 		union
-		select distinct end_time runtime, vad.controller_ip
-		from key_fobs.vint_acl_data vad 
+		select distinct end_time runtime, rd.controller_ip
+		from rule_dates rd	
 		where start_date<= p_date
 		and end_date >= p_date
 		and controller_ip = p_controller_ip

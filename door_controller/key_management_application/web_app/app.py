@@ -303,6 +303,7 @@ def reservations():
                 agreement_received=agreement_received,
                 username=username
             )
+            get_db_mgr().sync_clubhouse_reservation_permissions()
             flash("Clubhouse reservation added successfully.", "success")
         except Exception as e:
             log_info(f"Web UI Error: Failed to add reservation. {e}")
@@ -327,6 +328,7 @@ def delete_reservation(reservation_id):
         username = session.get('username', 'system')
         deleted = get_db_mgr().delete_reservation(reservation_id, username=username)
         if deleted:
+            get_db_mgr().sync_clubhouse_reservation_permissions()
             flash("Clubhouse reservation deleted successfully.", "success")
         else:
             flash("Reservation not found.", "warning")
@@ -344,6 +346,7 @@ def toggle_payment(reservation_id):
         new_value = not current_value
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'payment_made', new_value, username=username)
+        get_db_mgr().sync_clubhouse_reservation_permissions()
         flash("Payment status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle payment for reservation {reservation_id}. {e}")
@@ -359,6 +362,7 @@ def toggle_deposit(reservation_id):
         new_value = not current_value
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'deposit_on_file', new_value, username=username)
+        get_db_mgr().sync_clubhouse_reservation_permissions()
         flash("Deposit status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle deposit for reservation {reservation_id}. {e}")
@@ -374,6 +378,7 @@ def toggle_agreement(reservation_id):
         new_value = not current_value
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'agreement_received', new_value, username=username)
+        get_db_mgr().sync_clubhouse_reservation_permissions()
         flash("Rental agreement status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle agreement for reservation {reservation_id}. {e}")

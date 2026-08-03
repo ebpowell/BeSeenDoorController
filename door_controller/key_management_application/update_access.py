@@ -70,6 +70,13 @@ class AccessSynchronizer(ControllerScheduler):
         changes_made = 0
         cidr = extract_cidr(controller_url)
         
+        # Synchronize dynamic clubhouse reservation permissions
+        try:
+            if hasattr(self.db_mgr, 'sync_clubhouse_reservation_permissions'):
+                self.db_mgr.sync_clubhouse_reservation_permissions()
+        except Exception as e:
+            log_error(f"Error syncing clubhouse reservation permissions: {e}")
+            
         # Fetch expected fobs from database
         try:
             db_fobs = self.db_mgr.list_fobs()
