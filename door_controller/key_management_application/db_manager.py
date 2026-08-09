@@ -70,7 +70,7 @@ class FobDatabaseManager:
                                 COALESCE(
                                     CASE 
                                         WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                         ELSE NULL
                                     END,
                                     gp.start_date,
@@ -79,7 +79,7 @@ class FobDatabaseManager:
                                 COALESCE(
                                     CASE 
                                         WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                         ELSE NULL
                                     END,
                                     gp.end_date,
@@ -126,7 +126,7 @@ class FobDatabaseManager:
                                     COALESCE(
                                         CASE 
                                             WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                             ELSE NULL
                                         END,
                                         gp.start_date,
@@ -135,7 +135,7 @@ class FobDatabaseManager:
                                     COALESCE(
                                         CASE 
                                             WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                             ELSE NULL
                                         END,
                                         gp.end_date,

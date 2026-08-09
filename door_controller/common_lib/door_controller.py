@@ -2,6 +2,8 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 import time
 from door_controller.common_lib.utils import log_error, log_info
 
@@ -28,6 +30,18 @@ class door_controller:
         self.sql = ''
         self.timeout = 10
         self.max_retries = 6
+
+        retry_strategy = Retry(
+            total=self.max_retries,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            raise_on_status=False,
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
         self.login_data = {'username': self.username,
         'pwd': self.password,
         'logid': '20101222'}
@@ -46,13 +60,19 @@ class door_controller:
                 if response.status_code == 200:
                     return response
                 else:
-                    print(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
-                    print(response.text)
-                    return
+                    log_error(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
+                    if response.text:
+                        log_error(response.text)
+                    return response
+            except requests.exceptions.RequestException as e:
+                log_error(f"door_controller.get_httpresponse: RequestException encountered: {e}")
+                if x == self.max_retries - 1:
+                    raise e
+                time.sleep(self.timeout / 3)
             except Exception as e:
+                log_error(f"door_controller.get_httpresponse: Exception encountered: {e}")
                 raise e
-                # pass
-        return
+        return None
 
     def is_convertible_to_int(self, token):
       """
@@ -106,15 +126,18 @@ class door_controller:
                     self._login_response = response
                     return response
                 else:
-                    print(f"door_controller.connect: Connection Request failed with status code: {response.status_code if response else 'No Response'}")
+                    log_error(f"door_controller.connect: Connection Request failed with status code: {response.status_code if response else 'No Response'}")
                     if response:
-                        print(response.text)
+                        log_error(response.text)
                     return response
+            except requests.exceptions.RequestException as e:
+                log_error(f"door_controller.connect: RequestException on attempt {x+1}: {e}")
+                time.sleep(self.timeout / 3)
             except Exception as e:
                 # raise e
                 pass
         print('Connection Failed')
-        return
+        return None
 
     def users_page(self):
         response = self.connect()
@@ -127,7 +150,10 @@ class door_controller:
                     response = self.get_httpresponse(url, data=data)
                     #response =  requests.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout = self.timeout )
                     return response
-                except:
+                except requests.exceptions.RequestException as e:
+                    log_error(f"door_controller.users_page: RequestException on attempt {x+1}: {e}")
+                    time.sleep(self.timeout/3)
+                except Exception:
                     time.sleep(self.timeout/3)
                     pass
 
@@ -135,7 +161,7 @@ class door_controller:
         # obj_ACL = AccessControlList(self.username, self.password, self.url)
         try:
             response = self.connect()
-            if response.status_code == 200:
+            if response and response.status_code == 200:
                 try:
                     response = self.users_page()
                     return response
@@ -154,7 +180,7 @@ class door_controller:
         # UNCLOSE1=Remote+Open+%231+Door+WW+Clubhouse
         try:
             response = self.get_httpresponse(target_url, data)
-            raw_sent_string = response.request.body
+            raw_sent_string = response.request.body if response and hasattr(response, 'request') and hasattr(response.request, 'body') else None
             # log_info(raw_sent_string)
             if response and getattr(response, 'status_code', None) == 200:
                 if response.text.find('successfully!') > 0:
@@ -169,6 +195,9 @@ class door_controller:
             else:
                 log_info(f"Door {door_desc} Remote open failed")
                 return None
+        except requests.exceptions.RequestException as e:
+            log_error(f"Remote Door Open RequestException: {e}")
+            raise e
         except Exception as e:
             log_error(f"Remote Door Open Error {e.args}")
             raise e
