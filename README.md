@@ -250,11 +250,15 @@ services:
     ```
 
 ### Cron Integration (e.g., Pulling swipes every 15 minutes)
-Since the `doorcontroller` container runs continuously in the background as the permissions updates scheduler daemon, you can run other CLI tools on the host machine using `docker compose exec` inside a cron job:
+Since the `doorcontroller` container runs continuously in the background as the permissions updates scheduler daemon, you can run other CLI tools on the host machine using `docker compose exec` (or `docker compose run --rm --remove-orphans` for one-off tasks) inside a cron job:
 ```cron
 */15 * * * * cd /opt/scripts/BeSeenDoorController && docker compose exec -T doorcontroller get_swipes > /dev/null 2>&1
 ```
-Note: The `-T` option is recommended for cron jobs as it disables pseudo-TTY allocation.
+Note:
+- The `-T` option is recommended for cron jobs as it disables pseudo-TTY allocation.
+- Concurrent schedule executions across containers are safely managed and locked using database-level advisory locking (`pg_try_advisory_xact_lock`) inside `key_fobs.f_get_runtimes`.
+- For one-off container execution commands, use `docker compose run --rm --remove-orphans` to prevent lingering container instances.
+
 
 ---
 

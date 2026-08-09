@@ -70,7 +70,7 @@ class FobDatabaseManager:
                                 COALESCE(
                                     CASE 
                                         WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                         ELSE NULL
                                     END,
                                     gp.start_date,
@@ -79,7 +79,7 @@ class FobDatabaseManager:
                                 COALESCE(
                                     CASE 
                                         WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                         ELSE NULL
                                     END,
                                     gp.end_date,
@@ -126,7 +126,7 @@ class FobDatabaseManager:
                                     COALESCE(
                                         CASE 
                                             WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                             ELSE NULL
                                         END,
                                         gp.start_date,
@@ -135,7 +135,7 @@ class FobDatabaseManager:
                                     COALESCE(
                                         CASE 
                                             WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, now())::text), 'DD-MM-YYYY'::text)
+                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
                                             ELSE NULL
                                         END,
                                         gp.end_date,
@@ -841,49 +841,137 @@ class FobDatabaseManager:
             conn.commit()
         return rowcount > 0
 
-    def search_properties(self, search_query):
+    def sync_clubhouse_reservation_permissions(self, now=None, username='system'):
         """
-        Search properties and owners where the address or owner name matches the search_query.
-        Returns property_id, address, and owner name.
+        Synchronizes property membership in Group ID 8 (Clubhouse Rental) based on active reservations.
+        When payment_made, deposit_on_file, and agreement_received are all True, and the current time 'now'
+        falls within [start_datetime, end_datetime], the property is granted Group ID 8 permissions in
+        key_fobs.property_group_permissions. When expired or not eligible, Group ID 8 is revoked.
         """
-        log_info(f"Database: Searching properties with query '{search_query}'")
-        query = """
-            SELECT 
-                p.property_id, p.address,
-                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
-            FROM key_fobs.properties p
-            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
-            WHERE p.address ILIKE %s 
-               OR o.first_name ILIKE %s 
-               OR o.last_name ILIKE %s 
-               OR CONCAT(o.first_name, ' ', o.last_name) ILIKE %s
-            ORDER BY p.address ASC
-            LIMIT 10;
-        """
-        like_query = f"%{search_query}%"
+        if now is None:
+            now = datetime.datetime.now()
+            
+        log_info(f"Database: Syncing clubhouse reservation permissions for timestamp: {now}")
+        
         with self._get_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (like_query, like_query, like_query, like_query))
-                return cur.fetchall()
+            with conn.cursor() as cur:
+                # 1. Ensure Group ID 8 exists in key_fobs.groups
+                cur.execute(
+                    "INSERT INTO key_fobs.groups (group_id, name) VALUES (8, 'Clubhouse Rental') ON CONFLICT (group_id) DO NOTHING;"
+                )
+                
+                # 2. Query all reservations where payment_made, deposit_on_file, and agreement_received are True
+                cur.execute(
+                    """
+                    SELECT property_id, reservation_date, from_time, to_time
+                    FROM key_fobs.clubhouse_reservations
+                    WHERE payment_made = TRUE 
+                      AND deposit_on_file = TRUE 
+                      AND agreement_received = TRUE;
+                    """
+                )
+                rows = cur.fetchall()
+                
+                active_property_ids = set()
+                for prop_id, res_date, f_time, t_time in rows:
+                    start_t = f_time if f_time else datetime.time(0, 0, 0)
+                    end_t = t_time if t_time else datetime.time(23, 59, 59)
+                    
+                    start_dt = datetime.datetime.combine(res_date, start_t)
+                    end_dt = datetime.datetime.combine(res_date, end_t)
+                    
+                    if start_dt <= now <= end_dt:
+                        active_property_ids.add(prop_id)
+                
+                # 3. Query current properties mapped to Group ID 8 in property_group_permissions
+                cur.execute(
+                    "SELECT property_id FROM key_fobs.property_group_permissions WHERE group_id = 8;"
+                )
+                current_property_ids = {row[0] for row in cur.fetchall()}
+                
+                # 4. Grant Group 8 to active properties not currently in Group 8
+                to_grant = active_property_ids - current_property_ids
+                for p_id in to_grant:
+                    cur.execute(
+                        """
+                        INSERT INTO key_fobs.property_group_permissions (property_id, group_id)
+                        VALUES (%s, 8)
+                        ON CONFLICT (group_id, property_id) DO NOTHING;
+                        """,
+                        (p_id,)
+                    )
+                    self.log_audit_action(
+                        cur, username, "Grant Clubhouse Rental Group",
+                        f"Granted temporary clubhouse rental access (group 8) to property {p_id}"
+                    )
+                    log_info(f"Database: Granted temporary clubhouse rental access (group 8) to property {p_id}")
+                
+                # 5. Revoke Group 8 from properties currently in Group 8 that are no longer active
+                to_revoke = current_property_ids - active_property_ids
+                for p_id in to_revoke:
+                    cur.execute(
+                        "DELETE FROM key_fobs.property_group_permissions WHERE property_id = %s AND group_id = 8;",
+                        (p_id,)
+                    )
+                    self.log_audit_action(
+                        cur, username, "Revoke Clubhouse Rental Group",
+                        f"Revoked temporary clubhouse rental access (group 8) from property {p_id}"
+                    )
+                    log_info(f"Database: Revoked temporary clubhouse rental access (group 8) from property {p_id}")
+                
+                conn.commit()
+                return {
+                    'granted': list(to_grant),
+                    'revoked': list(to_revoke),
+                    'active': list(active_property_ids)
+                }
 
     def get_runtimes_for_date(self, target_date, controller_ip=None):
         """
-        Retrieves unique permission change runtimes for a given date.
+        Retrieves unique permission change runtimes for a given date, including
+        clubhouse reservation start and end times.
         """
         if isinstance(target_date, datetime.datetime):
             target_date = target_date.date()
         # log_info(f"Database: Fetching permission change runtimes for {target_date} (controller_ip: {controller_ip})")
+        times_set = set()
+        
         if controller_ip:
             query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date, %s::cidr) ORDER BY run_times ASC;"
             params = (target_date, controller_ip)
         else:
             query = "SELECT DISTINCT run_times FROM key_fobs.f_get_runtimes(%s::date) ORDER BY run_times ASC;"
             params = (target_date,)
+            
         with self._get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, params)
-                # results = cur.fetchall()
-                return [row[0] for row in cur.fetchall()]
+                for row in cur.fetchall():
+                    if row[0]:
+                        times_set.add(row[0])
+                        
+                # Also include start/end times for eligible clubhouse reservations on target_date
+                try:
+                    cur.execute(
+                        """
+                        SELECT from_time, to_time 
+                        FROM key_fobs.clubhouse_reservations
+                        WHERE reservation_date = %s
+                          AND payment_made = TRUE
+                          AND deposit_on_file = TRUE
+                          AND agreement_received = TRUE;
+                        """,
+                        (target_date,)
+                    )
+                    for f_time, t_time in cur.fetchall():
+                        if f_time:
+                            times_set.add(f_time)
+                        if t_time:
+                            times_set.add(t_time)
+                except Exception as e:
+                    log_info(f"Notice fetching reservation times: {e}")
+                    
+        return sorted(list(times_set))
             
     def get_owner_for_fobid(self, fob_id):
         """
