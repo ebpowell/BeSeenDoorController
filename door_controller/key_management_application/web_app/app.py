@@ -280,14 +280,20 @@ def reservations():
     if request.method == 'POST':
         property_id_str = request.form.get('property_id', '').strip()
         reservation_date = request.form.get('reservation_date', '').strip()
+        blocks = request.form.getlist('blocks')
         from_time = request.form.get('from_time', '').strip()
         to_time = request.form.get('to_time', '').strip()
+        early_setup = request.form.get('early_setup') == 'on'
         payment_made = request.form.get('payment_made') == 'on'
         deposit_on_file = request.form.get('deposit_on_file') == 'on'
         agreement_received = request.form.get('agreement_received') == 'on'
 
         if not property_id_str or not reservation_date:
             flash("Property and Reservation Date are required.", "warning")
+            return redirect(url_for('reservations'))
+
+        if not blocks and not (from_time or to_time):
+            flash("Please select at least one time block for the reservation.", "warning")
             return redirect(url_for('reservations'))
 
         try:
@@ -298,13 +304,23 @@ def reservations():
                 reservation_date=reservation_date,
                 from_time=from_time if from_time else None,
                 to_time=to_time if to_time else None,
+                blocks=blocks if blocks else None,
+                early_setup=early_setup,
                 payment_made=payment_made,
                 deposit_on_file=deposit_on_file,
                 agreement_received=agreement_received,
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
-            flash("Clubhouse reservation added successfully.", "success")
+            fee_config = get_db_mgr().get_reservation_fee_config()
+            raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
+            try:
+                calc_fee = float(raw_fee)
+                flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
+            except (ValueError, TypeError):
+                flash("Clubhouse reservation added successfully!", "success")
+        except ValueError as ve:
+            flash(str(ve), "danger")
         except Exception as e:
             log_info(f"Web UI Error: Failed to add reservation. {e}")
             flash(f"Database error: {e}", "danger")
@@ -315,11 +331,13 @@ def reservations():
     try:
         res_list = get_db_mgr().list_reservations()
         properties = get_db_mgr().list_properties()
-        return render_template('reservations.html', reservations=res_list, properties=properties)
+        blocks_list = get_db_mgr().list_reservation_blocks()
+        fee_config = get_db_mgr().get_reservation_fee_config()
+        return render_template('reservations.html', reservations=res_list, properties=properties, blocks_list=blocks_list, fee_config=fee_config)
     except Exception as e:
         log_info(f"Web UI Error: Failed to load reservations page. {e}")
         flash(f"Error loading reservations: {e}", "danger")
-        return render_template('reservations.html', reservations=[], properties=[])
+        return render_template('reservations.html', reservations=[], properties=[], blocks_list=[], fee_config={'single_block_fee': 15.0, 'multi_block_fee': 30.0})
 
 @app.route('/reservations/delete/<int:reservation_id>', methods=['POST'])
 @login_required

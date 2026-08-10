@@ -37,6 +37,10 @@ class TestReservations(unittest.TestCase):
         mock_db.list_properties.return_value = [
             {'property_id': 10001, 'address': '101 Main St', 'owner_name': 'John Doe'}
         ]
+        mock_db.list_reservation_blocks.return_value = [
+            {'block_key': 'block1', 'block_name': 'Block 1: Morning', 'start_time': '08:00:00', 'end_time': '12:00:00', 'display_order': 1}
+        ]
+        mock_db.get_reservation_fee_config.return_value = {'single_block_fee': 15.0, 'multi_block_fee': 30.0}
         mock_get_db_mgr.return_value = mock_db
 
         response = self.client.get('/reservations')
@@ -46,9 +50,11 @@ class TestReservations(unittest.TestCase):
         self.assertIn(b'John Doe', response.data)
         mock_db.list_reservations.assert_called_once()
         mock_db.list_properties.assert_called_once()
+        mock_db.list_reservation_blocks.assert_called_once()
+        mock_db.get_reservation_fee_config.assert_called_once()
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
-    def test_add_reservation_post(self, mock_get_db_mgr):
+    def test_add_reservation_post_blocks(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()
         mock_get_db_mgr.return_value = mock_db
@@ -56,8 +62,8 @@ class TestReservations(unittest.TestCase):
         response = self.client.post('/reservations', data={
             'property_id': '10001',
             'reservation_date': '2026-07-04',
-            'from_time': '12:00',
-            'to_time': '18:00',
+            'blocks': ['block1', 'block2'],
+            'early_setup': 'on',
             'payment_made': 'on',
             'deposit_on_file': 'on',
             'agreement_received': 'on'
@@ -67,13 +73,32 @@ class TestReservations(unittest.TestCase):
         mock_db.add_reservation.assert_called_once_with(
             property_id=10001,
             reservation_date='2026-07-04',
-            from_time='12:00',
-            to_time='18:00',
+            from_time=None,
+            to_time=None,
+            blocks=['block1', 'block2'],
+            early_setup=True,
             payment_made=True,
             deposit_on_file=True,
             agreement_received=True,
             username='operator1'
         )
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_early_setup_rejected_when_prior_reservation_exists(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_db.add_reservation.side_effect = ValueError("Early set-up is not allowed because another reservation exists in the previous 24 hours.")
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-07-04',
+            'blocks': ['block1'],
+            'early_setup': 'on'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Early set-up is not allowed because another reservation exists in the previous 24 hours.', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_delete_reservation_post(self, mock_get_db_mgr):

@@ -166,29 +166,71 @@
                     <input type="date" id="reservation_date" name="reservation_date" required>
                 </div>
 
-<style>
-    .time-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 1.25rem;
-    }
-    @media (max-width: 480px) {
-        .time-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
+                <div class="form-group">
+                    <label>Select Reservation Time Block(s)</label>
+                    <div class="blocks-container" id="blocksContainer" 
+                         data-single-fee="{{ '%.2f'|format(fee_config.single_block_fee|float) if fee_config is defined and fee_config.single_block_fee is defined else '15.00' }}"
+                         data-multi-fee="{{ '%.2f'|format(fee_config.multi_block_fee|float) if fee_config is defined and fee_config.multi_block_fee is defined else '30.00' }}"
+                         style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; margin-bottom: 1.25rem;">
+                        {% if blocks_list %}
+                            {% for block in blocks_list %}
+                                <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+                                    <div>
+                                        <strong style="display: block; color: var(--text-primary);">{{ block.block_name }}</strong>
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            {{ block.start_time.strftime('%H:%M') if block.start_time.strftime else block.start_time }} – {{ block.end_time.strftime('%H:%M') if block.end_time.strftime else block.end_time }}
+                                        </span>
+                                    </div>
+                                    <input type="checkbox" name="blocks" value="{{ block.block_key }}" onchange="updateCalculatedFee()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                </label>
+                            {% endfor %}
+                        {% else %}
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary);">Block 1: Morning</strong>
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">08:00 – 12:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block1" onchange="updateCalculatedFee()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                            </label>
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary);">Block 2: Afternoon</strong>
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">13:00 – 17:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block2" onchange="updateCalculatedFee()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                            </label>
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary);">Block 3: Evening</strong>
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">18:00 – 23:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block3" onchange="updateCalculatedFee()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                            </label>
+                        {% endif %}
+                    </div>
+                </div>
 
-                <div class="time-grid">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="from_time">From Time (Optional)</label>
-                        <input type="time" id="from_time" name="from_time">
+                <div class="pricing-summary-card" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Reservation Fee Rate</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                            ${{ "%.2f"|format(fee_config.single_block_fee|float) if fee_config is defined and fee_config.single_block_fee is defined else "15.00" }} for 1 block | ${{ "%.2f"|format(fee_config.multi_block_fee|float) if fee_config is defined and fee_config.multi_block_fee is defined else "30.00" }} for 2+ blocks
+                        </span>
                     </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="to_time">To Time (Optional)</label>
-                        <input type="time" id="to_time" name="to_time">
+                    <div style="text-align: right;">
+                        <strong style="font-size: 1.25rem; color: #818cf8;">$<span id="feeDisplay">0.00</span></strong>
                     </div>
+                </div>
+
+                <div class="toggle-group">
+                    <div>
+                        <span style="display: block; font-weight: 500;">Request Early Set-up</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Allowed only if no prior 24h reservations exist</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="early_setup">
+                        <span class="slider"></span>
+                    </label>
                 </div>
 
                 <div class="toggle-group">
@@ -245,6 +287,8 @@
                             <th>Owner Name</th>
                             <th>Date</th>
                             <th>Timeslot</th>
+                            <th>Fee</th>
+                            <th>Early Setup</th>
                             <th>Payment Status</th>
                             <th>Deposit Status</th>
                             <th>Agreement Status</th>
@@ -266,6 +310,16 @@
                                             </span>
                                         {% else %}
                                             <span style="color: var(--text-secondary); font-size: 0.9rem;">All Day</span>
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Fee">
+                                        <strong style="color: #818cf8;">${{ "%.2f"|format((res.fee if res.fee is defined and res.fee is not none else 15.0)|float) }}</strong>
+                                    </td>
+                                    <td data-label="Early Setup">
+                                        {% if res.early_setup is defined and res.early_setup %}
+                                            <span class="badge-success">Early Setup</span>
+                                        {% else %}
+                                            <span style="color: var(--text-secondary); font-size: 0.85rem;">Standard</span>
                                         {% endif %}
                                     </td>
                                     <td data-label="Payment Status">
@@ -313,7 +367,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="8" class="no-data">No clubhouse reservations registered.</td>
+                                <td colspan="10" class="no-data">No clubhouse reservations registered.</td>
                             </tr>
                         {% endif %}
                     </tbody>
@@ -416,6 +470,25 @@
             } else {
                 tr.style.display = "none";
             }
+        }
+    }
+    // Live Fee Calculation
+    function updateCalculatedFee() {
+        const checkboxes = document.querySelectorAll('input[name="blocks"]:checked');
+        const feeDisplay = document.getElementById('feeDisplay');
+        const container = document.getElementById('blocksContainer');
+        const singleFee = container ? parseFloat(container.dataset.singleFee || 15.00) : 15.00;
+        const multiFee = container ? parseFloat(container.dataset.multiFee || 30.00) : 30.00;
+
+        const count = checkboxes.length;
+        let fee = 0.00;
+        if (count === 1) {
+            fee = singleFee;
+        } else if (count > 1) {
+            fee = multiFee;
+        }
+        if (feeDisplay) {
+            feeDisplay.textContent = fee.toFixed(2);
         }
     }
 </script>
