@@ -62,6 +62,7 @@ class TestReservations(unittest.TestCase):
         response = self.client.post('/reservations', data={
             'property_id': '10001',
             'reservation_date': '2026-07-04',
+            'event_type': 'Private Event',
             'blocks': ['block1', 'block2'],
             'early_setup': 'on',
             'payment_made': 'on',
@@ -80,8 +81,57 @@ class TestReservations(unittest.TestCase):
             payment_made=True,
             deposit_on_file=True,
             agreement_received=True,
+            event_type='Private Event',
             username='operator1'
         )
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_post_community_organization(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-07-04',
+            'event_type': 'Community Organization',
+            'blocks': ['block1'],
+            'payment_made': 'on'
+        }, follow_redirects=True)
+        
+        self.assertEqual(response.status_code, 200)
+        mock_db.add_reservation.assert_called_once_with(
+            property_id=10001,
+            reservation_date='2026-07-04',
+            from_time=None,
+            to_time=None,
+            blocks=['block1'],
+            early_setup=False,
+            payment_made=True,
+            deposit_on_file=False,
+            agreement_received=False,
+            event_type='Community Organization',
+            username='operator1'
+        )
+        self.assertIn(b'Calculated Fee: $7.50', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_community_organization_early_setup_rejected(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_db.add_reservation.side_effect = ValueError("Early set-up is not allowed for Community Organization events.")
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-07-04',
+            'event_type': 'Community Organization',
+            'blocks': ['block1'],
+            'early_setup': 'on'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Early set-up is not allowed for Community Organization events.', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_early_setup_rejected_when_prior_reservation_exists(self, mock_get_db_mgr):

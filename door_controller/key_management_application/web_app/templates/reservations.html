@@ -154,11 +154,31 @@
                 Reserve Clubhouse
             </h2>
             <form id="reserveForm" action="/reservations" method="POST">
-                <div class="form-group autocomplete-wrapper">
-                    <label for="addressLookup">Search Address or Owner</label>
-                    <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address..." required>
-                    <input type="hidden" id="property_id" name="property_id" required>
-                    <div id="suggestionsList" class="suggestions-list"></div>
+                <div class="form-group">
+                    <label for="addressLookup">Search & Select Property (Address or Owner)</label>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address to filter picklist..." style="margin-bottom: 0.4rem;">
+                        <select id="property_id" name="property_id" class="form-control" size="4" required style="width: 100%; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); padding: 0.5rem; outline: none; cursor: pointer;">
+                            {% if properties %}
+                                {% for prop in properties %}
+                                    <option value="{{ prop.property_id }}">
+                                        {{ prop.address }} {% if prop.owner_name %}({{ prop.owner_name }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="" disabled>No properties available</option>
+                            {% endif %}
+                        </select>
+                        <div id="suggestionsList" class="suggestions-list"></div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <label for="event_type">Event Type</label>
+                    <select id="event_type" name="event_type" class="form-control" onchange="onEventTypeChange()" required style="width: 100%; padding: 0.75rem 1rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); font-size: 0.95rem; cursor: pointer;">
+                        <option value="Private Event" selected>Private Event</option>
+                        <option value="Community Organization">Community Organization</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -213,7 +233,7 @@
                 <div class="pricing-summary-card" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">Reservation Fee Rate</span>
-                        <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                        <span id="rateSummaryText" style="font-size: 0.75rem; color: var(--text-secondary);">
                             ${{ "%.2f"|format(fee_config.single_block_fee|float) if fee_config is defined and fee_config.single_block_fee is defined else "15.00" }} for 1 block | ${{ "%.2f"|format(fee_config.multi_block_fee|float) if fee_config is defined and fee_config.multi_block_fee is defined else "30.00" }} for 2+ blocks
                         </span>
                     </div>
@@ -222,13 +242,13 @@
                     </div>
                 </div>
 
-                <div class="toggle-group">
+                <div class="toggle-group" id="earlySetupGroup" style="transition: opacity 0.3s ease;">
                     <div>
                         <span style="display: block; font-weight: 500;">Request Early Set-up</span>
-                        <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Allowed only if no prior 24h reservations exist</span>
+                        <span id="earlySetupHelp" style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Allowed only if no prior 24h reservations exist</span>
                     </div>
                     <label class="switch">
-                        <input type="checkbox" name="early_setup">
+                        <input type="checkbox" name="early_setup" id="earlySetupInput">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -286,6 +306,7 @@
                             <th>Address</th>
                             <th>Owner Name</th>
                             <th>Date</th>
+                            <th>Event Type</th>
                             <th>Timeslot</th>
                             <th>Fee</th>
                             <th>Early Setup</th>
@@ -302,6 +323,13 @@
                                     <td data-label="Address"><span class="address-badge">{{ res.address }}</span></td>
                                     <td data-label="Owner Name"><span class="owner-name">{% if res.owner_name %}{{ res.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
                                     <td data-label="Date"><strong>{{ res.reservation_date.strftime('%Y-%m-%d') if res.reservation_date.strftime else res.reservation_date }}</strong></td>
+                                    <td data-label="Event Type">
+                                        {% if res.event_type == 'Community Organization' %}
+                                            <span class="badge-success" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd;">Community</span>
+                                        {% else %}
+                                            <span style="color: var(--text-secondary); font-size: 0.85rem;">Private</span>
+                                        {% endif %}
+                                    </td>
                                     <td data-label="Timeslot">
                                         {% if res.from_time or res.to_time %}
                                             <span style="font-family: monospace; font-size: 0.9rem;">
@@ -367,7 +395,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="10" class="no-data">No clubhouse reservations registered.</td>
+                                <td colspan="11" class="no-data">No clubhouse reservations registered.</td>
                             </tr>
                         {% endif %}
                     </tbody>
@@ -382,72 +410,75 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const lookupInput = document.getElementById('addressLookup');
-        const hiddenIdInput = document.getElementById('property_id');
+        const selectElement = document.getElementById('property_id');
         const suggestionsBox = document.getElementById('suggestionsList');
 
-        let debounceTimeout = null;
-
-        // Perform dynamic autocomplete lookup
-        lookupInput.addEventListener('input', () => {
-            const query = lookupInput.value.trim();
-            if (query.length < 2) {
-                suggestionsBox.style.display = 'none';
-                suggestionsBox.innerHTML = '';
-                return;
-            }
-
-            // Debounce requests to API
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-                fetch(`/api/properties/search?q=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        suggestionsBox.innerHTML = '';
-                        if (data.length === 0) {
-                            suggestionsBox.style.display = 'none';
-                            return;
+        // Dynamic Picklist Live Filter as user types
+        if (lookupInput && selectElement) {
+            lookupInput.addEventListener('input', () => {
+                const query = lookupInput.value.toLowerCase().trim();
+                const options = selectElement.options;
+                let matchFound = false;
+                for (let i = 0; i < options.length; i++) {
+                    const txt = options[i].text.toLowerCase();
+                    if (txt.indexOf(query) > -1) {
+                        options[i].style.display = '';
+                        if (!matchFound) {
+                            selectElement.selectedIndex = i;
+                            matchFound = true;
                         }
+                    } else {
+                        options[i].style.display = 'none';
+                    }
+                }
+            });
 
-                        data.forEach(item => {
-                            const div = document.createElement('div');
-                            div.className = 'suggestion-item';
-                            div.innerHTML = `
-                                <span class="suggestion-address">${escapeHtml(item.address)}</span>
-                                <span class="suggestion-owner">${item.owner_name ? '(' + escapeHtml(item.owner_name) + ')' : '(No Owner)'}</span>
-                            `;
-                            div.addEventListener('click', () => {
-                                lookupInput.value = `${item.address} ${item.owner_name ? '(' + item.owner_name + ')' : ''}`.trim();
-                                hiddenIdInput.value = item.property_id;
-                                suggestionsBox.style.display = 'none';
-                                suggestionsBox.innerHTML = '';
-                            });
-                            suggestionsBox.appendChild(div);
-                        });
-                        suggestionsBox.style.display = 'block';
-                    })
-                    .catch(err => {
-                        console.error('Error fetching property search results:', err);
-                    });
-            }, 300);
-        });
-
-        // Hide suggestions on outside click
-        document.addEventListener('click', (e) => {
-            if (e.target !== lookupInput && e.target !== suggestionsBox) {
-                suggestionsBox.style.display = 'none';
-            }
-        });
-
-        // Safe HTML escape helper
-        function escapeHtml(str) {
-            return str
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            selectElement.addEventListener('change', () => {
+                const selectedOption = selectElement.options[selectElement.selectedIndex];
+                if (selectedOption) {
+                    lookupInput.value = selectedOption.text.trim();
+                }
+            });
         }
+
+        // Initialize fee and event type state on load
+        onEventTypeChange();
     });
+
+    // Handle Event Type Change
+    function onEventTypeChange() {
+        const eventTypeSelect = document.getElementById('event_type');
+        const eventType = eventTypeSelect ? eventTypeSelect.value : 'Private Event';
+        const earlySetupInput = document.getElementById('earlySetupInput');
+        const earlySetupHelp = document.getElementById('earlySetupHelp');
+        const earlySetupGroup = document.getElementById('earlySetupGroup');
+
+        if (eventType === 'Community Organization') {
+            if (earlySetupInput) {
+                earlySetupInput.checked = false;
+                earlySetupInput.disabled = true;
+            }
+            if (earlySetupHelp) {
+                earlySetupHelp.textContent = 'Early set-up is not allowed for Community Organization events';
+                earlySetupHelp.style.color = '#fca5a5';
+            }
+            if (earlySetupGroup) {
+                earlySetupGroup.style.opacity = '0.5';
+            }
+        } else {
+            if (earlySetupInput) {
+                earlySetupInput.disabled = false;
+            }
+            if (earlySetupHelp) {
+                earlySetupHelp.textContent = 'Allowed only if no prior 24h reservations exist';
+                earlySetupHelp.style.color = 'var(--text-secondary)';
+            }
+            if (earlySetupGroup) {
+                earlySetupGroup.style.opacity = '1.0';
+            }
+        }
+        updateCalculatedFee();
+    }
 
     // Reservations Table Filter
     function filterReservations() {
@@ -472,21 +503,42 @@
             }
         }
     }
+
     // Live Fee Calculation
     function updateCalculatedFee() {
         const checkboxes = document.querySelectorAll('input[name="blocks"]:checked');
         const feeDisplay = document.getElementById('feeDisplay');
+        const rateSummaryText = document.getElementById('rateSummaryText');
         const container = document.getElementById('blocksContainer');
+        const eventTypeSelect = document.getElementById('event_type');
+        const eventType = eventTypeSelect ? eventTypeSelect.value : 'Private Event';
+
         const singleFee = container ? parseFloat(container.dataset.singleFee || 15.00) : 15.00;
         const multiFee = container ? parseFloat(container.dataset.multiFee || 30.00) : 30.00;
 
         const count = checkboxes.length;
         let fee = 0.00;
-        if (count === 1) {
-            fee = singleFee;
-        } else if (count > 1) {
-            fee = multiFee;
+
+        if (eventType === 'Community Organization') {
+            if (rateSummaryText) {
+                rateSummaryText.textContent = '$7.50 for 1 block | $15.00 for full day (2+ blocks)';
+            }
+            if (count === 1) {
+                fee = 7.50;
+            } else if (count > 1) {
+                fee = 15.00;
+            }
+        } else {
+            if (rateSummaryText) {
+                rateSummaryText.textContent = `$${singleFee.toFixed(2)} for 1 block | $${multiFee.toFixed(2)} for 2+ blocks`;
+            }
+            if (count === 1) {
+                fee = singleFee;
+            } else if (count > 1) {
+                fee = multiFee;
+            }
         }
+
         if (feeDisplay) {
             feeDisplay.textContent = fee.toFixed(2);
         }

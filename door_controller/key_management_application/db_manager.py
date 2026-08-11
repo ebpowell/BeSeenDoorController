@@ -212,6 +212,7 @@ class FobDatabaseManager:
                         END;
                         $$;
                     """)
+                    cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_type VARCHAR(50) DEFAULT 'Private Event';")
                 conn.commit()
             FobDatabaseManager._functions_ensured = True
         except Exception as e:
@@ -842,7 +843,8 @@ class FobDatabaseManager:
             SELECT 
                 r.reservation_id, r.property_id, r.reservation_date, 
                 r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.agreement_received,
-                COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup, r.created_at,
+                COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup,
+                COALESCE(r.event_type, 'Private Event') AS event_type, r.created_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name
             FROM key_fobs.clubhouse_reservations r
@@ -857,14 +859,19 @@ class FobDatabaseManager:
 
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
-                        payment_made=False, deposit_on_file=False, agreement_received=False, username='system'):
+                        payment_made=False, deposit_on_file=False, agreement_received=False,
+                        event_type='Private Event', username='system'):
         """
         Add a new clubhouse reservation and logs to the user audit logs.
-        Calculates pricing dynamically from fee configuration table.
+        Calculates pricing dynamically from fee configuration table or event type rules.
         Enforces 24-hour prior calendar availability rule if early_setup is requested.
+        Enforces that Community Organization events cannot request early set-up.
         """
-        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, early_setup={early_setup})")
+        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup})")
         
+        if event_type == 'Community Organization' and early_setup:
+            raise ValueError("Early set-up is not allowed for Community Organization events.")
+
         if isinstance(reservation_date, str):
             res_date_obj = datetime.datetime.strptime(reservation_date, "%Y-%m-%d").date()
         elif isinstance(reservation_date, datetime.datetime):
@@ -903,8 +910,11 @@ class FobDatabaseManager:
         if fee is not None:
             calc_fee = float(fee)
         else:
-            fee_config = self.get_reservation_fee_config()
-            calc_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
+            if event_type == 'Community Organization':
+                calc_fee = 15.00 if num_blocks >= 2 else 7.50
+            else:
+                fee_config = self.get_reservation_fee_config()
+                calc_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
 
         fee_per_block = calc_fee / num_blocks if num_blocks > 0 else 15.00
 
@@ -917,18 +927,18 @@ class FobDatabaseManager:
 
                 query = """
                     INSERT INTO key_fobs.clubhouse_reservations 
-                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING reservation_id;
                 """
                 for f_t, t_t in block_tuples:
                     from_time_val = f_t if f_t else None
                     to_time_val = t_t if t_t else None
-                    cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file, agreement_received, fee_per_block, early_setup))
+                    cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file, agreement_received, fee_per_block, early_setup, event_type))
                     res_id = cur.fetchone()[0]
                     reservation_ids.append(res_id)
 
-                details = f"Reserved clubhouse for '{address}' on {reservation_date} ({num_blocks} block(s), Fee: ${calc_fee:.2f}, Early Setup: {early_setup})"
+                details = f"Reserved clubhouse for '{address}' on {reservation_date} ({num_blocks} block(s), Fee: ${calc_fee:.2f}, Type: {event_type}, Early Setup: {early_setup})"
                 self.log_audit_action(cur, username, "Add Clubhouse Reservation", details)
             conn.commit()
         return reservation_ids[0] if reservation_ids else None

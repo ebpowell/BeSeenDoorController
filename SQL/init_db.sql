@@ -107,6 +107,7 @@ CREATE TABLE key_fobs.clubhouse_reservations (
     agreement_received BOOLEAN NOT NULL DEFAULT FALSE,
     fee DECIMAL(10,2) DEFAULT 15.00,
     early_setup BOOLEAN NOT NULL DEFAULT FALSE,
+    event_type VARCHAR(50) DEFAULT 'Private Event',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

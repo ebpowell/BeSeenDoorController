@@ -283,6 +283,7 @@ def reservations():
         blocks = request.form.getlist('blocks')
         from_time = request.form.get('from_time', '').strip()
         to_time = request.form.get('to_time', '').strip()
+        event_type = request.form.get('event_type', 'Private Event').strip()
         early_setup = request.form.get('early_setup') == 'on'
         payment_made = request.form.get('payment_made') == 'on'
         deposit_on_file = request.form.get('deposit_on_file') == 'on'
@@ -309,16 +310,20 @@ def reservations():
                 payment_made=payment_made,
                 deposit_on_file=deposit_on_file,
                 agreement_received=agreement_received,
+                event_type=event_type,
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
-            fee_config = get_db_mgr().get_reservation_fee_config()
-            raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
-            try:
-                calc_fee = float(raw_fee)
-                flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
-            except (ValueError, TypeError):
-                flash("Clubhouse reservation added successfully!", "success")
+            if event_type == 'Community Organization':
+                calc_fee = 15.00 if len(blocks) >= 2 else 7.50
+            else:
+                fee_config = get_db_mgr().get_reservation_fee_config()
+                raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
+                try:
+                    calc_fee = float(raw_fee)
+                except (ValueError, TypeError):
+                    calc_fee = 15.00
+            flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
         except ValueError as ve:
             flash(str(ve), "danger")
         except Exception as e:
