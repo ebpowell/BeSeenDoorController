@@ -453,6 +453,27 @@ class FobDatabaseManager:
                 cur.execute(query, params)
                 return cur.fetchall()
 
+    def search_properties(self, query):
+        """
+        Search properties by address or owner name.
+        """
+        log_info(f"Database: Searching properties with query '{query}'")
+        search_pattern = f"%{query}%"
+        sql = """
+            SELECT DISTINCT
+                p.property_id, p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.properties p
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            WHERE p.address ILIKE %s OR CONCAT(o.first_name, ' ', o.last_name) ILIKE %s OR CAST(p.property_id AS TEXT) ILIKE %s
+            ORDER BY p.address ASC
+            LIMIT 50;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (search_pattern, search_pattern, search_pattern))
+                return cur.fetchall()
+
     def list_replacement_logs(self):
         """
         List replacement log metadata containing old and new fob IDs with addresses and timestamps.

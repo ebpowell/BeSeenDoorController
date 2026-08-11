@@ -154,23 +154,23 @@
                 Reserve Clubhouse
             </h2>
             <form id="reserveForm" action="/reservations" method="POST">
-                <div class="form-group">
+                <div class="form-group autocomplete-wrapper">
                     <label for="addressLookup">Search & Select Property (Address or Owner)</label>
-                    <div class="autocomplete-wrapper">
-                        <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address to filter picklist..." style="margin-bottom: 0.4rem;">
-                        <select id="property_id" name="property_id" class="form-control" size="4" required style="width: 100%; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); padding: 0.5rem; outline: none; cursor: pointer;">
-                            {% if properties %}
-                                {% for prop in properties %}
-                                    <option value="{{ prop.property_id }}">
-                                        {{ prop.address }} {% if prop.owner_name %}({{ prop.owner_name }}){% endif %}
-                                    </option>
-                                {% endfor %}
-                            {% else %}
-                                <option value="" disabled>No properties available</option>
-                            {% endif %}
-                        </select>
-                        <div id="suggestionsList" class="suggestions-list"></div>
-                    </div>
+                    <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address to search picklist..." required style="margin-bottom: 0.5rem;">
+                    <input type="hidden" id="property_id" name="property_id" required>
+                    
+                    <select id="propertySelect" class="form-control" style="width: 100%; padding: 0.6rem 1rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); cursor: pointer; font-size: 0.9rem;">
+                        <option value="" disabled selected>-- Select Property from Picklist --</option>
+                        {% if properties %}
+                            {% for prop in properties %}
+                                <option value="{{ prop.property_id }}" data-address="{{ prop.address }}" data-owner="{{ prop.owner_name or '' }}">
+                                    {{ prop.address }} {% if prop.owner_name %}({{ prop.owner_name }}){% endif %}
+                                </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+
+                    <div id="suggestionsList" class="suggestions-list"></div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 1.25rem;">
@@ -410,35 +410,125 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const lookupInput = document.getElementById('addressLookup');
-        const selectElement = document.getElementById('property_id');
+        const hiddenIdInput = document.getElementById('property_id');
+        const propertySelect = document.getElementById('propertySelect');
         const suggestionsBox = document.getElementById('suggestionsList');
 
-        // Dynamic Picklist Live Filter as user types
-        if (lookupInput && selectElement) {
-            lookupInput.addEventListener('input', () => {
-                const query = lookupInput.value.toLowerCase().trim();
-                const options = selectElement.options;
-                let matchFound = false;
-                for (let i = 0; i < options.length; i++) {
-                    const txt = options[i].text.toLowerCase();
-                    if (txt.indexOf(query) > -1) {
-                        options[i].style.display = '';
-                        if (!matchFound) {
-                            selectElement.selectedIndex = i;
-                            matchFound = true;
-                        }
-                    } else {
-                        options[i].style.display = 'none';
-                    }
-                }
-            });
+        let debounceTimeout = null;
 
-            selectElement.addEventListener('change', () => {
-                const selectedOption = selectElement.options[selectElement.selectedIndex];
-                if (selectedOption) {
+        // When user selects an option in propertySelect picklist
+        if (propertySelect) {
+            propertySelect.addEventListener('change', () => {
+                const selectedOption = propertySelect.options[propertySelect.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    hiddenIdInput.value = selectedOption.value;
                     lookupInput.value = selectedOption.text.trim();
                 }
             });
+        }
+
+        // Live Search input filter & API lookup
+        if (lookupInput) {
+            lookupInput.addEventListener('input', () => {
+                const query = lookupInput.value.trim();
+                const lowerQuery = query.toLowerCase();
+
+                // 1. Filter local propertySelect options
+                if (propertySelect) {
+                    let matchFound = false;
+                    for (let i = 0; i < propertySelect.options.length; i++) {
+                        const opt = propertySelect.options[i];
+                        if (!opt.value) continue; // skip header option
+                        const txt = opt.text.toLowerCase();
+                        if (!lowerQuery || txt.indexOf(lowerQuery) > -1) {
+                            opt.hidden = false;
+                            opt.disabled = false;
+                            if (!matchFound && lowerQuery) {
+                                propertySelect.selectedIndex = i;
+                                hiddenIdInput.value = opt.value;
+                                matchFound = true;
+                            }
+                        } else {
+                            opt.hidden = true;
+                            opt.disabled = true;
+                        }
+                    }
+                }
+
+                // 2. Perform dynamic API lookup if query >= 1 char
+                if (query.length < 1) {
+                    if (suggestionsBox) suggestionsBox.style.display = 'none';
+                    return;
+                }
+
+                clearTimeout(debounceTimeout);
+                debounceTimeout = setTimeout(() => {
+                    fetch(`/api/properties/search?q=${encodeURIComponent(query)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (!suggestionsBox) return;
+                            suggestionsBox.innerHTML = '';
+                            if (!data || data.length === 0) {
+                                suggestionsBox.style.display = 'none';
+                                return;
+                            }
+
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                const ownerText = item.owner_name ? ` (${item.owner_name})` : '';
+                                div.innerHTML = `
+                                    <span class="suggestion-address">${escapeHtml(item.address)}</span>
+                                    <span class="suggestion-owner">${escapeHtml(ownerText)}</span>
+                                `;
+                                div.addEventListener('click', () => {
+                                    const fullText = `${item.address}${ownerText}`.trim();
+                                    lookupInput.value = fullText;
+                                    hiddenIdInput.value = item.property_id;
+                                    if (propertySelect) {
+                                        for (let i = 0; i < propertySelect.options.length; i++) {
+                                            if (propertySelect.options[i].value == item.property_id) {
+                                                propertySelect.selectedIndex = i;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    suggestionsBox.style.display = 'none';
+                                    suggestionsBox.innerHTML = '';
+                                });
+                                suggestionsBox.appendChild(div);
+                            });
+                            suggestionsBox.style.display = 'block';
+                        })
+                        .catch(err => {
+                            console.error('Error fetching property search results:', err);
+                        });
+                }, 200);
+            });
+
+            // Show suggestions or sync property select on click/focus
+            lookupInput.addEventListener('focus', () => {
+                if (propertySelect && propertySelect.value) {
+                    hiddenIdInput.value = propertySelect.value;
+                }
+            });
+        }
+
+        // Hide suggestions list on outside click
+        document.addEventListener('click', (e) => {
+            if (suggestionsBox && e.target !== lookupInput && !suggestionsBox.contains(e.target)) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        // Safe HTML escape helper
+        function escapeHtml(str) {
+            return (str || '')
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         // Initialize fee and event type state on load
