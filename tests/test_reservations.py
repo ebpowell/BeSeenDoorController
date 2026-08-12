@@ -206,6 +206,53 @@ class TestReservations(unittest.TestCase):
         self.assertIn(b'An official Board of Directors HOA Event is scheduled and takes precedence.', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_hoa_reservations_page_get_admin(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin1', role='SysAdmin')
+        mock_db = MagicMock()
+        mock_db.list_reservations.return_value = [{'reservation_id': 1, 'event_type': 'HOA Event', 'event_name': 'Board Meeting', 'event_description': 'Discussion', 'reservation_date': '2026-09-01'}]
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/reservations/hoa')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Schedule HOA Board Event', response.data)
+        self.assertIn(b'Board Meeting', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_hoa_reservations_page_get_unauthorized(self, mock_get_db_mgr):
+        self.set_logged_in(username='resident1', role='Resident')
+
+        response = self.client.get('/reservations/hoa', follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Unauthorized: HOA Board Events management requires administrative privileges.', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_hoa_reservations_post_success(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin1', role='SysAdmin')
+        mock_db = MagicMock()
+        mock_db.list_properties.return_value = [{'property_id': 10001}]
+        mock_db.list_reservations.return_value = []
+        mock_db.add_reservation.return_value = (1, [])
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations/hoa', data={
+            'reservation_date': '2026-09-15',
+            'event_name': 'Annual General Meeting',
+            'event_description': 'Community election & budget review'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        mock_db.add_reservation.assert_called_once_with(
+            property_id=10001,
+            reservation_date='2026-09-15',
+            event_type='HOA Event',
+            event_name='Annual General Meeting',
+            event_description='Community election & budget review',
+            user_role='SysAdmin',
+            username='admin1'
+        )
+        self.assertIn(b"scheduled successfully", response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_community_organization_early_setup_rejected(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()

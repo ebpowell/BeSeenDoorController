@@ -109,6 +109,8 @@ CREATE TABLE key_fobs.clubhouse_reservations (
     early_setup BOOLEAN NOT NULL DEFAULT FALSE,
     event_type VARCHAR(50) DEFAULT 'Private Event',
     reschedule_required BOOLEAN NOT NULL DEFAULT FALSE,
+    event_name VARCHAR(150),
+    event_description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -214,6 +214,8 @@ class FobDatabaseManager:
                     """)
                     cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_type VARCHAR(50) DEFAULT 'Private Event';")
                     cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS reschedule_required BOOLEAN DEFAULT FALSE;")
+                    cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_name VARCHAR(150);")
+                    cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_description TEXT;")
                 conn.commit()
             FobDatabaseManager._functions_ensured = True
         except Exception as e:
@@ -868,6 +870,7 @@ class FobDatabaseManager:
                 COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup,
                 COALESCE(r.event_type, 'Private Event') AS event_type,
                 COALESCE(r.reschedule_required, FALSE) AS reschedule_required,
+                r.event_name, r.event_description,
                 r.created_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name
@@ -884,7 +887,8 @@ class FobDatabaseManager:
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
                         payment_made=False, deposit_on_file=False, agreement_received=False,
-                        event_type='Private Event', user_role='ManagementCo', username='system'):
+                        event_type='Private Event', user_role='ManagementCo',
+                        event_name=None, event_description=None, username='system'):
         """
         Add a new clubhouse reservation and logs to the user audit logs.
         Calculates pricing dynamically from fee configuration table or event type rules.
@@ -892,7 +896,7 @@ class FobDatabaseManager:
         Enforces that Community Organization events cannot request early set-up.
         Enforces administrative role restrictions for HOA Events and BoD conflict displacement precedence.
         """
-        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup}, role={user_role})")
+        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup}, role={user_role}, event_name={event_name})")
         
         allowed_roles = ['managementco', 'sysadmin', 'secretary', 'management']
         if event_type == 'HOA Event':
@@ -999,18 +1003,18 @@ class FobDatabaseManager:
 
                 query = """
                     INSERT INTO key_fobs.clubhouse_reservations 
-                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type, reschedule_required)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type, reschedule_required, event_name, event_description)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s)
                     RETURNING reservation_id;
                 """
                 for f_t, t_t in block_tuples:
                     from_time_val = f_t if f_t else None
                     to_time_val = t_t if t_t else None
-                    cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file, agreement_received, fee_per_block, early_setup, event_type))
+                    cur.execute(query, (property_id, reservation_date, from_time_val, to_time_val, payment_made, deposit_on_file, agreement_received, fee_per_block, early_setup, event_type, event_name, event_description))
                     res_id = cur.fetchone()[0]
                     reservation_ids.append(res_id)
 
-                details = f"Reserved clubhouse for '{address}' on {reservation_date} ({num_blocks} block(s), Fee: ${calc_fee:.2f}, Type: {event_type}, Early Setup: {early_setup})"
+                details = f"Reserved clubhouse for '{address}' on {reservation_date} ({num_blocks} block(s), Fee: ${calc_fee:.2f}, Type: {event_type}, Name: {event_name})"
                 self.log_audit_action(cur, username, "Add Clubhouse Reservation", details)
             conn.commit()
 

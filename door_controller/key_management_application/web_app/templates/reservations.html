@@ -289,12 +289,19 @@
     <!-- Right Panel: Reservations Registry -->
     <div class="list-panel">
         <div class="glass-card">
-            <h2>
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 v1m2 4a2 2 0 00-2-2m-2 3h.01M5.5 21h3m-3-4h3m-3-4h3m-3-4h3M9 4v3m4-3v3m1 4h6m-3-3v6"></path>
-                </svg>
-                Clubhouse Reservations Registry
-            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="margin-bottom: 0;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 v1m2 4a2 2 0 00-2-2m-2 3h.01M5.5 21h3m-3-4h3m-3-4h3m-3-4h3M9 4v3m4-3v3m1 4h6m-3-3v6"></path>
+                    </svg>
+                    Clubhouse Reservations Registry
+                </h2>
+                {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+                <a href="{{ url_for('hoa_reservations') }}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; border-radius: 6px; text-decoration: none;">
+                    + Schedule HOA Event
+                </a>
+                {% endif %}
+            </div>
 
             <div class="search-container">
                 <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -330,6 +337,7 @@
                                     <td data-label="Event Type">
                                         {% if res.event_type == 'HOA Event' %}
                                             <span class="badge-warning" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem;">HOA Event</span>
+                                            {% if res.event_name %}<br><small style="color: #d8b4fe; font-weight: 500;">{{ res.event_name }}</small>{% endif %}
                                         {% elif res.event_type == 'Community Organization' %}
                                             <span class="badge-success" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem;">Community</span>
                                         {% else %}

@@ -368,6 +368,64 @@ def reservations():
         flash(f"Error loading reservations: {e}", "danger")
         return render_template('reservations.html', reservations=[], properties=[], blocks_list=[], fee_config={'single_block_fee': 15.0, 'multi_block_fee': 30.0})
 
+@app.route('/reservations/hoa', methods=['GET', 'POST'])
+@login_required
+def hoa_reservations():
+    user_role = session.get('role', 'ManagementCo')
+    allowed_roles = ['managementco', 'sysadmin', 'secretary', 'management']
+    if not user_role or str(user_role).lower() not in allowed_roles:
+        flash("Unauthorized: HOA Board Events management requires administrative privileges.", "danger")
+        return redirect(url_for('reservations'))
+
+    if request.method == 'POST':
+        reservation_date = request.form.get('reservation_date', '').strip()
+        event_name = request.form.get('event_name', '').strip()
+        event_description = request.form.get('event_description', '').strip()
+
+        if not reservation_date or not event_name:
+            flash("Reservation Date and Event Name are required for HOA Events.", "warning")
+            return redirect(url_for('hoa_reservations'))
+
+        try:
+            username = session.get('username', 'system')
+            props = get_db_mgr().list_properties()
+            property_id = props[0]['property_id'] if props else 10001
+
+            res_id, displaced = get_db_mgr().add_reservation(
+                property_id=property_id,
+                reservation_date=reservation_date,
+                event_type='HOA Event',
+                event_name=event_name,
+                event_description=event_description,
+                user_role=user_role,
+                username=username
+            )
+            get_db_mgr().sync_clubhouse_reservation_permissions()
+
+            flash(f"Official HOA Event '{event_name}' scheduled successfully for {reservation_date}!", "success")
+            if displaced:
+                for d in displaced:
+                    addr = d.get('address', 'Unknown Property')
+                    fee_val = float(d.get('fee', 15.00))
+                    res_id_val = d.get('reservation_id', '')
+                    flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
+        except ValueError as ve:
+            flash(str(ve), "danger")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add HOA reservation. {e}")
+            flash(f"Database error: {e}", "danger")
+
+        return redirect(url_for('hoa_reservations'))
+
+    # GET request
+    try:
+        res_list = get_db_mgr().list_reservations()
+        return render_template('hoa_reservations.html', reservations=res_list)
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load HOA reservations page. {e}")
+        flash(f"Error loading HOA reservations: {e}", "danger")
+        return render_template('hoa_reservations.html', reservations=[])
+
 @app.route('/reservations/delete/<int:reservation_id>', methods=['POST'])
 @login_required
 def delete_reservation(reservation_id):

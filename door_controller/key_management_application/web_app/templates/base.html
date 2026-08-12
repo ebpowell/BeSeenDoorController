@@ -813,6 +813,11 @@
             <a href="{{ url_for('reservations') }}" class="nav-tab {% if request.path == url_for('reservations') %}active{% endif %}">
                 Clubhouse Reservations
             </a>
+            {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+            <a href="{{ url_for('hoa_reservations') }}" class="nav-tab {% if request.path == url_for('hoa_reservations') %}active{% endif %}" style="border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">
+                HOA Events
+            </a>
+            {% endif %}
             <a href="{{ url_for('doors') }}" class="nav-tab {% if request.path == url_for('doors') %}active{% endif %}">
                 Remote Door Unlock
             </a>
