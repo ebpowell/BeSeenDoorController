@@ -289,16 +289,27 @@ def reservations():
         deposit_on_file = request.form.get('deposit_on_file') == 'on'
         agreement_received = request.form.get('agreement_received') == 'on'
 
-        if not property_id_str or not reservation_date:
-            flash("Property and Reservation Date are required.", "warning")
-            return redirect(url_for('reservations'))
+        if event_type == 'HOA Event':
+            early_setup = False
+            payment_made = False
+            deposit_on_file = False
+            agreement_received = False
+            if not property_id_str:
+                props = get_db_mgr().list_properties()
+                property_id = props[0]['property_id'] if props else 10001
+            else:
+                property_id = int(property_id_str)
+        else:
+            if not property_id_str or not reservation_date:
+                flash("Property and Reservation Date are required.", "warning")
+                return redirect(url_for('reservations'))
+            property_id = int(property_id_str)
 
         if event_type != 'HOA Event' and not blocks and not (from_time or to_time):
             flash("Please select at least one time block for the reservation.", "warning")
             return redirect(url_for('reservations'))
 
         try:
-            property_id = int(property_id_str)
             username = session.get('username', 'system')
             user_role = session.get('role', 'ManagementCo')
             res_id, displaced = get_db_mgr().add_reservation(

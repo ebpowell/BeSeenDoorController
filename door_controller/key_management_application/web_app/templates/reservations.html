@@ -154,7 +154,7 @@
                 Reserve Clubhouse
             </h2>
             <form id="reserveForm" action="/reservations" method="POST">
-                <div class="form-group autocomplete-wrapper">
+                <div class="form-group autocomplete-wrapper" id="propertyGroup" style="transition: opacity 0.3s ease;">
                     <label for="addressLookup">Search & Select Property (Address or Owner)</label>
                     <input type="text" id="addressLookup" autocomplete="off" placeholder="Type name or address to search picklist..." required style="margin-bottom: 0.5rem;">
                     <input type="hidden" id="property_id" name="property_id" required>
@@ -257,26 +257,26 @@
                     </label>
                 </div>
 
-                <div class="toggle-group">
+                <div class="toggle-group" id="paymentMadeGroup" style="transition: opacity 0.3s ease;">
                     <span>Payment Made</span>
                     <label class="switch">
-                        <input type="checkbox" name="payment_made">
+                        <input type="checkbox" name="payment_made" id="paymentMadeInput">
                         <span class="slider"></span>
                     </label>
                 </div>
 
-                <div class="toggle-group">
+                <div class="toggle-group" id="depositOnFileGroup" style="transition: opacity 0.3s ease;">
                     <span>Deposit on File</span>
                     <label class="switch">
-                        <input type="checkbox" name="deposit_on_file">
+                        <input type="checkbox" name="deposit_on_file" id="depositInput">
                         <span class="slider"></span>
                     </label>
                 </div>
 
-                <div class="toggle-group">
+                <div class="toggle-group" id="agreementReceivedGroup" style="transition: opacity 0.3s ease;">
                     <span>Rental Agreement Received</span>
                     <label class="switch">
-                        <input type="checkbox" name="agreement_received">
+                        <input type="checkbox" name="agreement_received" id="agreementInput">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -548,12 +548,44 @@
     function onEventTypeChange() {
         const eventTypeSelect = document.getElementById('event_type');
         const eventType = eventTypeSelect ? eventTypeSelect.value : 'Private Event';
+        
+        const propertyGroup = document.getElementById('propertyGroup');
+        const lookupInput = document.getElementById('addressLookup');
+        const propertySelect = document.getElementById('propertySelect');
+        const hiddenIdInput = document.getElementById('property_id');
+        
         const earlySetupInput = document.getElementById('earlySetupInput');
         const earlySetupHelp = document.getElementById('earlySetupHelp');
         const earlySetupGroup = document.getElementById('earlySetupGroup');
         const blocksGroup = document.getElementById('blocksGroup');
+        
+        const paymentMadeInput = document.getElementById('paymentMadeInput');
+        const paymentMadeGroup = document.getElementById('paymentMadeGroup');
+        const depositInput = document.getElementById('depositInput');
+        const depositOnFileGroup = document.getElementById('depositOnFileGroup');
+        const agreementInput = document.getElementById('agreementInput');
+        const agreementReceivedGroup = document.getElementById('agreementReceivedGroup');
 
         if (eventType === 'HOA Event') {
+            // Disable address/property search & picklist fields
+            if (lookupInput) {
+                lookupInput.value = 'HOA / Clubhouse (Board of Directors Event)';
+                lookupInput.disabled = true;
+            }
+            if (propertySelect) {
+                propertySelect.disabled = true;
+            }
+            if (propertyGroup) {
+                propertyGroup.style.opacity = '0.5';
+                propertyGroup.style.pointerEvents = 'none';
+            }
+            if (hiddenIdInput && (!hiddenIdInput.value || hiddenIdInput.value === '')) {
+                if (propertySelect && propertySelect.options.length > 1) {
+                    hiddenIdInput.value = propertySelect.options[1].value;
+                }
+            }
+
+            // Disable Early Setup
             if (earlySetupInput) {
                 earlySetupInput.checked = false;
                 earlySetupInput.disabled = true;
@@ -565,11 +597,47 @@
             if (earlySetupGroup) {
                 earlySetupGroup.style.opacity = '0.5';
             }
+
+            // Disable Time Blocks
             if (blocksGroup) {
                 blocksGroup.style.opacity = '0.5';
                 blocksGroup.style.pointerEvents = 'none';
             }
+
+            // Disable Payment, Deposit, Contract
+            if (paymentMadeInput) {
+                paymentMadeInput.checked = false;
+                paymentMadeInput.disabled = true;
+            }
+            if (paymentMadeGroup) paymentMadeGroup.style.opacity = '0.5';
+
+            if (depositInput) {
+                depositInput.checked = false;
+                depositInput.disabled = true;
+            }
+            if (depositOnFileGroup) depositOnFileGroup.style.opacity = '0.5';
+
+            if (agreementInput) {
+                agreementInput.checked = false;
+                agreementInput.disabled = true;
+            }
+            if (agreementReceivedGroup) agreementReceivedGroup.style.opacity = '0.5';
+
         } else if (eventType === 'Community Organization') {
+            // Enable Address / Property
+            if (lookupInput) {
+                if (lookupInput.value === 'HOA / Clubhouse (Board of Directors Event)') {
+                    lookupInput.value = '';
+                }
+                lookupInput.disabled = false;
+            }
+            if (propertySelect) propertySelect.disabled = false;
+            if (propertyGroup) {
+                propertyGroup.style.opacity = '1.0';
+                propertyGroup.style.pointerEvents = 'auto';
+            }
+
+            // Disable Early Setup for Community
             if (earlySetupInput) {
                 earlySetupInput.checked = false;
                 earlySetupInput.disabled = true;
@@ -578,28 +646,57 @@
                 earlySetupHelp.textContent = 'Early set-up is not allowed for Community Organization events';
                 earlySetupHelp.style.color = '#fca5a5';
             }
-            if (earlySetupGroup) {
-                earlySetupGroup.style.opacity = '0.5';
-            }
+            if (earlySetupGroup) earlySetupGroup.style.opacity = '0.5';
+
+            // Enable Time Blocks
             if (blocksGroup) {
                 blocksGroup.style.opacity = '1.0';
                 blocksGroup.style.pointerEvents = 'auto';
             }
+
+            // Enable Payment, Deposit, Contract
+            if (paymentMadeInput) paymentMadeInput.disabled = false;
+            if (paymentMadeGroup) paymentMadeGroup.style.opacity = '1.0';
+            if (depositInput) depositInput.disabled = false;
+            if (depositOnFileGroup) depositOnFileGroup.style.opacity = '1.0';
+            if (agreementInput) agreementInput.disabled = false;
+            if (agreementReceivedGroup) agreementReceivedGroup.style.opacity = '1.0';
+
         } else {
-            if (earlySetupInput) {
-                earlySetupInput.disabled = false;
+            // Enable Address / Property
+            if (lookupInput) {
+                if (lookupInput.value === 'HOA / Clubhouse (Board of Directors Event)') {
+                    lookupInput.value = '';
+                }
+                lookupInput.disabled = false;
             }
+            if (propertySelect) propertySelect.disabled = false;
+            if (propertyGroup) {
+                propertyGroup.style.opacity = '1.0';
+                propertyGroup.style.pointerEvents = 'auto';
+            }
+
+            // Enable Early Setup
+            if (earlySetupInput) earlySetupInput.disabled = false;
             if (earlySetupHelp) {
                 earlySetupHelp.textContent = 'Allowed only if no prior 24h reservations exist';
                 earlySetupHelp.style.color = 'var(--text-secondary)';
             }
-            if (earlySetupGroup) {
-                earlySetupGroup.style.opacity = '1.0';
-            }
+            if (earlySetupGroup) earlySetupGroup.style.opacity = '1.0';
+
+            // Enable Time Blocks
             if (blocksGroup) {
                 blocksGroup.style.opacity = '1.0';
                 blocksGroup.style.pointerEvents = 'auto';
             }
+
+            // Enable Payment, Deposit, Contract
+            if (paymentMadeInput) paymentMadeInput.disabled = false;
+            if (paymentMadeGroup) paymentMadeGroup.style.opacity = '1.0';
+            if (depositInput) depositInput.disabled = false;
+            if (depositOnFileGroup) depositOnFileGroup.style.opacity = '1.0';
+            if (agreementInput) agreementInput.disabled = false;
+            if (agreementReceivedGroup) agreementReceivedGroup.style.opacity = '1.0';
         }
         updateCalculatedFee();
     }
