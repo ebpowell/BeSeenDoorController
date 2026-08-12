@@ -821,7 +821,7 @@ class FobDatabaseManager:
             SELECT config_key, fee_amount
             FROM key_fobs.reservation_fee_config;
         """
-        defaults = {'single_block_fee': 15.00, 'multi_block_fee': 30.00}
+        defaults = {'single_block_fee': 15.00, 'multi_block_fee': 30.00, 'early_setup_fee': 15.00}
         try:
             with self._get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -935,7 +935,9 @@ class FobDatabaseManager:
                 calc_fee = 15.00 if num_blocks >= 2 else 7.50
             else:
                 fee_config = self.get_reservation_fee_config()
-                calc_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
+                base_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
+                setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
+                calc_fee = base_fee + setup_surcharge
 
         fee_per_block = calc_fee / num_blocks if num_blocks > 0 else 15.00
 

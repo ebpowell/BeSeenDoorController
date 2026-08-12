@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS key_fobs.reservation_fee_config (
 -- Seed default fee configuration settings
 INSERT INTO key_fobs.reservation_fee_config (config_key, fee_amount, description) VALUES
 ('single_block_fee', 15.00, 'Fee for reserving a single time block'),
-('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
+('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks'),
+('early_setup_fee', 15.00, 'Surcharge fee for requesting early set-up')
 ON CONFLICT (config_key) DO NOTHING;
 
 -- Create key_fobs.vint_acl_data table (Access Control List Rules)

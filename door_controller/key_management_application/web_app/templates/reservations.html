@@ -191,6 +191,7 @@
                     <div class="blocks-container" id="blocksContainer" 
                          data-single-fee="{{ '%.2f'|format(fee_config.single_block_fee|float) if fee_config is defined and fee_config.single_block_fee is defined else '15.00' }}"
                          data-multi-fee="{{ '%.2f'|format(fee_config.multi_block_fee|float) if fee_config is defined and fee_config.multi_block_fee is defined else '30.00' }}"
+                         data-setup-fee="{{ '%.2f'|format(fee_config.early_setup_fee|float) if fee_config is defined and fee_config.early_setup_fee is defined else '15.00' }}"
                          style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; margin-bottom: 1.25rem;">
                         {% if blocks_list %}
                             {% for block in blocks_list %}
@@ -248,7 +249,7 @@
                         <span id="earlySetupHelp" style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Allowed only if no prior 24h reservations exist</span>
                     </div>
                     <label class="switch">
-                        <input type="checkbox" name="early_setup" id="earlySetupInput">
+                        <input type="checkbox" name="early_setup" id="earlySetupInput" onchange="updateCalculatedFee()">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -602,9 +603,12 @@
         const container = document.getElementById('blocksContainer');
         const eventTypeSelect = document.getElementById('event_type');
         const eventType = eventTypeSelect ? eventTypeSelect.value : 'Private Event';
+        const earlySetupInput = document.getElementById('earlySetupInput');
+        const isEarlySetup = earlySetupInput ? earlySetupInput.checked : false;
 
         const singleFee = container ? parseFloat(container.dataset.singleFee || 15.00) : 15.00;
         const multiFee = container ? parseFloat(container.dataset.multiFee || 30.00) : 30.00;
+        const setupFee = container ? parseFloat(container.dataset.setupFee || 15.00) : 15.00;
 
         const count = checkboxes.length;
         let fee = 0.00;
@@ -619,13 +623,20 @@
                 fee = 15.00;
             }
         } else {
-            if (rateSummaryText) {
-                rateSummaryText.textContent = `$${singleFee.toFixed(2)} for 1 block | $${multiFee.toFixed(2)} for 2+ blocks`;
-            }
             if (count === 1) {
                 fee = singleFee;
             } else if (count > 1) {
                 fee = multiFee;
+            }
+            if (isEarlySetup) {
+                fee += setupFee;
+            }
+            if (rateSummaryText) {
+                let summaryStr = `$${singleFee.toFixed(2)} for 1 block | $${multiFee.toFixed(2)} for 2+ blocks`;
+                if (isEarlySetup) {
+                    summaryStr += ` (+ $${setupFee.toFixed(2)} Early Set-up Surcharge)`;
+                }
+                rateSummaryText.textContent = summaryStr;
             }
         }
 

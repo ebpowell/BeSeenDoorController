@@ -86,6 +86,24 @@ class TestReservations(unittest.TestCase):
         )
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_private_event_early_setup_surcharge(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_db.get_reservation_fee_config.return_value = {'single_block_fee': 15.0, 'multi_block_fee': 30.0, 'early_setup_fee': 15.0}
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-07-04',
+            'event_type': 'Private Event',
+            'blocks': ['block1', 'block2'],
+            'early_setup': 'on'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Calculated Fee: $45.00', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_post_community_organization(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()

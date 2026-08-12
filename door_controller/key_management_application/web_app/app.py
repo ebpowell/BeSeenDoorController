@@ -319,8 +319,9 @@ def reservations():
             else:
                 fee_config = get_db_mgr().get_reservation_fee_config()
                 raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
+                setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
                 try:
-                    calc_fee = float(raw_fee)
+                    calc_fee = float(raw_fee) + float(setup_surcharge)
                 except (ValueError, TypeError):
                     calc_fee = 15.00
             flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
