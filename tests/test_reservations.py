@@ -82,6 +82,7 @@ class TestReservations(unittest.TestCase):
             deposit_on_file=True,
             agreement_received=True,
             event_type='Private Event',
+            user_role='ManagementCo',
             username='operator1'
         )
 
@@ -89,6 +90,7 @@ class TestReservations(unittest.TestCase):
     def test_add_reservation_private_event_early_setup_surcharge(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()
+        mock_db.add_reservation.return_value = (1, [])
         mock_db.get_reservation_fee_config.return_value = {'single_block_fee': 15.0, 'multi_block_fee': 30.0, 'early_setup_fee': 15.0}
         mock_get_db_mgr.return_value = mock_db
 
@@ -107,6 +109,7 @@ class TestReservations(unittest.TestCase):
     def test_add_reservation_post_community_organization(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()
+        mock_db.add_reservation.return_value = (1, [])
         mock_get_db_mgr.return_value = mock_db
 
         response = self.client.post('/reservations', data={
@@ -129,9 +132,78 @@ class TestReservations(unittest.TestCase):
             deposit_on_file=False,
             agreement_received=False,
             event_type='Community Organization',
+            user_role='ManagementCo',
             username='operator1'
         )
         self.assertIn(b'Calculated Fee: $7.50', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_hoa_event_success(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin1', role='SysAdmin')
+        mock_db = MagicMock()
+        mock_db.add_reservation.return_value = (1, [])
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-08-01',
+            'event_type': 'HOA Event'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Official Board of Directors (HOA) Event added successfully!', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_hoa_event_displacement_warning(self, mock_get_db_mgr):
+        self.set_logged_in(username='admin1', role='SysAdmin')
+        mock_db = MagicMock()
+        displaced_item = [{'reservation_id': 88, 'address': '101 Main St', 'fee': 30.0, 'owner_name': 'Jane Doe'}]
+        mock_db.add_reservation.return_value = (1, displaced_item)
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-08-01',
+            'event_type': 'HOA Event'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'CONFLICT DETECTED: Reservation #88', response.data)
+        self.assertIn(b'marked for rescheduling', response.data)
+        self.assertIn(b'Issue fee refund of $30.00', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_hoa_event_unauthorized_role(self, mock_get_db_mgr):
+        self.set_logged_in(username='user1', role='Resident')
+        mock_db = MagicMock()
+        mock_db.add_reservation.side_effect = ValueError("Unauthorized: HOA Events can only be created by administrative roles (Management Company, SysAdmin, Secretary).")
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-08-01',
+            'event_type': 'HOA Event'
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Unauthorized: HOA Events can only be created by administrative roles', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_add_reservation_conflict_with_existing_hoa_event(self, mock_get_db_mgr):
+        self.set_logged_in(username='operator1')
+        mock_db = MagicMock()
+        mock_db.add_reservation.side_effect = ValueError("Cannot reserve clubhouse on 2026-08-01: An official Board of Directors HOA Event is scheduled and takes precedence.")
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.post('/reservations', data={
+            'property_id': '10001',
+            'reservation_date': '2026-08-01',
+            'event_type': 'Private Event',
+            'blocks': ['block1']
+        }, follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'An official Board of Directors HOA Event is scheduled and takes precedence.', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_community_organization_early_setup_rejected(self, mock_get_db_mgr):

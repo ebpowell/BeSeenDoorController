@@ -178,6 +178,9 @@
                     <select id="event_type" name="event_type" class="form-control" onchange="onEventTypeChange()" required style="width: 100%; padding: 0.75rem 1rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); font-size: 0.95rem; cursor: pointer;">
                         <option value="Private Event" selected>Private Event</option>
                         <option value="Community Organization">Community Organization</option>
+                        {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+                            <option value="HOA Event">HOA Event (BoD / Admin)</option>
+                        {% endif %}
                     </select>
                 </div>
 
@@ -186,7 +189,7 @@
                     <input type="date" id="reservation_date" name="reservation_date" required>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="blocksGroup" style="transition: opacity 0.3s ease;">
                     <label>Select Reservation Time Block(s)</label>
                     <div class="blocks-container" id="blocksContainer" 
                          data-single-fee="{{ '%.2f'|format(fee_config.single_block_fee|float) if fee_config is defined and fee_config.single_block_fee is defined else '15.00' }}"
@@ -325,10 +328,15 @@
                                     <td data-label="Owner Name"><span class="owner-name">{% if res.owner_name %}{{ res.owner_name }}{% else %}<em style="color:var(--text-secondary);">None</em>{% endif %}</span></td>
                                     <td data-label="Date"><strong>{{ res.reservation_date.strftime('%Y-%m-%d') if res.reservation_date.strftime else res.reservation_date }}</strong></td>
                                     <td data-label="Event Type">
-                                        {% if res.event_type == 'Community Organization' %}
-                                            <span class="badge-success" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd;">Community</span>
+                                        {% if res.event_type == 'HOA Event' %}
+                                            <span class="badge-warning" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem;">HOA Event</span>
+                                        {% elif res.event_type == 'Community Organization' %}
+                                            <span class="badge-success" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.8rem;">Community</span>
                                         {% else %}
                                             <span style="color: var(--text-secondary); font-size: 0.85rem;">Private</span>
+                                        {% endif %}
+                                        {% if res.reschedule_required %}
+                                            <span class="badge-danger" style="margin-left: 0.3rem; padding: 0.2rem 0.4rem; border-radius: 6px; font-weight: 600; font-size: 0.75rem;" title="Displaced by HOA Event - Fee Refund Due">Reschedule Required</span>
                                         {% endif %}
                                     </td>
                                     <td data-label="Timeslot">
@@ -543,8 +551,25 @@
         const earlySetupInput = document.getElementById('earlySetupInput');
         const earlySetupHelp = document.getElementById('earlySetupHelp');
         const earlySetupGroup = document.getElementById('earlySetupGroup');
+        const blocksGroup = document.getElementById('blocksGroup');
 
-        if (eventType === 'Community Organization') {
+        if (eventType === 'HOA Event') {
+            if (earlySetupInput) {
+                earlySetupInput.checked = false;
+                earlySetupInput.disabled = true;
+            }
+            if (earlySetupHelp) {
+                earlySetupHelp.textContent = 'Early set-up is not applicable for HOA Events';
+                earlySetupHelp.style.color = 'var(--text-secondary)';
+            }
+            if (earlySetupGroup) {
+                earlySetupGroup.style.opacity = '0.5';
+            }
+            if (blocksGroup) {
+                blocksGroup.style.opacity = '0.5';
+                blocksGroup.style.pointerEvents = 'none';
+            }
+        } else if (eventType === 'Community Organization') {
             if (earlySetupInput) {
                 earlySetupInput.checked = false;
                 earlySetupInput.disabled = true;
@@ -556,6 +581,10 @@
             if (earlySetupGroup) {
                 earlySetupGroup.style.opacity = '0.5';
             }
+            if (blocksGroup) {
+                blocksGroup.style.opacity = '1.0';
+                blocksGroup.style.pointerEvents = 'auto';
+            }
         } else {
             if (earlySetupInput) {
                 earlySetupInput.disabled = false;
@@ -566,6 +595,10 @@
             }
             if (earlySetupGroup) {
                 earlySetupGroup.style.opacity = '1.0';
+            }
+            if (blocksGroup) {
+                blocksGroup.style.opacity = '1.0';
+                blocksGroup.style.pointerEvents = 'auto';
             }
         }
         updateCalculatedFee();
@@ -613,7 +646,12 @@
         const count = checkboxes.length;
         let fee = 0.00;
 
-        if (eventType === 'Community Organization') {
+        if (eventType === 'HOA Event') {
+            fee = 0.00;
+            if (rateSummaryText) {
+                rateSummaryText.textContent = 'HOA Board Events reserve the entire day at $0.00 rate.';
+            }
+        } else if (eventType === 'Community Organization') {
             if (rateSummaryText) {
                 rateSummaryText.textContent = '$7.50 for 1 block | $15.00 for full day (2+ blocks)';
             }

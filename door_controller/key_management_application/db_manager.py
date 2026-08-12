@@ -213,6 +213,7 @@ class FobDatabaseManager:
                         $$;
                     """)
                     cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_type VARCHAR(50) DEFAULT 'Private Event';")
+                    cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS reschedule_required BOOLEAN DEFAULT FALSE;")
                 conn.commit()
             FobDatabaseManager._functions_ensured = True
         except Exception as e:
@@ -865,7 +866,9 @@ class FobDatabaseManager:
                 r.reservation_id, r.property_id, r.reservation_date, 
                 r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.agreement_received,
                 COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup,
-                COALESCE(r.event_type, 'Private Event') AS event_type, r.created_at,
+                COALESCE(r.event_type, 'Private Event') AS event_type,
+                COALESCE(r.reschedule_required, FALSE) AS reschedule_required,
+                r.created_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name
             FROM key_fobs.clubhouse_reservations r
@@ -881,15 +884,21 @@ class FobDatabaseManager:
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
                         payment_made=False, deposit_on_file=False, agreement_received=False,
-                        event_type='Private Event', username='system'):
+                        event_type='Private Event', user_role='ManagementCo', username='system'):
         """
         Add a new clubhouse reservation and logs to the user audit logs.
         Calculates pricing dynamically from fee configuration table or event type rules.
         Enforces 24-hour prior calendar availability rule if early_setup is requested.
         Enforces that Community Organization events cannot request early set-up.
+        Enforces administrative role restrictions for HOA Events and BoD conflict displacement precedence.
         """
-        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup})")
+        log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup}, role={user_role})")
         
+        allowed_roles = ['managementco', 'sysadmin', 'secretary', 'management']
+        if event_type == 'HOA Event':
+            if not user_role or str(user_role).lower() not in allowed_roles:
+                raise ValueError("Unauthorized: HOA Events can only be created by administrative roles (Management Company, SysAdmin, Secretary).")
+
         if event_type == 'Community Organization' and early_setup:
             raise ValueError("Early set-up is not allowed for Community Organization events.")
 
@@ -900,46 +909,86 @@ class FobDatabaseManager:
         else:
             res_date_obj = reservation_date
 
-        if early_setup:
-            if self.has_reservations_in_previous_24h(res_date_obj):
-                raise ValueError("Early set-up is not allowed because another reservation exists in the previous 24 hours.")
+        displaced_reservations = []
 
-        active_blocks = self.list_reservation_blocks()
-        block_map = {}
-        for b in active_blocks:
-            s_time = str(b['start_time']) if hasattr(b['start_time'], 'strftime') else str(b['start_time'])
-            e_time = str(b['end_time']) if hasattr(b['end_time'], 'strftime') else str(b['end_time'])
-            block_map[b['block_key']] = (s_time, e_time)
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if event_type == 'HOA Event':
+                    # Check for existing non-HOA reservations on this date to displace
+                    cur.execute("""
+                        SELECT r.reservation_id, r.property_id, COALESCE(r.fee, 15.00) AS fee, 
+                               r.early_setup, p.address,
+                               CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+                        FROM key_fobs.clubhouse_reservations r
+                        JOIN key_fobs.properties p ON r.property_id = p.property_id
+                        LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+                        WHERE r.reservation_date = %s AND COALESCE(r.event_type, 'Private Event') != 'HOA Event';
+                    """, (res_date_obj,))
+                    displaced_reservations = cur.fetchall()
 
-        block_tuples = []
-        if blocks:
-            for b in blocks:
-                if b in block_map:
-                    block_tuples.append(block_map[b])
-        elif from_time or to_time:
-            block_tuples.append((from_time, to_time))
+                    if displaced_reservations:
+                        cur.execute("""
+                            UPDATE key_fobs.clubhouse_reservations
+                            SET reschedule_required = TRUE, early_setup = FALSE
+                            WHERE reservation_date = %s AND COALESCE(event_type, 'Private Event') != 'HOA Event';
+                        """, (res_date_obj,))
+                        log_info(f"Database: HOA Event displaced {len(displaced_reservations)} reservation(s) on {res_date_obj}")
+                else:
+                    # Non-HOA event: check if an HOA Event is already scheduled on this date
+                    cur.execute("""
+                        SELECT COUNT(*) AS cnt FROM key_fobs.clubhouse_reservations
+                        WHERE reservation_date = %s AND COALESCE(event_type, 'Private Event') = 'HOA Event';
+                    """, (res_date_obj,))
+                    cnt_row = cur.fetchone()
+                    if cnt_row and cnt_row['cnt'] > 0:
+                        raise ValueError(f"Cannot reserve clubhouse on {res_date_obj}: An official Board of Directors HOA Event is scheduled and takes precedence.")
+
+        if event_type == 'HOA Event':
+            early_setup = False
+            calc_fee = 0.00
+            block_tuples = [('08:00:00', '23:00:00')]
         else:
-            if active_blocks:
-                b0 = active_blocks[0]
-                s0 = str(b0['start_time']) if hasattr(b0['start_time'], 'strftime') else str(b0['start_time'])
-                e0 = str(b0['end_time']) if hasattr(b0['end_time'], 'strftime') else str(b0['end_time'])
-                block_tuples.append((s0, e0))
+            if early_setup:
+                if self.has_reservations_in_previous_24h(res_date_obj):
+                    raise ValueError("Early set-up is not allowed because another reservation exists in the previous 24 hours.")
+
+            active_blocks = self.list_reservation_blocks()
+            block_map = {}
+            for b in active_blocks:
+                s_time = str(b['start_time']) if hasattr(b['start_time'], 'strftime') else str(b['start_time'])
+                e_time = str(b['end_time']) if hasattr(b['end_time'], 'strftime') else str(b['end_time'])
+                block_map[b['block_key']] = (s_time, e_time)
+
+            block_tuples = []
+            if blocks:
+                for b in blocks:
+                    if b in block_map:
+                        block_tuples.append(block_map[b])
+            elif from_time or to_time:
+                block_tuples.append((from_time, to_time))
             else:
-                block_tuples.append(('08:00:00', '23:00:00'))
+                if active_blocks:
+                    b0 = active_blocks[0]
+                    s0 = str(b0['start_time']) if hasattr(b0['start_time'], 'strftime') else str(b0['start_time'])
+                    e0 = str(b0['end_time']) if hasattr(b0['end_time'], 'strftime') else str(b0['end_time'])
+                    block_tuples.append((s0, e0))
+                else:
+                    block_tuples.append(('08:00:00', '23:00:00'))
+
+            num_blocks = len(block_tuples)
+            if fee is not None:
+                calc_fee = float(fee)
+            else:
+                if event_type == 'Community Organization':
+                    calc_fee = 15.00 if num_blocks >= 2 else 7.50
+                else:
+                    fee_config = self.get_reservation_fee_config()
+                    base_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
+                    setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
+                    calc_fee = base_fee + setup_surcharge
 
         num_blocks = len(block_tuples)
-        if fee is not None:
-            calc_fee = float(fee)
-        else:
-            if event_type == 'Community Organization':
-                calc_fee = 15.00 if num_blocks >= 2 else 7.50
-            else:
-                fee_config = self.get_reservation_fee_config()
-                base_fee = fee_config.get('multi_block_fee', 30.00) if num_blocks > 1 else fee_config.get('single_block_fee', 15.00)
-                setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
-                calc_fee = base_fee + setup_surcharge
-
-        fee_per_block = calc_fee / num_blocks if num_blocks > 0 else 15.00
+        fee_per_block = calc_fee / num_blocks if num_blocks > 0 else 0.00
 
         reservation_ids = []
         with self._get_connection() as conn:
@@ -950,8 +999,8 @@ class FobDatabaseManager:
 
                 query = """
                     INSERT INTO key_fobs.clubhouse_reservations 
-                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type, reschedule_required)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
                     RETURNING reservation_id;
                 """
                 for f_t, t_t in block_tuples:
@@ -964,7 +1013,9 @@ class FobDatabaseManager:
                 details = f"Reserved clubhouse for '{address}' on {reservation_date} ({num_blocks} block(s), Fee: ${calc_fee:.2f}, Type: {event_type}, Early Setup: {early_setup})"
                 self.log_audit_action(cur, username, "Add Clubhouse Reservation", details)
             conn.commit()
-        return reservation_ids[0] if reservation_ids else None
+
+        res_id = reservation_ids[0] if reservation_ids else None
+        return res_id, displaced_reservations
 
     def delete_reservation(self, reservation_id, username='system'):
         """

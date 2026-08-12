@@ -293,14 +293,15 @@ def reservations():
             flash("Property and Reservation Date are required.", "warning")
             return redirect(url_for('reservations'))
 
-        if not blocks and not (from_time or to_time):
+        if event_type != 'HOA Event' and not blocks and not (from_time or to_time):
             flash("Please select at least one time block for the reservation.", "warning")
             return redirect(url_for('reservations'))
 
         try:
             property_id = int(property_id_str)
             username = session.get('username', 'system')
-            get_db_mgr().add_reservation(
+            user_role = session.get('role', 'ManagementCo')
+            res_id, displaced = get_db_mgr().add_reservation(
                 property_id=property_id,
                 reservation_date=reservation_date,
                 from_time=from_time if from_time else None,
@@ -311,20 +312,31 @@ def reservations():
                 deposit_on_file=deposit_on_file,
                 agreement_received=agreement_received,
                 event_type=event_type,
+                user_role=user_role,
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
-            if event_type == 'Community Organization':
-                calc_fee = 15.00 if len(blocks) >= 2 else 7.50
+
+            if event_type == 'HOA Event':
+                flash("Official Board of Directors (HOA) Event added successfully! Rate: $0.00", "success")
+                if displaced:
+                    for d in displaced:
+                        addr = d.get('address', 'Unknown Property')
+                        fee_val = float(d.get('fee', 15.00))
+                        res_id_val = d.get('reservation_id', '')
+                        flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
             else:
-                fee_config = get_db_mgr().get_reservation_fee_config()
-                raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
-                setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
-                try:
-                    calc_fee = float(raw_fee) + float(setup_surcharge)
-                except (ValueError, TypeError):
-                    calc_fee = 15.00
-            flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
+                if event_type == 'Community Organization':
+                    calc_fee = 15.00 if len(blocks) >= 2 else 7.50
+                else:
+                    fee_config = get_db_mgr().get_reservation_fee_config()
+                    raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
+                    setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
+                    try:
+                        calc_fee = float(raw_fee) + float(setup_surcharge)
+                    except (ValueError, TypeError):
+                        calc_fee = 15.00
+                flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
         except ValueError as ve:
             flash(str(ve), "danger")
         except Exception as e:
