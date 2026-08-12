@@ -4,7 +4,7 @@ from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.common_lib.utils import log_info, get_current_timestamp, load_config
 from door_controller import __version__ # Access package version
 
-def main():
+def main(start_id=None, url=None):
 
     """Main function for 'get_recent_swipes'."""
     log_info(f"--- Starting get_recent_swipes (v{__version__}) at {get_current_timestamp()} ---")
@@ -27,12 +27,12 @@ def main():
 
     obj_db = postgres(config.get('settings', {}).get('postgres_connect_string'))
     # Intialize the slop table for the new records
-    obj_db.insert_swipe_start_record()
-    urls = config['settings']['urls']
-    for url in urls:
-        obj_extract = ww_data_extractor({config.get('settings', {}).get('username')}, {config.get('settings', {}).get('password')}, url, obj_db)
-        # Add records from controller
-        obj_extract.get_recent_fob_swipes()
+    # obj_db.insert_swipe_start_record()
+    # urls = config['settings']['urls']
+    # for url in urls:
+    obj_extract = ww_data_extractor({config.get('settings', {}).get('username')}, {config.get('settings', {}).get('password')}, url, obj_db, 75)
+    # Add records from controller
+    obj_extract.get_swipe_range(start_id)
     # Copy records from slop table to the main table.
     obj_db.add_new_swipess()
 
@@ -41,4 +41,4 @@ if __name__=='__main__':
     Tool to periodically pull all of the swipes off of the door controllers at the Wentworth Clubhouse
     Designed to be run by the cron at whatever period is more appropriate (probably hourly)
     '''
-    main()
+    main(35597, 'http://69.21.119.148')

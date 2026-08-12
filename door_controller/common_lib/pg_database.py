@@ -21,12 +21,25 @@ class postgres:
         # print (str_query)
         return str_query
 
-    def insert_swipe_record(self, data, max_id):
-        query = ('INSERT INTO dataload.t_keyswipes_slop '
-                 '(record_id, fob_id,  status, door, swipe_timestamp, door_controller_ip) values')
-        # Add records tp SQLite database
+    # def insert_swipe_record(self, data, max_id):
+    #     query = ('INSERT INTO dataload.t_keyswipes_slop '
+    #              '(record_id, fob_id,  status, door, swipe_timestamp, door_controller_ip) values')
+    #     # Add records tp SQLite database
+    #     cur = self.db_con.cursor()
+    #     [cur.execute(self.gen_swipe_record(record, query)) for record in data if int(record[0])>max_id]
+    #     self.db_con.commit()
+    def insert_swipe_record(self, data):
+    # Relies on a PRIMARY KEY or UNIQUE constraint on record_id
+        query = """
+            INSERT INTO dataload.t_keyswipes_slop 
+                (record_id, fob_id, status, door, swipe_timestamp, door_controller_ip) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (record_id) DO NOTHING;
+        """
+        
         cur = self.db_con.cursor()
-        [cur.execute(self.gen_swipe_record(record, query)) for record in data if int(record[0])>max_id]
+        # Sends all records in a single efficient database call
+        cur.executemany(query, data)
         self.db_con.commit()
 
     def insert_access_list_record(self, data):
