@@ -253,6 +253,43 @@ class TestReservations(unittest.TestCase):
         self.assertIn(b"scheduled successfully", response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_calendar_view_get_success(self, mock_get_db_mgr):
+        self.set_logged_in(username='user1', role='Resident')
+        mock_db = MagicMock()
+        mock_db.list_reservations.return_value = [
+            {
+                'reservation_id': 1,
+                'property_id': 10001,
+                'reservation_date': '2026-08-15',
+                'from_time': '08:00:00',
+                'to_time': '12:00:00',
+                'event_type': 'Private Event',
+                'address': '101 Main St',
+                'owner_name': 'Jane Doe',
+                'fee': 15.0,
+                'early_setup': False,
+                'reschedule_required': False
+            }
+        ]
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/calendar?year=2026&month=8')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'August 2026', response.data)
+        self.assertIn(b'101 Main St', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_calendar_view_month_navigation(self, mock_get_db_mgr):
+        self.set_logged_in(username='user1', role='Resident')
+        mock_db = MagicMock()
+        mock_db.list_reservations.return_value = []
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/calendar?year=2026&month=12')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'December 2026', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_community_organization_early_setup_rejected(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()

@@ -296,11 +296,16 @@
                     </svg>
                     Clubhouse Reservations Registry
                 </h2>
-                {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
-                <a href="{{ url_for('hoa_reservations') }}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; border-radius: 6px; text-decoration: none;">
-                    + Schedule HOA Event
-                </a>
-                {% endif %}
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <a href="{{ url_for('calendar_view') }}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; border-radius: 6px; text-decoration: none;">
+                        📅 Calendar View
+                    </a>
+                    {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+                    <a href="{{ url_for('hoa_reservations') }}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; border-radius: 6px; text-decoration: none;">
+                        + Schedule HOA Event
+                    </a>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="search-container">

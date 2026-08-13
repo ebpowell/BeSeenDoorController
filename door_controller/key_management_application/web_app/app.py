@@ -1,4 +1,6 @@
 import os
+import calendar
+import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from door_controller.key_management_application.db_manager import FobDatabaseManager
@@ -662,7 +664,58 @@ def update_access_rule_times_route(perm_id):
 
     return redirect(url_for('access_rules'))
 
+@app.route('/calendar', methods=['GET'])
+@login_required
+def calendar_view():
+    try:
+        now = datetime.datetime.now()
+        year = request.args.get('year', type=int, default=now.year)
+        month = request.args.get('month', type=int, default=now.month)
 
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+
+        cal = calendar.Calendar(firstweekday=6) # 6 = Sunday
+        month_days = cal.monthdatescalendar(year, month)
+
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        next_year = year if month < 12 else year + 1
+        next_month = month + 1 if month < 12 else 1
+
+        month_name = datetime.date(year, month, 1).strftime('%B')
+
+        raw_reservations = get_db_mgr().list_reservations()
+        
+        reservations_by_date = {}
+        for r in raw_reservations:
+            r_date = r['reservation_date']
+            date_str = r_date.strftime('%Y-%m-%d') if hasattr(r_date, 'strftime') else str(r_date)
+            if date_str not in reservations_by_date:
+                reservations_by_date[date_str] = []
+            reservations_by_date[date_str].append(r)
+
+        return render_template(
+            'calendar.html',
+            year=year,
+            month=month,
+            month_name=month_name,
+            month_days=month_days,
+            prev_year=prev_year,
+            prev_month=prev_month,
+            next_year=next_year,
+            next_month=next_month,
+            current_date_str=now.strftime('%Y-%m-%d'),
+            reservations_by_date=reservations_by_date
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load calendar view. {e}")
+        flash(f"Error loading calendar view: {e}", "danger")
+        return redirect(url_for('reservations'))
 
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")
