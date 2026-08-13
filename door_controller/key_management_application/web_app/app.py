@@ -693,11 +693,26 @@ def calendar_view():
         
         reservations_by_date = {}
         for r in raw_reservations:
-            r_date = r['reservation_date']
+            r_dict = dict(r)
+            r_date = r_dict.get('reservation_date')
             date_str = r_date.strftime('%Y-%m-%d') if hasattr(r_date, 'strftime') else str(r_date)
+            r_dict['reservation_date'] = date_str
+
+            if 'from_time' in r_dict and r_dict['from_time'] is not None:
+                r_dict['from_time'] = r_dict['from_time'].strftime('%H:%M') if hasattr(r_dict['from_time'], 'strftime') else str(r_dict['from_time'])
+            
+            if 'to_time' in r_dict and r_dict['to_time'] is not None:
+                r_dict['to_time'] = r_dict['to_time'].strftime('%H:%M') if hasattr(r_dict['to_time'], 'strftime') else str(r_dict['to_time'])
+
+            if 'created_at' in r_dict and r_dict['created_at'] is not None:
+                r_dict['created_at'] = r_dict['created_at'].isoformat() if hasattr(r_dict['created_at'], 'isoformat') else str(r_dict['created_at'])
+
+            if 'fee' in r_dict and r_dict['fee'] is not None:
+                r_dict['fee'] = float(r_dict['fee'])
+
             if date_str not in reservations_by_date:
                 reservations_by_date[date_str] = []
-            reservations_by_date[date_str].append(r)
+            reservations_by_date[date_str].append(r_dict)
 
         return render_template(
             'calendar.html',

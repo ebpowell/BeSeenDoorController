@@ -254,15 +254,17 @@ class TestReservations(unittest.TestCase):
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_calendar_view_get_success(self, mock_get_db_mgr):
+        import datetime
         self.set_logged_in(username='user1', role='Resident')
         mock_db = MagicMock()
         mock_db.list_reservations.return_value = [
             {
                 'reservation_id': 1,
                 'property_id': 10001,
-                'reservation_date': '2026-08-15',
-                'from_time': '08:00:00',
-                'to_time': '12:00:00',
+                'reservation_date': datetime.date(2026, 8, 15),
+                'from_time': datetime.time(8, 0),
+                'to_time': datetime.time(12, 0),
+                'created_at': datetime.datetime(2026, 8, 1, 10, 0),
                 'event_type': 'Private Event',
                 'address': '101 Main St',
                 'owner_name': 'Jane Doe',
