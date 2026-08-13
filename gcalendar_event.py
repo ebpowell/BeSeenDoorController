@@ -1,163 +1,108 @@
+#!/usr/bin/env python3
+"""
+Google Calendar Integration Tool for BeSeen Door Controller.
+Pushes clubhouse reservations from PostgreSQL database table (key_fobs.clubhouse_reservations)
+to Google Calendar via a Google Service Account.
+
+Based on system-centric design guidance in gemini_description.
+"""
+
 import os
+import sys
 import json
-from datetime import datetime, timedelta
-from flask import Flask, jsonify, request
-import stripe
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
+import argparse
+import logging
+from door_controller.common_lib.gcal_sync import GoogleCalendarSync, GOOGLE_API_AVAILABLE
+from door_controller.key_management_application.db_manager import FobDatabaseManager
 
-app = Flask(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Configuration (Use environment variables in production!)
-STRIPE_API_KEY = "sk_test_..."
-STRIPE_WEBHOOK_SECRET = "whsec_..."
-CALENDAR_ID = "your_business_calendar_id@gmail.com" # Or 'primary' if the service account owns it
-GOOGLE_SERVICE_ACCOUNT_FILE = "service_account.json"
+def main():
+    parser = argparse.ArgumentParser(
+        description="BeSeen Door Controller - Google Calendar Integration Tool"
+    )
+    parser.add_argument(
+        "--service-account-file",
+        default=os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"),
+        help="Path to Google Service Account JSON key file (default: service_account.json)"
+    )
+    parser.add_argument(
+        "--calendar-id",
+        default=os.environ.get("CALENDAR_ID", "primary"),
+        help="Target Google Calendar ID (default: primary or CALENDAR_ID env var)"
+    )
+    parser.add_argument(
+        "--timezone",
+        default="America/New_York",
+        help="Timezone string for calendar events (default: America/New_York)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview formatted Google Calendar payloads without calling Google Calendar API"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output sync results as JSON"
+    )
 
-stripe.api_key = STRIPE_API_KEY
+    args = parser.parse_args()
 
-# Google Calendar API Setup
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-creds = service_account.Credentials.from_service_account_file(
-    GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES
-)
-calendar_service = build('calendar', 'v3', credentials=creds)
+    print("=====================================================")
+    print(" BeSeen Door Controller - Google Calendar Sync Tool")
+    print("=====================================================")
+    print(f"Service Account File: {args.service_account_file}")
+    print(f"Calendar ID:          {args.calendar_id}")
+    print(f"Timezone:             {args.timezone}")
+    print(f"Dry-Run Mode:         {'ENABLED' if args.dry_run else 'DISABLED'}")
+    print("-----------------------------------------------------")
 
+    if not GOOGLE_API_AVAILABLE:
+        print("⚠️ Warning: google-auth and google-api-python-client packages are not installed.")
+        print("To enable live API push, run: pip install google-auth google-api-python-client\n")
 
-# ==========================================
-# STEP 1: Create a Payment Session
-# ==========================================
-@app.route('/create-checkout-session', methods=['POST'])
-def create_checkout():
-    """
-    Triggered when user selects a time slot and clicks 'Pay & Book'.
-    We pass the appointment details into Stripe metadata so we can 
-    retrieve them after payment succeeds.
-    """
+    if not os.path.exists(args.service_account_file) and not args.dry_run:
+        print(f"⚠️ Notice: Service Account file '{args.service_account_file}' not found.")
+        print("Running in preview / dry-run mode...\n")
+        args.dry_run = True
+
     try:
-        data = request.json
-        customer_email = data['email']
-        customer_name = data['name']
-        start_time = data['start_time'] # Expecting ISO format: "2026-06-10T14:00:00"
-        
-        # Metadata allows us to pass booking info safely through Stripe
-        booking_metadata = {
-            "customer_name": customer_name,
-            "customer_email": customer_email,
-            "start_time": start_time,
-            "duration_minutes": 60 
-        }
-
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            customer_email=customer_email,
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': f'Consultation with YourBusiness ({customer_name})',
-                    },
-                    'unit_amount': 5000, # $50.00
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            metadata=booking_metadata,
-            success_url='https://yourwebsite.com/success?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url='https://yourwebsite.com/cancel',
+        db_mgr = FobDatabaseManager()
+        syncer = GoogleCalendarSync(
+            service_account_file=args.service_account_file,
+            calendar_id=args.calendar_id,
+            timezone=args.timezone,
+            db_manager=db_mgr
         )
-        return jsonify({'url': checkout_session.url})
-        
+
+        created, updated, results = syncer.sync_reservations(dry_run=args.dry_run)
+
+        if args.json:
+            print(json.dumps({'created': created, 'updated': updated, 'results': results}, indent=2))
+        else:
+            print("\nSync Summary:")
+            print(f"  • Created: {created}")
+            print(f"  • Updated: {updated}")
+            print(f"  • Total Processed: {len(results)}")
+            print("=====================================================\n")
+
+            for item in results:
+                action = item.get('action')
+                res_id = item.get('reservation_id')
+                if action == 'dry_run':
+                    p = item.get('payload', {})
+                    print(f"[DRY-RUN] Res #{res_id}: Summary='{p.get('summary')}' | Start={p.get('start', {}).get('dateTime')}")
+                elif action in ('created', 'updated'):
+                    print(f"[{action.upper()}] Res #{res_id}: GCal ID={item.get('gcal_id')}")
+                elif action == 'error':
+                    print(f"[ERROR] Res #{res_id}: {item.get('error')}")
+
     except Exception as e:
-        return jsonify(error=str(e)), 400
-
-
-# ==========================================
-# STEP 2: Handle Successful Payment (Webhook)
-# ==========================================
-@app.route('/stripe-webhook', methods=['POST'])
-def stripe_webhook():
-    """
-    Stripe calls this endpoint asynchronously when the payment goes through.
-    """
-    payload = request.data
-    sig_header = request.headers.get('HTTP_STRIPE_SIGNATURE')
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except (ValueError, stripe.error.SignatureVerificationError):
-        return 'Invalid payload/signature', 400
-
-    # Handle the checkout.session.completed event
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        
-        # Retrieve the booking details we tucked away in Step 1
-        booking_info = session['metadata']
-        
-        # Execute the Google Calendar Injection
-        book_google_calendar_event(booking_info)
-
-    return 'Success', 200
-
-
-# ==========================================
-# STEP 3: Inject Event into Google Calendar
-# ==========================================
-def book_google_calendar_event(booking_info):
-    """
-    Interacts with the Google Calendar API via the Service Account
-    """
-    start_dt = datetime.fromisoformat(booking_info['start_time'])
-    end_dt = start_dt + timedelta(minutes=int(booking_info['duration_minutes']))
-    
-    # Format times back to strings with explicit timezones (e.g., UTC or local)
-    # Adjust 'America/New_York' to your business's timezone
-    timezone = "America/New_York" 
-    
-    event_body = {
-        'summary': f"Appointment: {booking_info['customer_name']}",
-        'description': f"Paid Consultation booked via Web App. Email: {booking_info['customer_email']}",
-        'start': {
-            'dateTime': start_dt.isoformat(),
-            'timeZone': timezone,
-        },
-        'end': {
-            'dateTime': end_dt.isoformat(),
-            'timeZone': timezone,
-        },
-        # Automatically invites the customer so they get a calendar invite
-        'attendees': [
-            {'email': booking_info['customer_email']}
-        ],
-        # Optional: Generate a Google Meet link automatically
-        'conferenceData': {
-            'createRequest': {
-                'requestId': f"meet-{int(datetime.now().timestamp())}",
-                'conferenceSolutionKey': {'type': 'hangoutsMeet'}
-            }
-        },
-        'sendUpdates': 'all' # Sends notification emails to attendees
-    }
-
-    try:
-        created_event = calendar_service.events().insert(
-            calendarId=CALENDAR_ID,
-            body=event_body,
-            conferenceDataVersion=1 # Enables Google Meet creation
-        ).execute()
-        
-        print(f"Event successfully created! Link: {created_event.get('htmlLink')}")
-        
-        # CRITICAL: Save created_event['id'] to your local DB here. 
-        # If the user cancels/reschedules later, you need this ID to edit/delete it.
-        
-    except Exception as e:
-        print(f"Failed to create Google Calendar event: {e}")
-        # Note: In production, log this heavily and send an internal alert.
-        # The customer was charged, but the calendar invite failed.
+        print(f"❌ Error executing Google Calendar sync: {e}")
+        if "connection to server" in str(e).lower() or "connection timed out" in str(e).lower():
+            print("\n💡 Hint: PostgreSQL database host is unreachable. Ensure the database server is running or set the DB_HOST environment variable.")
+        sys.exit(1)
 
 if __name__ == '__main__':
-    app.run(port=4242, debug=True)
+    main()
