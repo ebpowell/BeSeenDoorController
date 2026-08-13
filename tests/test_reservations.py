@@ -292,6 +292,27 @@ class TestReservations(unittest.TestCase):
         self.assertIn(b'December 2026', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_calendar_embed_public_access(self, mock_get_db_mgr):
+        mock_db = MagicMock()
+        mock_db.list_reservations.return_value = []
+        mock_get_db_mgr.return_value = mock_db
+
+        # Public access without login
+        response = self.client.get('/calendar/embed?year=2026&month=8')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Clubhouse Schedule', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
+    def test_calendar_embed_light_theme(self, mock_get_db_mgr):
+        mock_db = MagicMock()
+        mock_db.list_reservations.return_value = []
+        mock_get_db_mgr.return_value = mock_db
+
+        response = self.client.get('/calendar/embed?year=2026&month=8&theme=light')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'data-theme="light"', response.data)
+
+    @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_add_reservation_community_organization_early_setup_rejected(self, mock_get_db_mgr):
         self.set_logged_in(username='operator1')
         mock_db = MagicMock()

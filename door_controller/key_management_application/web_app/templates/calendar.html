@@ -11,7 +11,7 @@
                 <h2 style="margin: 0; font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #a5b4fc, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                     {{ month_name }} {{ year }}
                 </h2>
-                <div style="display: flex; gap: 0.4rem;">
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
                     <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none;">
                         &larr; Prev
                     </a>
@@ -21,6 +21,9 @@
                     <a href="/calendar?year={{ next_year }}&month={{ next_month }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none;">
                         Next &rarr;
                     </a>
+                    <button onclick="openEmbedModal()" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                        🔗 Embed Calendar
+                    </button>
                 </div>
             </div>
 
@@ -120,6 +123,40 @@
                 + Schedule HOA Event
             </a>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Share & Embed Modal -->
+<div id="shareEmbedModal" class="modal-overlay" onclick="closeEmbedModal(event)">
+    <div class="modal-content glass-card" onclick="event.stopPropagation()" style="max-width: 550px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+            <h3 style="margin: 0; color: #a5b4fc; font-size: 1.2rem;">Share & Embed View-Only Calendar</h3>
+            <button onclick="closeEmbedModal(null)" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.4;">
+            Use the public view-only embedded calendar to display live clubhouse event schedules on 3rd party websites or homeowner portals.
+        </p>
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">HTML Embed Code (Dark Theme)</label>
+            <textarea id="embedCodeDark" rows="3" readonly style="width: 100%; font-family: monospace; font-size: 0.8rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;"></textarea>
+            <button onclick="copyToClipboard('embedCodeDark', this)" class="btn btn-secondary" style="margin-top: 0.4rem; font-size: 0.75rem; padding: 0.35rem 0.75rem;">Copy Dark Embed Code</button>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">HTML Embed Code (Light Theme)</label>
+            <textarea id="embedCodeLight" rows="3" readonly style="width: 100%; font-family: monospace; font-size: 0.8rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;"></textarea>
+            <button onclick="copyToClipboard('embedCodeLight', this)" class="btn btn-secondary" style="margin-top: 0.4rem; font-size: 0.75rem; padding: 0.35rem 0.75rem;">Copy Light Embed Code</button>
+        </div>
+
+        <div style="margin-bottom: 0.5rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">Direct View-Only Public URL</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="embedUrlDirect" readonly style="width: 100%; font-size: 0.85rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;">
+                <a id="embedDirectLink" href="#" target="_blank" class="btn btn-secondary" style="padding: 0.55rem 0.85rem; font-size: 0.8rem; text-decoration: none; white-space: nowrap;">Open Link ↗</a>
+            </div>
         </div>
     </div>
 </div>
@@ -361,9 +398,50 @@
         }
     }
 
-    // Keyboard Escape key handler for modal
+    function openEmbedModal() {
+        const modal = document.getElementById('shareEmbedModal');
+        const darkArea = document.getElementById('embedCodeDark');
+        const lightArea = document.getElementById('embedCodeLight');
+        const urlInput = document.getElementById('embedUrlDirect');
+        const directLink = document.getElementById('embedDirectLink');
+
+        const baseUrl = window.location.origin;
+        const embedDarkUrl = `${baseUrl}/calendar/embed?theme=dark`;
+        const embedLightUrl = `${baseUrl}/calendar/embed?theme=light`;
+
+        if (darkArea) darkArea.value = `<iframe src="${embedDarkUrl}" width="100%" height="700" frameborder="0" style="border: 0; border-radius: 12px; overflow: hidden;" title="Clubhouse Calendar"></iframe>`;
+        if (lightArea) lightArea.value = `<iframe src="${embedLightUrl}" width="100%" height="700" frameborder="0" style="border: 0; border-radius: 12px; overflow: hidden;" title="Clubhouse Calendar"></iframe>`;
+        if (urlInput) urlInput.value = embedDarkUrl;
+        if (directLink) directLink.href = embedDarkUrl;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeEmbedModal(e) {
+        const modal = document.getElementById('shareEmbedModal');
+        if (!e || e.target === modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function copyToClipboard(elementId, btn) {
+        const elem = document.getElementById(elementId);
+        if (elem) {
+            elem.select();
+            navigator.clipboard.writeText(elem.value).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied! ✓';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        }
+    }
+
+    // Keyboard Escape key handler for modals
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDayModal(null);
+        if (e.key === 'Escape') {
+            closeDayModal(null);
+            closeEmbedModal(null);
+        }
     });
 </script>
 {% endblock %}

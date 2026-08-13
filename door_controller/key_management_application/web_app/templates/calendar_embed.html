@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ embed_theme|default('dark') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clubhouse Calendar - Public View</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: rgba(22, 28, 45, 0.45);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary: #6366f1;
+            --secondary: #a855f7;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(203, 213, 225, 0.8);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --primary: #4f46e5;
+            --secondary: #9333ea;
+            --danger: #dc2626;
+            --success: #059669;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.4rem;
+        }
+
+        .cal-weekday {
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            padding: 0.4rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .cal-day {
+            min-height: 95px;
+            background: rgba(15, 17, 26, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.4rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        [data-theme="light"] .cal-day {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .cal-day:hover {
+            border-color: rgba(165, 180, 252, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .cal-day.other-month {
+            opacity: 0.3;
+        }
+
+        .cal-day.today {
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .cal-day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.3rem;
+        }
+
+        .day-number {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .cal-events-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            overflow-y: auto;
+            max-height: 65px;
+        }
+
+        .cal-event-pill {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.35rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .event-hoa {
+            background: rgba(168, 85, 247, 0.25);
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            color: #e9d5ff;
+        }
+
+        .event-community {
+            background: rgba(59, 130, 246, 0.25);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #bfdbfe;
+        }
+
+        .event-private {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #a7f3d0;
+        }
+
+        .btn {
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+        }
+
+        /* Modal Popover */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            width: 90%;
+            max-width: 440px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-card" style="margin-bottom: 0.75rem; padding: 0.75rem 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">
+                    {{ month_name }} {{ year }}
+                </h2>
+                <div style="display: flex; gap: 0.3rem;">
+                    <a href="/calendar/embed?year={{ prev_year }}&month={{ prev_month }}&theme={{ embed_theme }}" class="btn">&larr;</a>
+                    <a href="/calendar/embed?theme={{ embed_theme }}" class="btn">Today</a>
+                    <a href="/calendar/embed?year={{ next_year }}&month={{ next_month }}&theme={{ embed_theme }}" class="btn">&rarr;</a>
+                </div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">Clubhouse Schedule</span>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="calendar-grid">
+            <div class="cal-weekday">Sun</div>
+            <div class="cal-weekday">Mon</div>
+            <div class="cal-weekday">Tue</div>
+            <div class="cal-weekday">Wed</div>
+            <div class="cal-weekday">Thu</div>
+            <div class="cal-weekday">Fri</div>
+            <div class="cal-weekday">Sat</div>
+
+            {% for week in month_days %}
+                {% for day in week %}
+                    {% set day_str = day.strftime('%Y-%m-%d') %}
+                    {% set is_current_month = (day.month == month) %}
+                    {% set is_today = (day_str == current_date_str) %}
+                    {% set day_res_list = reservations_by_date.get(day_str, []) %}
+
+                    <div class="cal-day {% if not is_current_month %}other-month{% endif %} {% if is_today %}today{% endif %}" onclick="openDayModal('{{ day_str }}')">
+                        <div class="cal-day-header">
+                            <span class="day-number">{{ day.day }}</span>
+                        </div>
+
+                        <div class="cal-events-container">
+                            {% for res in day_res_list %}
+                                {% if res.event_type == 'HOA Event' %}
+                                    <div class="cal-event-pill event-hoa">
+                                        <strong>HOA: {{ res.event_name or 'Board Event' }}</strong>
+                                    </div>
+                                {% elif res.event_type == 'Community Organization' %}
+                                    <div class="cal-event-pill event-community">
+                                        <span>Community Event</span>
+                                    </div>
+                                {% else %}
+                                    <div class="cal-event-pill event-private">
+                                        <span>Reserved</span>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Event Detail Popover Modal -->
+    <div id="embedDetailModal" class="modal-overlay" onclick="closeDayModal(event)">
+        <div class="modal-content glass-card" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.5rem;">
+                <h3 id="modalDateTitle" style="margin: 0; color: var(--primary); font-size: 1.1rem;">Date Details</h3>
+                <button onclick="closeDayModal(null)" style="background: none; border: none; color: var(--text-secondary); font-size: 1.4rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <div id="modalEventBody"></div>
+        </div>
+    </div>
+
+    <script>
+        const reservationsData = {{ reservations_by_date|tojson }};
+
+        function openDayModal(dateStr) {
+            const modal = document.getElementById('embedDetailModal');
+            const title = document.getElementById('modalDateTitle');
+            const body = document.getElementById('modalEventBody');
+
+            title.textContent = `Schedule for ${dateStr}`;
+            const resList = reservationsData[dateStr] || [];
+
+            if (resList.length === 0) {
+                body.innerHTML = `
+                    <div style="text-align: center; padding: 1.5rem 1rem; color: var(--text-secondary);">
+                        <p style="margin: 0; font-size: 0.9rem;">No reservations scheduled on this date.</p>
+                        <span style="font-size: 0.8rem; color: var(--success); margin-top: 0.25rem; display: block;">Clubhouse Available</span>
+                    </div>
+                `;
+            } else {
+                let html = '<div style="display: flex; flex-direction: column; gap: 0.6rem;">';
+                resList.forEach(res => {
+                    const isHoa = res.event_type === 'HOA Event';
+                    const isComm = res.event_type === 'Community Organization';
+
+                    let timeslotStr = 'Full Day (08:00 – 23:00)';
+                    if (res.from_time || res.to_time) {
+                        timeslotStr = `${res.from_time} – ${res.to_time}`;
+                    }
+
+                    html += `
+                        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-left: 4px solid ${isHoa ? '#c084fc' : isComm ? '#60a5fa' : '#10b981'}; padding: 0.75rem; border-radius: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                <strong style="color: var(--text-primary); font-size: 0.9rem;">
+                                    ${isHoa ? (res.event_name || 'Official HOA Event') : 'Clubhouse Reserved'}
+                                </strong>
+                                <span style="font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 4px; ${isHoa ? 'background: rgba(168,85,247,0.2); color:#d8b4fe;' : isComm ? 'background: rgba(59,130,246,0.2); color:#93c5fd;' : 'background: rgba(16,185,129,0.2); color:#a7f3d0;'}">
+                                    ${res.event_type}
+                                </span>
+                            </div>
+                            ${isHoa && res.event_description ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-style: italic;">"${res.event_description}"</div>` : ''}
+                            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.35rem;">🕒 ${timeslotStr}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                body.innerHTML = html;
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function closeDayModal(e) {
+            const modal = document.getElementById('embedDetailModal');
+            if (!e || e.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

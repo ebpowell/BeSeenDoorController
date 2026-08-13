@@ -732,6 +732,78 @@ def calendar_view():
         flash(f"Error loading calendar view: {e}", "danger")
         return redirect(url_for('reservations'))
 
+@app.route('/calendar/embed', methods=['GET'])
+def calendar_embed():
+    """
+    Public, view-only embedded calendar route suitable for <iframe> integration on 3rd party websites.
+    Does not require login authentication.
+    """
+    try:
+        now = datetime.datetime.now()
+        year = request.args.get('year', type=int, default=now.year)
+        month = request.args.get('month', type=int, default=now.month)
+        theme = request.args.get('theme', default='dark').strip().lower()
+
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+
+        cal = calendar.Calendar(firstweekday=6) # 6 = Sunday
+        month_days = cal.monthdatescalendar(year, month)
+
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        next_year = year if month < 12 else year + 1
+        next_month = month + 1 if month < 12 else 1
+
+        month_name = datetime.date(year, month, 1).strftime('%B')
+
+        raw_reservations = get_db_mgr().list_reservations()
+        
+        reservations_by_date = {}
+        for r in raw_reservations:
+            r_dict = dict(r)
+            r_date = r_dict.get('reservation_date')
+            date_str = r_date.strftime('%Y-%m-%d') if hasattr(r_date, 'strftime') else str(r_date)
+            r_dict['reservation_date'] = date_str
+
+            if 'from_time' in r_dict and r_dict['from_time'] is not None:
+                r_dict['from_time'] = r_dict['from_time'].strftime('%H:%M') if hasattr(r_dict['from_time'], 'strftime') else str(r_dict['from_time'])
+            
+            if 'to_time' in r_dict and r_dict['to_time'] is not None:
+                r_dict['to_time'] = r_dict['to_time'].strftime('%H:%M') if hasattr(r_dict['to_time'], 'strftime') else str(r_dict['to_time'])
+
+            if 'created_at' in r_dict and r_dict['created_at'] is not None:
+                r_dict['created_at'] = r_dict['created_at'].isoformat() if hasattr(r_dict['created_at'], 'isoformat') else str(r_dict['created_at'])
+
+            if 'fee' in r_dict and r_dict['fee'] is not None:
+                r_dict['fee'] = float(r_dict['fee'])
+
+            if date_str not in reservations_by_date:
+                reservations_by_date[date_str] = []
+            reservations_by_date[date_str].append(r_dict)
+
+        return render_template(
+            'calendar_embed.html',
+            year=year,
+            month=month,
+            month_name=month_name,
+            month_days=month_days,
+            prev_year=prev_year,
+            prev_month=prev_month,
+            next_year=next_year,
+            next_month=next_month,
+            current_date_str=now.strftime('%Y-%m-%d'),
+            reservations_by_date=reservations_by_date,
+            embed_theme=theme
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load embedded calendar view. {e}")
+        return f"Error loading calendar embed: {e}", 500
+
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")
     app.run(host='0.0.0.0', port=5000, debug=True)
