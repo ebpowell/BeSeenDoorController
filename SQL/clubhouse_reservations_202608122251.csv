@@ -1,0 +1,13 @@
+"reservation_id","property_id","reservation_date","from_time","to_time","payment_made","deposit_on_file","created_at","agreement_received","fee","early_setup","event_type","event_name","event_description","reschedule_required"
+10,163,2026-08-22,"08:00:00","12:00:00",true,true,,true,15.0,false,Private Event,,,
+12,110,2026-08-29,"08:00:00","12:00:00",true,true,,true,5.0,false,Community Organization,,,
+13,110,2026-08-29,"13:00:00","17:00:00",true,true,,true,5.0,false,Community Organization,,,
+14,110,2026-08-29,"18:00:00","23:00:00",true,true,,true,5.0,false,Community Organization,,,
+15,163,2026-10-03,"08:00:00","12:00:00",true,true,,true,15.0,false,Private Event,,,
+11,163,2026-09-12,"08:00:00","12:00:00",true,true,,true,15.0,false,Private Event,,,
+16,110,2026-09-08,"18:00:00","23:00:00",true,true,,true,7.5,false,Community Organization,,,
+18,182,2026-08-17,"08:00:00","23:00:00",false,false,,false,0.0,false,HOA Event,August Open Forum and BoD Meeting,"Open Forum: 7:30 - 8:00
+Closed Session: 8:00 - 8:30",false
+20,182,2026-11-09,"08:00:00","23:00:00",false,false,,false,0.0,false,HOA Event,Annual HOA General Meeting and Elections,"Officer Elections
+General Meeting",false
+21,110,2026-11-10,"18:00:00","23:00:00",true,true,,true,7.5,false,Community Organization,,,false
