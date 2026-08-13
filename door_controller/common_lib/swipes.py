@@ -6,24 +6,14 @@ from door_controller.common_lib.door_controller import door_controller
 class fob_swipes(door_controller):
     def __init__(self, url, username, password):
         super().__init__(url, username, password)
-        # self.sql = "INSERT INTO system_swipes (record_id, fob_id, status, door, timestamp, door_controller) values"
         self.sql = "INSERT INTO door_controller.t_keyswipes (record_id, fob_id, status, door, swipe_timestamp, door_controller_ip) values"
 
     def get_swipe_range(self, iterations, rec_id_start):
         # Add iterations, start val parameters
         next_index = int(rec_id_start)+20
-        # data = {'s2': 'Users'}
         swipes = []
-        connect_data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
-        # print(rec_id_start)
-        # print(self.session.headers)
-        # print(connect_data)
-        url = self.url + '/ACT_ID_1'
         try:
-            # response = self.connect(connect_data)
-            response = self.get_httpresponse(url, connect_data)
+            response = self.connect()
         except:
             raise
         if response.status_code == 200:
@@ -49,20 +39,11 @@ class fob_swipes(door_controller):
                             'PN':'Next'}
                     # Update Request header to revise the referrer attribute
                     url = self.url + '/ACT_ID_345'
-                    headers={'Referer':  self.url + '/ACT_ID_345'}
-                for y in range (1, 5):
-                    try:
-                        print('Connect Attempt:', y)
-                        response = self.get_httpresponse(url, data)
-                        print("Success")
-                        # print(url)
-                        # print(self.session.headers)
-                        # print(x, data)
-                        break
-                    except:
-                        # after two tries, move to the next batch of records
-                        time.sleep(self.timeout)
-                        pass
+                    headers={'Referer':  self.url + '/ACT_ID_21'}
+                try:
+                    response = self.get_httpresponse(url, data)
+                except:
+                    raise
                 if x > 1:
                     try:
                         if response.status_code ==200:
@@ -72,17 +53,12 @@ class fob_swipes(door_controller):
                                 next_index = int(batch[1][0])
                                 swipes = swipes + batch
                                 print('Pass:',x, 'Parse Records Success', 'Batch Record Count:',
-                                      len(batch),'Next Index:', next_index)
+                                        len(batch),'Next Index:', next_index)
                                 print('Swipes Count:', len(swipes))
-                            else:
-                                # next_index =  swipes[len(swipes)-20][0]
-                                print(response.text)
-                                print("No Records returned", 'Next Index:', next_index)
-                                # This connection is f&cked....write the records and try again
-                                break
-                            time.sleep(self.timeout/3)
                         else:
-                            print(response.status_code)
+                            next_index =  swipes[len(swipes)-20][0]
+                            print("No Records returned", 'Next Index:', next_index)
+                            time.sleep(5)
                     except:
                         pass
         print('Records to add:',len(swipes))
@@ -91,15 +67,8 @@ class fob_swipes(door_controller):
     def get_new_swipes(self, iterations):
         next_index = 0
         swipes = []
-        connect_data = {'username': self.username,
-        'pwd': self.password,
-        'logid': '20101222'}
-        # print(self.session.headers)
-        # print(connect_data)
-        url = self.url + '/ACT_ID_1'
         try:
-            # response = self.connect(connect_data)
-            response = self.get_httpresponse(url, connect_data)
+            response = self.connect()
         except:
             raise
         if response.status_code == 200:
@@ -126,9 +95,6 @@ class fob_swipes(door_controller):
                     url = self.url + '/ACT_ID_345'
                     headers={'Referer': self.url + '/ACT_ID_21'}
                 try:
-                    # print(url)
-                    # print(self.session.headers)
-                    # print(x, data)
                     response = self.get_httpresponse(url, data)
                 except:
                     raise

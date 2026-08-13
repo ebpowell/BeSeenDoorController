@@ -1,4 +1,6 @@
 import os
+import calendar
+import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from door_controller.key_management_application.db_manager import FobDatabaseManager
@@ -280,31 +282,76 @@ def reservations():
     if request.method == 'POST':
         property_id_str = request.form.get('property_id', '').strip()
         reservation_date = request.form.get('reservation_date', '').strip()
+        blocks = request.form.getlist('blocks')
         from_time = request.form.get('from_time', '').strip()
         to_time = request.form.get('to_time', '').strip()
+        event_type = request.form.get('event_type', 'Private Event').strip()
+        early_setup = request.form.get('early_setup') == 'on'
         payment_made = request.form.get('payment_made') == 'on'
         deposit_on_file = request.form.get('deposit_on_file') == 'on'
         agreement_received = request.form.get('agreement_received') == 'on'
 
-        if not property_id_str or not reservation_date:
-            flash("Property and Reservation Date are required.", "warning")
+        if event_type == 'HOA Event':
+            early_setup = False
+            payment_made = False
+            deposit_on_file = False
+            agreement_received = False
+            if not property_id_str:
+                props = get_db_mgr().list_properties()
+                property_id = props[0]['property_id'] if props else 10001
+            else:
+                property_id = int(property_id_str)
+        else:
+            if not property_id_str or not reservation_date:
+                flash("Property and Reservation Date are required.", "warning")
+                return redirect(url_for('reservations'))
+            property_id = int(property_id_str)
+
+        if event_type != 'HOA Event' and not blocks and not (from_time or to_time):
+            flash("Please select at least one time block for the reservation.", "warning")
             return redirect(url_for('reservations'))
 
         try:
-            property_id = int(property_id_str)
             username = session.get('username', 'system')
-            get_db_mgr().add_reservation(
+            user_role = session.get('role', 'ManagementCo')
+            res_id, displaced = get_db_mgr().add_reservation(
                 property_id=property_id,
                 reservation_date=reservation_date,
                 from_time=from_time if from_time else None,
                 to_time=to_time if to_time else None,
+                blocks=blocks if blocks else None,
+                early_setup=early_setup,
                 payment_made=payment_made,
                 deposit_on_file=deposit_on_file,
                 agreement_received=agreement_received,
+                event_type=event_type,
+                user_role=user_role,
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
-            flash("Clubhouse reservation added successfully.", "success")
+
+            if event_type == 'HOA Event':
+                flash("Official Board of Directors (HOA) Event added successfully! Rate: $0.00", "success")
+                if displaced:
+                    for d in displaced:
+                        addr = d.get('address', 'Unknown Property')
+                        fee_val = float(d.get('fee', 15.00))
+                        res_id_val = d.get('reservation_id', '')
+                        flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
+            else:
+                if event_type == 'Community Organization':
+                    calc_fee = 15.00 if len(blocks) >= 2 else 7.50
+                else:
+                    fee_config = get_db_mgr().get_reservation_fee_config()
+                    raw_fee = fee_config.get('multi_block_fee', 30.00) if len(blocks) > 1 else fee_config.get('single_block_fee', 15.00)
+                    setup_surcharge = fee_config.get('early_setup_fee', 15.00) if early_setup else 0.00
+                    try:
+                        calc_fee = float(raw_fee) + float(setup_surcharge)
+                    except (ValueError, TypeError):
+                        calc_fee = 15.00
+                flash(f"Clubhouse reservation added successfully! Calculated Fee: ${calc_fee:.2f}", "success")
+        except ValueError as ve:
+            flash(str(ve), "danger")
         except Exception as e:
             log_info(f"Web UI Error: Failed to add reservation. {e}")
             flash(f"Database error: {e}", "danger")
@@ -315,11 +362,71 @@ def reservations():
     try:
         res_list = get_db_mgr().list_reservations()
         properties = get_db_mgr().list_properties()
-        return render_template('reservations.html', reservations=res_list, properties=properties)
+        blocks_list = get_db_mgr().list_reservation_blocks()
+        fee_config = get_db_mgr().get_reservation_fee_config()
+        return render_template('reservations.html', reservations=res_list, properties=properties, blocks_list=blocks_list, fee_config=fee_config)
     except Exception as e:
         log_info(f"Web UI Error: Failed to load reservations page. {e}")
         flash(f"Error loading reservations: {e}", "danger")
-        return render_template('reservations.html', reservations=[], properties=[])
+        return render_template('reservations.html', reservations=[], properties=[], blocks_list=[], fee_config={'single_block_fee': 15.0, 'multi_block_fee': 30.0})
+
+@app.route('/reservations/hoa', methods=['GET', 'POST'])
+@login_required
+def hoa_reservations():
+    user_role = session.get('role', 'ManagementCo')
+    allowed_roles = ['managementco', 'sysadmin', 'secretary', 'management']
+    if not user_role or str(user_role).lower() not in allowed_roles:
+        flash("Unauthorized: HOA Board Events management requires administrative privileges.", "danger")
+        return redirect(url_for('reservations'))
+
+    if request.method == 'POST':
+        reservation_date = request.form.get('reservation_date', '').strip()
+        event_name = request.form.get('event_name', '').strip()
+        event_description = request.form.get('event_description', '').strip()
+
+        if not reservation_date or not event_name:
+            flash("Reservation Date and Event Name are required for HOA Events.", "warning")
+            return redirect(url_for('hoa_reservations'))
+
+        try:
+            username = session.get('username', 'system')
+            props = get_db_mgr().list_properties()
+            property_id = props[0]['property_id'] if props else 10001
+
+            res_id, displaced = get_db_mgr().add_reservation(
+                property_id=property_id,
+                reservation_date=reservation_date,
+                event_type='HOA Event',
+                event_name=event_name,
+                event_description=event_description,
+                user_role=user_role,
+                username=username
+            )
+            get_db_mgr().sync_clubhouse_reservation_permissions()
+
+            flash(f"Official HOA Event '{event_name}' scheduled successfully for {reservation_date}!", "success")
+            if displaced:
+                for d in displaced:
+                    addr = d.get('address', 'Unknown Property')
+                    fee_val = float(d.get('fee', 15.00))
+                    res_id_val = d.get('reservation_id', '')
+                    flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
+        except ValueError as ve:
+            flash(str(ve), "danger")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add HOA reservation. {e}")
+            flash(f"Database error: {e}", "danger")
+
+        return redirect(url_for('hoa_reservations'))
+
+    # GET request
+    try:
+        res_list = get_db_mgr().list_reservations()
+        return render_template('hoa_reservations.html', reservations=res_list)
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load HOA reservations page. {e}")
+        flash(f"Error loading HOA reservations: {e}", "danger")
+        return render_template('hoa_reservations.html', reservations=[])
 
 @app.route('/reservations/delete/<int:reservation_id>', methods=['POST'])
 @login_required
@@ -557,7 +664,145 @@ def update_access_rule_times_route(perm_id):
 
     return redirect(url_for('access_rules'))
 
+@app.route('/calendar', methods=['GET'])
+@login_required
+def calendar_view():
+    try:
+        now = datetime.datetime.now()
+        year = request.args.get('year', type=int, default=now.year)
+        month = request.args.get('month', type=int, default=now.month)
 
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+
+        cal = calendar.Calendar(firstweekday=6) # 6 = Sunday
+        month_days = cal.monthdatescalendar(year, month)
+
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        next_year = year if month < 12 else year + 1
+        next_month = month + 1 if month < 12 else 1
+
+        month_name = datetime.date(year, month, 1).strftime('%B')
+
+        raw_reservations = get_db_mgr().list_reservations()
+        
+        reservations_by_date = {}
+        for r in raw_reservations:
+            r_dict = dict(r)
+            r_date = r_dict.get('reservation_date')
+            date_str = r_date.strftime('%Y-%m-%d') if hasattr(r_date, 'strftime') else str(r_date)
+            r_dict['reservation_date'] = date_str
+
+            if 'from_time' in r_dict and r_dict['from_time'] is not None:
+                r_dict['from_time'] = r_dict['from_time'].strftime('%H:%M') if hasattr(r_dict['from_time'], 'strftime') else str(r_dict['from_time'])
+            
+            if 'to_time' in r_dict and r_dict['to_time'] is not None:
+                r_dict['to_time'] = r_dict['to_time'].strftime('%H:%M') if hasattr(r_dict['to_time'], 'strftime') else str(r_dict['to_time'])
+
+            if 'created_at' in r_dict and r_dict['created_at'] is not None:
+                r_dict['created_at'] = r_dict['created_at'].isoformat() if hasattr(r_dict['created_at'], 'isoformat') else str(r_dict['created_at'])
+
+            if 'fee' in r_dict and r_dict['fee'] is not None:
+                r_dict['fee'] = float(r_dict['fee'])
+
+            if date_str not in reservations_by_date:
+                reservations_by_date[date_str] = []
+            reservations_by_date[date_str].append(r_dict)
+
+        return render_template(
+            'calendar.html',
+            year=year,
+            month=month,
+            month_name=month_name,
+            month_days=month_days,
+            prev_year=prev_year,
+            prev_month=prev_month,
+            next_year=next_year,
+            next_month=next_month,
+            current_date_str=now.strftime('%Y-%m-%d'),
+            reservations_by_date=reservations_by_date
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load calendar view. {e}")
+        flash(f"Error loading calendar view: {e}", "danger")
+        return redirect(url_for('reservations'))
+
+@app.route('/calendar/embed', methods=['GET'])
+def calendar_embed():
+    """
+    Public, view-only embedded calendar route suitable for <iframe> integration on 3rd party websites.
+    Does not require login authentication.
+    """
+    try:
+        now = datetime.datetime.now()
+        year = request.args.get('year', type=int, default=now.year)
+        month = request.args.get('month', type=int, default=now.month)
+        theme = request.args.get('theme', default='dark').strip().lower()
+
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+
+        cal = calendar.Calendar(firstweekday=6) # 6 = Sunday
+        month_days = cal.monthdatescalendar(year, month)
+
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        next_year = year if month < 12 else year + 1
+        next_month = month + 1 if month < 12 else 1
+
+        month_name = datetime.date(year, month, 1).strftime('%B')
+
+        raw_reservations = get_db_mgr().list_reservations()
+        
+        reservations_by_date = {}
+        for r in raw_reservations:
+            r_dict = dict(r)
+            r_date = r_dict.get('reservation_date')
+            date_str = r_date.strftime('%Y-%m-%d') if hasattr(r_date, 'strftime') else str(r_date)
+            r_dict['reservation_date'] = date_str
+
+            if 'from_time' in r_dict and r_dict['from_time'] is not None:
+                r_dict['from_time'] = r_dict['from_time'].strftime('%H:%M') if hasattr(r_dict['from_time'], 'strftime') else str(r_dict['from_time'])
+            
+            if 'to_time' in r_dict and r_dict['to_time'] is not None:
+                r_dict['to_time'] = r_dict['to_time'].strftime('%H:%M') if hasattr(r_dict['to_time'], 'strftime') else str(r_dict['to_time'])
+
+            if 'created_at' in r_dict and r_dict['created_at'] is not None:
+                r_dict['created_at'] = r_dict['created_at'].isoformat() if hasattr(r_dict['created_at'], 'isoformat') else str(r_dict['created_at'])
+
+            if 'fee' in r_dict and r_dict['fee'] is not None:
+                r_dict['fee'] = float(r_dict['fee'])
+
+            if date_str not in reservations_by_date:
+                reservations_by_date[date_str] = []
+            reservations_by_date[date_str].append(r_dict)
+
+        return render_template(
+            'calendar_embed.html',
+            year=year,
+            month=month,
+            month_name=month_name,
+            month_days=month_days,
+            prev_year=prev_year,
+            prev_month=prev_month,
+            next_year=next_year,
+            next_month=next_month,
+            current_date_str=now.strftime('%Y-%m-%d'),
+            reservations_by_date=reservations_by_date,
+            embed_theme=theme
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load embedded calendar view. {e}")
+        return f"Error loading calendar embed: {e}", 500
 
 def main():
     log_info("Starting BeSeen Door Controller Web Interface...")

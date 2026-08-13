@@ -105,8 +105,43 @@ CREATE TABLE key_fobs.clubhouse_reservations (
     payment_made BOOLEAN NOT NULL DEFAULT FALSE,
     deposit_on_file BOOLEAN NOT NULL DEFAULT FALSE,
     agreement_received BOOLEAN NOT NULL DEFAULT FALSE,
+    fee DECIMAL(10,2) DEFAULT 15.00,
+    early_setup BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create key_fobs.reservation_blocks table
+CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
+    block_id SERIAL PRIMARY KEY,
+    block_key VARCHAR(50) UNIQUE NOT NULL,
+    block_name VARCHAR(100) NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    display_order INT DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed default reservation blocks
+INSERT INTO key_fobs.reservation_blocks (block_key, block_name, start_time, end_time, display_order) VALUES
+('block1', 'Block 1: Morning', '08:00:00', '12:00:00', 1),
+('block2', 'Block 2: Afternoon', '13:00:00', '17:00:00', 2),
+('block3', 'Block 3: Evening', '18:00:00', '23:00:00', 3)
+ON CONFLICT (block_key) DO NOTHING;
+
+-- Create key_fobs.reservation_fee_config table
+CREATE TABLE IF NOT EXISTS key_fobs.reservation_fee_config (
+    config_key VARCHAR(50) PRIMARY KEY,
+    fee_amount DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed default fee configuration settings
+INSERT INTO key_fobs.reservation_fee_config (config_key, fee_amount, description) VALUES
+('single_block_fee', 15.00, 'Fee for reserving a single time block'),
+('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
+ON CONFLICT (config_key) DO NOTHING;
 
 -- Create key_fobs.vint_acl_data table (Access Control List Rules)
 CREATE TABLE IF NOT EXISTS key_fobs.vint_acl_data (

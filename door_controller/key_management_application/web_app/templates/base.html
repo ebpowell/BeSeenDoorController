@@ -27,6 +27,67 @@
             --warning: #f59e0b;
         }
 
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(203, 213, 225, 0.8);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --primary: #4f46e5;
+            --primary-glow: rgba(79, 70, 229, 0.2);
+            --secondary: #9333ea;
+            --secondary-glow: rgba(147, 51, 234, 0.2);
+            --danger: #dc2626;
+            --danger-glow: rgba(220, 38, 38, 0.2);
+            --success: #059669;
+            --success-glow: rgba(5, 150, 105, 0.2);
+            --warning: #d97706;
+        }
+
+        [data-theme="light"] body {
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+        }
+
+        [data-theme="light"] h1, 
+        [data-theme="light"] h2 {
+            color: #0f172a;
+            background: linear-gradient(135deg, #0f172a 40%, #334155 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        [data-theme="light"] input[type="text"],
+        [data-theme="light"] input[type="date"],
+        [data-theme="light"] select,
+        [data-theme="light"] textarea {
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        [data-theme="light"] .nav-tab {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+
+        [data-theme="light"] .nav-tab:hover {
+            background: #ffffff;
+            color: #0f172a;
+        }
+
+        [data-theme="light"] table th {
+            color: #475569;
+            border-bottom: 1px solid #cbd5e1;
+        }
+
+        [data-theme="light"] table td {
+            border-bottom: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -790,7 +851,10 @@
                 <div class="logo-dot"></div>
                 <h1>BeSeen Door Controller</h1>
             </div>
-            <div class="header-actions">
+            <div class="header-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--card-border); color: var(--text-primary); transition: all 0.3s ease;">
+                    <span id="themeToggleIcon">☀️</span> <span id="themeToggleText">Light Mode</span>
+                </button>
                 <div class="status-badge">
                     <div class="status-dot"></div>
                     <span>Database Connected</span>
@@ -813,6 +877,14 @@
             <a href="{{ url_for('reservations') }}" class="nav-tab {% if request.path == url_for('reservations') %}active{% endif %}">
                 Clubhouse Reservations
             </a>
+            <a href="{{ url_for('calendar_view') }}" class="nav-tab {% if request.path == url_for('calendar_view') %}active{% endif %}">
+                Calendar View
+            </a>
+            {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+            <a href="{{ url_for('hoa_reservations') }}" class="nav-tab {% if request.path == url_for('hoa_reservations') %}active{% endif %}" style="border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">
+                HOA Events
+            </a>
+            {% endif %}
             <a href="{{ url_for('doors') }}" class="nav-tab {% if request.path == url_for('doors') %}active{% endif %}">
                 Remote Door Unlock
             </a>
@@ -848,8 +920,32 @@
 
     <!-- UI Scripts -->
     <script>
-        // Automatic fade out for toast messages
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            const text = document.getElementById('themeToggleText');
+            const icon = document.getElementById('themeToggleIcon');
+            if (text && icon) {
+                if (theme === 'light') {
+                    text.textContent = 'Dark Mode';
+                    icon.textContent = '🌙';
+                } else {
+                    text.textContent = 'Light Mode';
+                    icon.textContent = '☀️';
+                }
+            }
+            localStorage.setItem('beseen_theme', theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('beseen_theme') || 'dark';
+            applyTheme(savedTheme);
+
+            // Automatic fade out for toast messages
             const toasts = document.querySelectorAll('.toast');
             toasts.forEach(toast => {
                 setTimeout(() => {

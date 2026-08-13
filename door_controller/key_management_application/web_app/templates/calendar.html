@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendar View - Clubhouse Reservations{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1300px;">
+    <!-- Calendar Controls Header -->
+    <div class="glass-card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <h2 style="margin: 0; font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #a5b4fc, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    {{ month_name }} {{ year }}
+                </h2>
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                    <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none;">
+                        &larr; Prev
+                    </a>
+                    <a href="/calendar" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none;">
+                        Today
+                    </a>
+                    <a href="/calendar?year={{ next_year }}&month={{ next_month }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none;">
+                        Next &rarr;
+                    </a>
+                    <button onclick="openEmbedModal()" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                        🔗 Embed Calendar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Event Type Legend -->
+            <div style="display: flex; gap: 0.85rem; align-items: center; flex-wrap: wrap; font-size: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 6px rgba(192, 132, 252, 0.6);"></span>
+                    <span style="color: var(--text-secondary);">HOA Event</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #60a5fa; box-shadow: 0 0 6px rgba(96, 165, 250, 0.6);"></span>
+                    <span style="color: var(--text-secondary);">Community</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);"></span>
+                    <span style="color: var(--text-secondary);">Private Event</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, 0.6);"></span>
+                    <span style="color: var(--text-secondary);">Reschedule Due</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Calendar Grid -->
+    <div class="glass-card" style="padding: 1rem;">
+        <div class="calendar-grid">
+            <!-- Weekday Headers -->
+            <div class="cal-weekday">Sun</div>
+            <div class="cal-weekday">Mon</div>
+            <div class="cal-weekday">Tue</div>
+            <div class="cal-weekday">Wed</div>
+            <div class="cal-weekday">Thu</div>
+            <div class="cal-weekday">Fri</div>
+            <div class="cal-weekday">Sat</div>
+
+            <!-- Month Days -->
+            {% for week in month_days %}
+                {% for day in week %}
+                    {% set day_str = day.strftime('%Y-%m-%d') %}
+                    {% set is_current_month = (day.month == month) %}
+                    {% set is_today = (day_str == current_date_str) %}
+                    {% set day_res_list = reservations_by_date.get(day_str, []) %}
+
+                    <div class="cal-day {% if not is_current_month %}other-month{% endif %} {% if is_today %}today{% endif %}" onclick="openDayModal('{{ day_str }}')">
+                        <div class="cal-day-header">
+                            <span class="day-number">{{ day.day }}</span>
+                            {% if day_res_list|length > 0 %}
+                                <span class="event-count-badge">{{ day_res_list|length }}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="cal-events-container">
+                            {% for res in day_res_list %}
+                                {% if res.event_type == 'HOA Event' %}
+                                    <div class="cal-event-pill event-hoa" title="{{ res.event_name or 'Official HOA Event' }}">
+                                        <strong style="color: #f3e8ff;">HOA: {{ res.event_name or 'Board Event' }}</strong>
+                                    </div>
+                                {% elif res.event_type == 'Community Organization' %}
+                                    <div class="cal-event-pill event-community" title="Community Event - {{ res.address }}">
+                                        <span>Comm: {{ res.address|truncate(15) }}</span>
+                                    </div>
+                                {% else %}
+                                    <div class="cal-event-pill event-private {% if res.reschedule_required %}event-displaced{% endif %}" title="{{ res.address }}">
+                                        <span>{{ res.address|truncate(15) }}</span>
+                                        {% if res.reschedule_required %}<span class="warn-dot">!</span>{% endif %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal Popover -->
+<div id="eventDetailModal" class="modal-overlay" onclick="closeDayModal(event)">
+    <div class="modal-content glass-card" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+            <h3 id="modalDateTitle" style="margin: 0; color: #a5b4fc; font-size: 1.2rem;">Date Details</h3>
+            <button onclick="closeDayModal(null)" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <div id="modalEventBody">
+            <!-- Dynamically populated via JS -->
+        </div>
+
+        <div style="margin-top: 1.5rem; text-align: right; display: flex; justify-content: space-between; align-items: center;">
+            <a id="bookThisDateBtn" href="/reservations" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; text-decoration: none;">
+                + Book Private Reservation
+            </a>
+            {% if session.get('role', 'ManagementCo')|lower in ['managementco', 'sysadmin', 'secretary', 'management'] %}
+            <a id="hoaBookDateBtn" href="/reservations/hoa" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe; text-decoration: none;">
+                + Schedule HOA Event
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Share & Embed Modal -->
+<div id="shareEmbedModal" class="modal-overlay" onclick="closeEmbedModal(event)">
+    <div class="modal-content glass-card" onclick="event.stopPropagation()" style="max-width: 550px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+            <h3 style="margin: 0; color: #a5b4fc; font-size: 1.2rem;">Share & Embed View-Only Calendar</h3>
+            <button onclick="closeEmbedModal(null)" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.4;">
+            Use the public view-only embedded calendar to display live clubhouse event schedules on 3rd party websites or homeowner portals.
+        </p>
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">HTML Embed Code (Dark Theme)</label>
+            <textarea id="embedCodeDark" rows="3" readonly style="width: 100%; font-family: monospace; font-size: 0.8rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;"></textarea>
+            <button onclick="copyToClipboard('embedCodeDark', this)" class="btn btn-secondary" style="margin-top: 0.4rem; font-size: 0.75rem; padding: 0.35rem 0.75rem;">Copy Dark Embed Code</button>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">HTML Embed Code (Light Theme)</label>
+            <textarea id="embedCodeLight" rows="3" readonly style="width: 100%; font-family: monospace; font-size: 0.8rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;"></textarea>
+            <button onclick="copyToClipboard('embedCodeLight', this)" class="btn btn-secondary" style="margin-top: 0.4rem; font-size: 0.75rem; padding: 0.35rem 0.75rem;">Copy Light Embed Code</button>
+        </div>
+
+        <div style="margin-bottom: 0.5rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-primary);">Direct View-Only Public URL</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="embedUrlDirect" readonly style="width: 100%; font-size: 0.85rem; background: rgba(10, 12, 20, 0.8); color: #a5b4fc; border: 1px solid var(--card-border); padding: 0.55rem; border-radius: 6px; outline: none;">
+                <a id="embedDirectLink" href="#" target="_blank" class="btn btn-secondary" style="padding: 0.55rem 0.85rem; font-size: 0.8rem; text-decoration: none; white-space: nowrap;">Open Link ↗</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 7-Column CSS Grid Calendar */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+    }
+
+    .cal-weekday {
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        padding: 0.5rem 0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .cal-day {
+        min-height: 110px;
+        background: rgba(15, 17, 26, 0.6);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cal-day:hover {
+        background: rgba(30, 35, 55, 0.8);
+        border-color: rgba(165, 180, 252, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .cal-day.other-month {
+        opacity: 0.35;
+        background: rgba(10, 12, 20, 0.3);
+    }
+
+    .cal-day.today {
+        border: 2px solid #818cf8;
+        box-shadow: 0 0 12px rgba(129, 140, 248, 0.3);
+        background: rgba(99, 102, 241, 0.08);
+    }
+
+    .cal-day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.4rem;
+    }
+
+    .day-number {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+
+    .event-count-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+        padding: 0.1rem 0.35rem;
+        border-radius: 10px;
+    }
+
+    .cal-events-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        overflow-y: auto;
+        max-height: 80px;
+    }
+
+    /* Event Badges */
+    .cal-event-pill {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.4rem;
+        border-radius: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .event-hoa {
+        background: rgba(168, 85, 247, 0.25);
+        border: 1px solid rgba(168, 85, 247, 0.5);
+        color: #e9d5ff;
+    }
+
+    .event-community {
+        background: rgba(59, 130, 246, 0.25);
+        border: 1px solid rgba(59, 130, 246, 0.5);
+        color: #bfdbfe;
+    }
+
+    .event-private {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #a7f3d0;
+    }
+
+    .event-displaced {
+        background: rgba(239, 68, 68, 0.25) !important;
+        border-color: rgba(239, 68, 68, 0.6) !important;
+        color: #fca5a5 !important;
+    }
+
+    .warn-dot {
+        background: #ef4444;
+        color: #ffffff;
+        font-weight: bold;
+        border-radius: 50%;
+        width: 12px;
+        height: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        width: 90%;
+        max-width: 500px;
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: fadeInUp 0.3s ease-out;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Embedded JSON data of reservations by date
+    const reservationsData = {{ reservations_by_date|tojson }};
+
+    function openDayModal(dateStr) {
+        const modal = document.getElementById('eventDetailModal');
+        const title = document.getElementById('modalDateTitle');
+        const body = document.getElementById('modalEventBody');
+        const bookBtn = document.getElementById('bookThisDateBtn');
+
+        title.textContent = `Schedule & Events for ${dateStr}`;
+        if (bookBtn) bookBtn.href = `/reservations?date=${dateStr}`;
+
+        const resList = reservationsData[dateStr] || [];
+
+        if (resList.length === 0) {
+            body.innerHTML = `
+                <div style="text-align: center; padding: 2rem 1rem; color: var(--text-secondary);">
+                    <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.4; margin-bottom: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <p style="margin: 0; font-size: 0.95rem;">No reservations scheduled on this date.</p>
+                    <span style="font-size: 0.8rem; color: #34d399; margin-top: 0.25rem; display: block;">Clubhouse is fully available!</span>
+                </div>
+            `;
+        } else {
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+            resList.forEach(res => {
+                const isHoa = res.event_type === 'HOA Event';
+                const isComm = res.event_type === 'Community Organization';
+                const isDisplaced = res.reschedule_required;
+
+                let borderStyle = 'border-left: 4px solid #10b981;';
+                if (isHoa) borderStyle = 'border-left: 4px solid #c084fc;';
+                else if (isComm) borderStyle = 'border-left: 4px solid #60a5fa;';
+                if (isDisplaced) borderStyle = 'border-left: 4px solid #ef4444;';
+
+                let timeslotStr = 'Full Day (08:00 – 23:00)';
+                if (res.from_time || res.to_time) {
+                    timeslotStr = `${res.from_time} – ${res.to_time}`;
+                }
+
+                html += `
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); ${borderStyle} padding: 0.85rem; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem;">
+                            <strong style="color: #ffffff; font-size: 0.95rem;">
+                                ${isHoa ? (res.event_name || 'Official HOA Event') : res.address}
+                            </strong>
+                            <span style="font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; ${isHoa ? 'background: rgba(168,85,247,0.2); color:#d8b4fe;' : isComm ? 'background: rgba(59,130,246,0.2); color:#93c5fd;' : 'background: rgba(16,185,129,0.2); color:#a7f3d0;'}">
+                                ${res.event_type}
+                            </span>
+                        </div>
+                        
+                        ${!isHoa && res.owner_name ? `<div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Owner: ${res.owner_name}</div>` : ''}
+                        ${isHoa && res.event_description ? `<div style="font-size: 0.82rem; color: #d8b4fe; margin-bottom: 0.35rem; font-style: italic;">"${res.event_description}"</div>` : ''}
+
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.35rem;">
+                            <span>🕒 ${timeslotStr}</span>
+                            <span style="color: #818cf8; font-weight: 600;">$${parseFloat(res.fee || 0).toFixed(2)}</span>
+                        </div>
+
+                        ${isDisplaced ? `
+                            <div style="margin-top: 0.5rem; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); padding: 0.4rem 0.6rem; border-radius: 4px; color: #fca5a5; font-size: 0.75rem; font-weight: 600;">
+                                ⚠️ Displaced by HOA Board Event - Reschedule & Refund Pending
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            html += '</div>';
+            body.innerHTML = html;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeDayModal(e) {
+        const modal = document.getElementById('eventDetailModal');
+        if (!e || e.target === modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function openEmbedModal() {
+        const modal = document.getElementById('shareEmbedModal');
+        const darkArea = document.getElementById('embedCodeDark');
+        const lightArea = document.getElementById('embedCodeLight');
+        const urlInput = document.getElementById('embedUrlDirect');
+        const directLink = document.getElementById('embedDirectLink');
+
+        const baseUrl = window.location.origin;
+        const embedDarkUrl = `${baseUrl}/calendar/embed?theme=dark`;
+        const embedLightUrl = `${baseUrl}/calendar/embed?theme=light`;
+
+        if (darkArea) darkArea.value = `<iframe src="${embedDarkUrl}" width="100%" height="700" frameborder="0" style="border: 0; border-radius: 12px; overflow: hidden;" title="Clubhouse Calendar"></iframe>`;
+        if (lightArea) lightArea.value = `<iframe src="${embedLightUrl}" width="100%" height="700" frameborder="0" style="border: 0; border-radius: 12px; overflow: hidden;" title="Clubhouse Calendar"></iframe>`;
+        if (urlInput) urlInput.value = embedDarkUrl;
+        if (directLink) directLink.href = embedDarkUrl;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeEmbedModal(e) {
+        const modal = document.getElementById('shareEmbedModal');
+        if (!e || e.target === modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function copyToClipboard(elementId, btn) {
+        const elem = document.getElementById(elementId);
+        if (elem) {
+            elem.select();
+            navigator.clipboard.writeText(elem.value).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied! ✓';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        }
+    }
+
+    // Keyboard Escape key handler for modals
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeDayModal(null);
+            closeEmbedModal(null);
+        }
+    });
+</script>
+{% endblock %}
