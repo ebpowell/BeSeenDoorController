@@ -66,17 +66,33 @@ If you wish to run the Flask application directly in your host environment using
 
 The application includes a backend Google Calendar integration tool (`gcalendar_event.py` and `door_controller/common_lib/gcal_sync.py`) to push reservations from PostgreSQL directly into a Google Calendar using a **Google Service Account**.
 
-### 1. Prerequisites & Service Account Setup
+### 1. Google Cloud Console & Service Account Setup
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a project and enable the **Google Calendar API**.
-3. Navigate to **IAM & Admin > Service Accounts** and create a service account.
-4. Go to **Keys > Add Key > Create new key (JSON)**. Download the JSON key file and place it in your project root as `service_account.json` (or set `GOOGLE_SERVICE_ACCOUNT_FILE`).
-5. Open your target Google Calendar in a browser, open **Settings and sharing**, and under **Share with specific people**, add the service account email address with **Make changes to events** permission.
+2. Create a project (or select an existing project) and enable the **Google Calendar API** in the API Library.
+3. Navigate to **IAM & Admin > Service Accounts** and click **Create Service Account**.
+   - Assign a name (e.g., `beseen-calendar-sync`).
+   - Copy the generated Service Account email address (e.g., `beseen-calendar-sync@your-project-id.iam.gserviceaccount.com`).
+4. Select the newly created Service Account, open the **Keys** tab, and click **Add Key > Create new key (JSON)**.
+5. Save the downloaded JSON key file to your application directory as `service_account.json` (or set the `GOOGLE_SERVICE_ACCOUNT_FILE` environment variable).
 6. Install Google API client dependencies (if running outside Docker):
    ```bash
    pip install google-auth google-api-python-client
    ```
+
+### 2. Google Calendar Permission & Sharing Configuration
+
+To allow the integration tool to write events into your target Google Calendar, you **must explicitly share the calendar with your Service Account** and grant write permissions:
+
+1. Open [Google Calendar](https://calendar.google.com) in your web browser.
+2. Under **My calendars** in the left sidebar, hover over your target calendar, click the three dots `⋮` (Options), and select **Settings and sharing**.
+3. Scroll down to the **Share with specific people or groups** section and click **+ Add people and groups**.
+4. Paste your Service Account email address (e.g., `beseen-calendar-sync@your-project-id.iam.gserviceaccount.com`).
+5. Set the Permissions dropdown to **`Make changes to events`** (or **`Make changes and manage sharing`**).
+   > [!WARNING]
+   > If permissions are left as "See all event details", API calls from the tool will be rejected by Google with an `HTTP 403 Insufficient Permission` error.
+6. Click **Send** / **Save**.
+7. Scroll down to the **Integrate calendar** section on the same settings page and copy the **Calendar ID** (e.g., `c_188abc...@group.calendar.google.com` or `your_email@gmail.com`). Use this ID with the `--calendar-id` parameter.
 
 ### 2. Command-Line Tool Usage (`gcalendar_event.py`)
 
