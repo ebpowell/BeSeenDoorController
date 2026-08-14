@@ -117,6 +117,36 @@ Add a cron job to push database reservations to Google Calendar on a recurring s
 */30 * * * * cd /opt/scripts/BeSeenDoorController && python3 gcalendar_event.py --calendar-id "clubhouse@example.com" > /dev/null 2>&1
 ```
 
+### 4. Embedding Google Calendar Widget in Webpages (`<iframe>`)
+
+To embed the synchronized Google Calendar directly into any 3rd party website or homeowner portal, use Google Calendar's standard `<iframe>` call:
+
+```html
+<!-- Official Google Calendar Widget Embed -->
+<iframe 
+    src="https://calendar.google.com/calendar/embed?src=your_calendar_id%40gmail.com&ctz=America%2FNew_York" 
+    style="border: 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" 
+    width="100%" 
+    height="700" 
+    frameborder="0" 
+    scrolling="no" 
+    title="Google Calendar Schedule">
+</iframe>
+```
+
+> [!TIP]
+> **Custom Web App Embed**: Alternatively, you can embed the application's native Glassmorphic view-only calendar widget:
+> ```html
+> <iframe 
+>     src="http://YOUR-SERVER-DOMAIN-OR-IP:5000/calendar/embed?theme=light" 
+>     width="100%" 
+>     height="750" 
+>     frameborder="0" 
+>     style="border: 0; border-radius: 12px; overflow: hidden;" 
+>     title="Clubhouse Event Calendar">
+> </iframe>
+> ```
+
 ---
 
 ## Database Setup & Schema Reference
