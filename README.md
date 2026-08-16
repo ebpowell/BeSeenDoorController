@@ -66,7 +66,31 @@ If you wish to run the Flask application directly in your host environment using
 
 The application includes a backend Google Calendar integration tool (`gcalendar_event.py` and `door_controller/common_lib/gcal_sync.py`) to push reservations from PostgreSQL directly into a Google Calendar using a **Google Service Account**.
 
-### 1. Google Cloud Console & Service Account Setup
+Configuration parameters are automatically read from the common project configuration file (`config/config.yaml`):
+```yaml
+gcal:
+  service_account_file: config/service_account.json
+  calendar_id: primary
+  timezone: America/New_York
+```
+
+### 1. Synchronization Criteria & Logic
+
+Synchronization follows strict business rules based on reservation type and status:
+
+- **Private Resident Reservations**:
+  - Requires `payment_made = TRUE`, `deposit_on_file = TRUE`, and `agreement_received = TRUE` before an event is created or updated in Google Calendar.
+  - If any of these three requirements are unfulfilled, Google Calendar synchronization is **skipped**.
+  - If a previously synced reservation has any requirement revoked or set to `FALSE`, the event is automatically deleted from Google Calendar.
+- **Community & HOA Board Events**:
+  - Community events and HOA Board events do not require a property address or property owner association (location defaults to `"Community Clubhouse"`).
+  - Community and HOA events do not require payment, deposit, or agreement flags and synchronize immediately upon creation or update.
+
+### 2. Real-Time Database Trigger (`PL/Python3u`)
+
+Google Calendar synchronization is triggered automatically in real-time by a PostgreSQL PL/Python trigger (`key_fobs.process_gcal_sync_py()` and `gcal_sync_py_trigger`) attached to the `key_fobs.clubhouse_reservations` table on `AFTER INSERT OR UPDATE OR DELETE`. Any change made through the web application, API, or database commands instantly syncs or removes the corresponding event in Google Calendar.
+
+### 3. Google Cloud Console & Service Account Setup
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a project (or select an existing project) and enable the **Google Calendar API** in the API Library.
@@ -80,7 +104,7 @@ The application includes a backend Google Calendar integration tool (`gcalendar_
    pip install google-auth google-api-python-client
    ```
 
-### 2. Google Calendar Permission & Sharing Configuration
+### 4. Google Calendar Permission & Sharing Configuration
 
 To allow the integration tool to write events into your target Google Calendar, you **must explicitly share the calendar with your Service Account** and grant write permissions:
 
@@ -94,9 +118,9 @@ To allow the integration tool to write events into your target Google Calendar, 
 6. Click **Send** / **Save**.
 7. Scroll down to the **Integrate calendar** section on the same settings page and copy the **Calendar ID** (e.g., `c_188abc...@group.calendar.google.com` or `your_email@gmail.com`). Use this ID with the `--calendar-id` parameter.
 
-### 2. Command-Line Tool Usage (`gcalendar_event.py`)
+### 5. Command-Line Tool Usage (`gcalendar_event.py`)
 
-Run the synchronization tool via CLI:
+Run the synchronization tool via CLI (reads defaults from `config/config.yaml`):
 
 - **Preview Payload Format (Dry-Run)**:
   ```bash
@@ -111,13 +135,14 @@ Run the synchronization tool via CLI:
   python gcalendar_event.py --dry-run --json
   ```
 
-### 3. Automated Cron Integration
+### 6. Automated Cron Integration
 Add a cron job to push database reservations to Google Calendar on a recurring schedule (e.g., every 30 minutes):
 ```cron
 */30 * * * * cd /opt/scripts/BeSeenDoorController && python3 gcalendar_event.py --calendar-id "clubhouse@example.com" > /dev/null 2>&1
 ```
 
-### 4. Embedding Google Calendar Widget in Webpages (`<iframe>`)
+### 7. Embedding Google Calendar Widget in Webpages (`<iframe>`)
+
 
 To embed the synchronized Google Calendar directly into any 3rd party website or homeowner portal, use Google Calendar's standard `<iframe>` call:
 
@@ -187,6 +212,8 @@ SQL scripts in `./init` execute on first database creation:
 *   **`01_init_db.sql`**: Configures base schemas (`key_fobs`, `door_controller`, `dataload`), tables, user accounts, and seed data.
 *   **`02_f_get_runtimes.sql`**: Installs access schedule evaluator function `key_fobs.f_get_runtimes`.
 *   **`03_fob_sync_trigger.sql`**: Enables PL/Python 3 extension (`plpython3u`) and registers trigger `process_fob_changes_py()` on `key_fobs.keyfobs`.
+*   **`06_gcal_sync_trigger.sql`**: Registers PL/Python 3 trigger `process_gcal_sync_py()` on `key_fobs.clubhouse_reservations` for real-time Google Calendar synchronization.
+
 
 ### 3. Deploying / Updating Schemas & Triggers
 
