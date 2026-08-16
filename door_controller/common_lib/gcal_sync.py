@@ -93,13 +93,48 @@ class GoogleCalendarSync:
             except Exception as e:
                 log_info(f"GoogleCalendarSync Warning: Could not initialize Google Calendar service: {e}")
 
+    def is_eligible_for_sync(self, res: Dict[str, Any]) -> bool:
+        """
+        Determines if a reservation is eligible to be synced to Google Calendar.
+        - Community events / HOA events (or events without property_id that are not explicitly Private Events)
+          do not require payment, deposit, or agreement flags.
+        - Private events MUST have payment_made, deposit_on_file, and agreement_received (or agreement_recieved) all set to True.
+        """
+        event_type = str(res.get('event_type') or 'Private Event')
+        property_id = res.get('property_id')
+
+        is_community_or_hoa = (
+            event_type in ('HOA Event', 'Community Event')
+            or (property_id is None and event_type != 'Private Event')
+        )
+
+        if is_community_or_hoa:
+            return True
+
+        # For Private Events, verify payment_made, deposit_on_file, and agreement_received are all True
+        payment_made = bool(res.get('payment_made'))
+        deposit_on_file = bool(res.get('deposit_on_file'))
+        agreement_received = bool(res.get('agreement_received') or res.get('agreement_recieved'))
+
+        return payment_made and deposit_on_file and agreement_received
+
     def format_event_payload(self, res: Dict[str, Any]) -> Dict[str, Any]:
         """
         Formats a database reservation dictionary into a Google Calendar API event body.
+        Handles community/HOA events that do not have property address or owner associated.
         """
         res_id = res.get('reservation_id')
         event_type = res.get('event_type', 'Private Event')
-        address = res.get('address', f"Property {res.get('property_id')}")
+        property_id = res.get('property_id')
+
+        # Address resolution
+        if res.get('address'):
+            address = res.get('address')
+        elif property_id:
+            address = f"Property {property_id}"
+        else:
+            address = "Community Clubhouse"
+
         owner_name = res.get('owner_name', '')
         event_name = res.get('event_name', '')
         event_desc = res.get('event_description', '')
@@ -129,12 +164,14 @@ class GoogleCalendarSync:
         start_iso = f"{res_date_str}T{from_time_str}"
         end_iso = f"{res_date_str}T{to_time_str}"
 
-        if event_type == 'HOA Event':
-            summary = f"HOA Event: {event_name or 'Board Meeting'}"
+        if event_type in ('HOA Event', 'Community Event'):
+            default_name = 'Board Meeting' if event_type == 'HOA Event' else 'Community Event'
+            summary = f"{event_type}: {event_name or default_name}"
             description = (
-                f"Official Board of Directors HOA Event\n"
+                f"Official {event_type}\n"
                 f"Event Name: {event_name or 'N/A'}\n"
                 f"Details: {event_desc or 'None'}\n"
+                f"Location: {address}\n"
                 f"Date: {res_date_str}\n"
                 f"Time: {from_time_str} - {to_time_str}\n"
                 f"Reservation ID: #{res_id}"
@@ -200,8 +237,21 @@ class GoogleCalendarSync:
     ) -> Dict[str, Any]:
         """
         Syncs a single reservation to Google Calendar (Insert or Update).
+        Private Events require payment_made, deposit_on_file, and agreement_received to be True.
         """
         res_id_str = str(res.get('reservation_id'))
+
+        if not self.is_eligible_for_sync(res):
+            log_info(f"GoogleCalendarSync Notice: Reservation #{res_id_str} ({res.get('event_type', 'Private Event')}) does not meet GCal sync criteria (requires payment_made, deposit_on_file, and agreement_received).")
+            if existing_gcal_events is None and self.calendar_service and not dry_run:
+                existing_gcal_events = self._fetch_existing_gcal_events()
+
+            if existing_gcal_events and res_id_str in existing_gcal_events:
+                log_info(f"GoogleCalendarSync Notice: Removing existing GCal Event for Reservation #{res_id_str} because it no longer meets criteria.")
+                return self.delete_single_reservation(res_id_str, existing_gcal_events=existing_gcal_events, dry_run=dry_run)
+
+            return {'reservation_id': res_id_str, 'action': 'skipped_ineligible', 'reason': 'Missing required payment, deposit, or agreement'}
+
         payload = self.format_event_payload(res)
 
         if dry_run or not self.calendar_service:

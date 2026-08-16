@@ -23,23 +23,30 @@ RETURNS TRIGGER AS $$
     old_row = dict(TD["old"]) if TD["old"] is not None else None
     new_row = dict(TD["new"]) if TD["new"] is not None else None
 
-    # Fetch owner name and property address from DB if property_id is present and owner_name/address missing
-    if new_row and new_row.get("property_id") and (not new_row.get("owner_name") or not new_row.get("address")):
-        try:
-            plan = plpy.prepare("""
-                SELECT concat(o.first_name, ' ', o.last_name) AS owner_name, p.address
-                FROM key_fobs.properties p
-                LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
-                WHERE p.property_id = $1;
-            """, ["integer"])
-            res = plpy.execute(plan, [new_row["property_id"]])
-            if res:
-                if not new_row.get("owner_name") and res[0].get("owner_name"):
-                    new_row["owner_name"] = res[0]["owner_name"]
-                if not new_row.get("address") and res[0].get("address"):
-                    new_row["address"] = res[0]["address"]
-        except Exception as e:
-            plpy.warning(f"GoogleCalendarSync trigger notice: Could not fetch owner details for property_id {new_row.get('property_id')}: {e}")
+    # Handle owner name and property address lookup for property_id if present; fallback gracefully for community events
+    if new_row:
+        prop_id = new_row.get("property_id")
+        if prop_id:
+            try:
+                plan = plpy.prepare("""
+                    SELECT concat(o.first_name, ' ', o.last_name) AS owner_name, p.address
+                    FROM key_fobs.properties p
+                    LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+                    WHERE p.property_id = $1;
+                """, ["integer"])
+                res = plpy.execute(plan, [prop_id])
+                if res:
+                    if not new_row.get("owner_name") and res[0].get("owner_name"):
+                        new_row["owner_name"] = res[0]["owner_name"]
+                    if not new_row.get("address") and res[0].get("address"):
+                        new_row["address"] = res[0]["address"]
+            except Exception as e:
+                plpy.warning(f"GoogleCalendarSync trigger notice: Could not fetch owner details for property_id {prop_id}: {e}")
+        else:
+            if not new_row.get("address"):
+                new_row["address"] = "Community Clubhouse"
+            if "owner_name" not in new_row:
+                new_row["owner_name"] = ""
 
     try:
         syncer = GoogleCalendarSync()
