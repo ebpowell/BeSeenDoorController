@@ -11,27 +11,74 @@ try:
 except ImportError:
     GOOGLE_API_AVAILABLE = False
 
-from door_controller.common_lib.utils import log_info
+from door_controller.common_lib.utils import log_info, load_config
 
 logger = logging.getLogger(__name__)
 
 class GoogleCalendarSync:
     """
     Integrates PostgreSQL clubhouse_reservations table with Google Calendar via Service Account authentication.
-    Follows system-centric pattern outlined in gemini_description.
+    Follows system-centric pattern outlined in gemini_description. Reads configuration from common config file (config.yaml).
     """
     def __init__(
         self,
         service_account_file: Optional[str] = None,
         calendar_id: Optional[str] = None,
-        timezone: str = "America/New_York",
+        timezone: Optional[str] = None,
         db_manager: Any = None
     ):
-        self.service_account_file = service_account_file or os.environ.get(
-            "GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"
+        config = load_config() or {}
+        gcal_cfg = config.get("gcal", {})
+        settings_cfg = config.get("settings", {})
+
+        # Service Account File resolution
+        sa_file = (
+            service_account_file
+            or os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+            or gcal_cfg.get("service_account_file")
+            or settings_cfg.get("gcal_service_account_file")
+            or "service_account.json"
         )
-        self.calendar_id = calendar_id or os.environ.get("CALENDAR_ID", "primary")
-        self.timezone = timezone
+        if not os.path.exists(sa_file):
+            candidate_dirs = [
+                os.getenv("APP_CONFIG_DIR"),
+                "./config",
+                "/app/config",
+                "/etc/door_controller",
+                os.path.expanduser("~/.config/door_controller"),
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            ]
+            for c_dir in candidate_dirs:
+                if c_dir:
+                    cand_path = os.path.join(c_dir, os.path.basename(sa_file))
+                    if os.path.exists(cand_path):
+                        sa_file = cand_path
+                        break
+                    cand_sub_path = os.path.join(c_dir, sa_file)
+                    if os.path.exists(cand_sub_path):
+                        sa_file = cand_sub_path
+                        break
+
+        self.service_account_file = sa_file
+
+        # Calendar ID resolution
+        self.calendar_id = (
+            calendar_id
+            or os.environ.get("CALENDAR_ID")
+            or gcal_cfg.get("calendar_id")
+            or settings_cfg.get("gcal_calendar_id")
+            or "primary"
+        )
+
+        # Timezone resolution
+        self.timezone = (
+            timezone
+            or os.environ.get("GCAL_TIMEZONE")
+            or gcal_cfg.get("timezone")
+            or settings_cfg.get("gcal_timezone")
+            or "America/New_York"
+        )
+
         self.db_manager = db_manager
         self.calendar_service = None
 
@@ -126,6 +173,124 @@ class GoogleCalendarSync:
         }
         return event_payload
 
+    def _fetch_existing_gcal_events(self) -> Dict[str, Any]:
+        """Helper to list existing events keyed by reservation_id."""
+        existing_gcal_events = {}
+        if self.calendar_service:
+            try:
+                events_result = self.calendar_service.events().list(
+                    calendarId=self.calendar_id,
+                    maxResults=2500
+                ).execute()
+                items = events_result.get('items', [])
+                for item in items:
+                    ext_props = item.get('extendedProperties', {}).get('private', {})
+                    res_id_prop = ext_props.get('reservation_id')
+                    if res_id_prop:
+                        existing_gcal_events[str(res_id_prop)] = item
+            except Exception as e:
+                log_info(f"GoogleCalendarSync Warning: Could not list existing GCal events: {e}")
+        return existing_gcal_events
+
+    def sync_single_reservation(
+        self,
+        res: Dict[str, Any],
+        existing_gcal_events: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Syncs a single reservation to Google Calendar (Insert or Update).
+        """
+        res_id_str = str(res.get('reservation_id'))
+        payload = self.format_event_payload(res)
+
+        if dry_run or not self.calendar_service:
+            log_info(f"[DRY-RUN] Would sync Reservation #{res_id_str} ({payload['summary']}) to Google Calendar")
+            return {'reservation_id': res_id_str, 'action': 'dry_run', 'payload': payload}
+
+        if existing_gcal_events is None:
+            existing_gcal_events = self._fetch_existing_gcal_events()
+
+        try:
+            if res_id_str in existing_gcal_events:
+                gcal_event = existing_gcal_events[res_id_str]
+                gcal_id = gcal_event['id']
+                updated_event = self.calendar_service.events().update(
+                    calendarId=self.calendar_id,
+                    eventId=gcal_id,
+                    body=payload
+                ).execute()
+                log_info(f"GoogleCalendarSync: Updated GCal Event {gcal_id} for Reservation #{res_id_str}")
+                return {'reservation_id': res_id_str, 'action': 'updated', 'gcal_id': gcal_id, 'link': updated_event.get('htmlLink')}
+            else:
+                created_event = self.calendar_service.events().insert(
+                    calendarId=self.calendar_id,
+                    body=payload
+                ).execute()
+                gcal_id = created_event.get('id')
+                log_info(f"GoogleCalendarSync: Created GCal Event {gcal_id} for Reservation #{res_id_str}")
+                return {'reservation_id': res_id_str, 'action': 'created', 'gcal_id': gcal_id, 'link': created_event.get('htmlLink')}
+        except Exception as e:
+            log_info(f"GoogleCalendarSync Error syncing Reservation #{res_id_str}: {e}")
+            return {'reservation_id': res_id_str, 'action': 'error', 'error': str(e)}
+
+    def delete_single_reservation(
+        self,
+        reservation_id: Any,
+        existing_gcal_events: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Deletes a single reservation from Google Calendar by reservation_id.
+        """
+        res_id_str = str(reservation_id)
+        if dry_run or not self.calendar_service:
+            log_info(f"[DRY-RUN] Would delete GCal Event for Reservation #{res_id_str}")
+            return {'reservation_id': res_id_str, 'action': 'dry_run_deleted'}
+
+        if existing_gcal_events is None:
+            existing_gcal_events = self._fetch_existing_gcal_events()
+
+        if res_id_str in existing_gcal_events:
+            gcal_event = existing_gcal_events[res_id_str]
+            gcal_id = gcal_event['id']
+            try:
+                self.calendar_service.events().delete(
+                    calendarId=self.calendar_id,
+                    eventId=gcal_id
+                ).execute()
+                log_info(f"GoogleCalendarSync: Deleted GCal Event {gcal_id} for Reservation #{res_id_str}")
+                return {'reservation_id': res_id_str, 'action': 'deleted', 'gcal_id': gcal_id}
+            except Exception as e:
+                log_info(f"GoogleCalendarSync Error deleting Reservation #{res_id_str}: {e}")
+                return {'reservation_id': res_id_str, 'action': 'error', 'error': str(e)}
+        else:
+            log_info(f"GoogleCalendarSync Notice: No existing GCal Event found for Reservation #{res_id_str} to delete")
+            return {'reservation_id': res_id_str, 'action': 'not_found'}
+
+    def process_trigger_event(
+        self,
+        event_type: str,
+        old_row: Optional[Dict[str, Any]] = None,
+        new_row: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Processes a PostgreSQL trigger event (INSERT, UPDATE, DELETE).
+        """
+        event_upper = (event_type or "").upper()
+        if event_upper in ("INSERT", "UPDATE"):
+            if not new_row:
+                raise ValueError(f"new_row must be provided for {event_upper} trigger event.")
+            return self.sync_single_reservation(new_row, dry_run=dry_run)
+        elif event_upper == "DELETE":
+            res_id = (old_row or {}).get('reservation_id')
+            if res_id is None:
+                raise ValueError("old_row containing reservation_id must be provided for DELETE trigger event.")
+            return self.delete_single_reservation(res_id, dry_run=dry_run)
+        else:
+            raise ValueError(f"Unknown trigger event type: {event_type}")
+
     def sync_reservations(self, dry_run: bool = False) -> Tuple[int, int, List[Dict[str, Any]]]:
         """
         Syncs all reservations from PostgreSQL database to Google Calendar.
@@ -140,56 +305,15 @@ class GoogleCalendarSync:
         updated_count = 0
         results = []
 
-        # Build existing Google Calendar events map by reservation_id if service is available
-        existing_gcal_events = {}
-        if self.calendar_service and not dry_run:
-            try:
-                events_result = self.calendar_service.events().list(
-                    calendarId=self.calendar_id,
-                    maxResults=2500
-                ).execute()
-                items = events_result.get('items', [])
-                for item in items:
-                    ext_props = item.get('extendedProperties', {}).get('private', {})
-                    res_id_prop = ext_props.get('reservation_id')
-                    if res_id_prop:
-                        existing_gcal_events[str(res_id_prop)] = item
-            except Exception as e:
-                log_info(f"GoogleCalendarSync Warning: Could not list existing GCal events: {e}")
+        existing_gcal_events = self._fetch_existing_gcal_events() if (self.calendar_service and not dry_run) else {}
 
         for res in reservations:
-            res_id_str = str(res.get('reservation_id'))
-            payload = self.format_event_payload(res)
-
-            if dry_run or not self.calendar_service:
-                log_info(f"[DRY-RUN] Would sync Reservation #{res_id_str} ({payload['summary']}) to Google Calendar")
-                results.append({'reservation_id': res_id_str, 'action': 'dry_run', 'payload': payload})
+            res_result = self.sync_single_reservation(res, existing_gcal_events=existing_gcal_events, dry_run=dry_run)
+            results.append(res_result)
+            action = res_result.get('action')
+            if action in ('created', 'dry_run'):
                 created_count += 1
-                continue
-
-            try:
-                if res_id_str in existing_gcal_events:
-                    gcal_event = existing_gcal_events[res_id_str]
-                    gcal_id = gcal_event['id']
-                    updated_event = self.calendar_service.events().update(
-                        calendarId=self.calendar_id,
-                        eventId=gcal_id,
-                        body=payload
-                    ).execute()
-                    log_info(f"GoogleCalendarSync: Updated GCal Event {gcal_id} for Reservation #{res_id_str}")
-                    updated_count += 1
-                    results.append({'reservation_id': res_id_str, 'action': 'updated', 'gcal_id': gcal_id, 'link': updated_event.get('htmlLink')})
-                else:
-                    created_event = self.calendar_service.events().insert(
-                        calendarId=self.calendar_id,
-                        body=payload
-                    ).execute()
-                    gcal_id = created_event.get('id')
-                    log_info(f"GoogleCalendarSync: Created GCal Event {gcal_id} for Reservation #{res_id_str}")
-                    created_count += 1
-                    results.append({'reservation_id': res_id_str, 'action': 'created', 'gcal_id': gcal_id, 'link': created_event.get('htmlLink')})
-            except Exception as e:
-                log_info(f"GoogleCalendarSync Error syncing Reservation #{res_id_str}: {e}")
-                results.append({'reservation_id': res_id_str, 'action': 'error', 'error': str(e)})
+            elif action == 'updated':
+                updated_count += 1
 
         return created_count, updated_count, results

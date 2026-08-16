@@ -17,7 +17,7 @@ class TestDeployTriggers(unittest.TestCase):
                 'postgres_connect_string': 'postgresql://wentworth_user:ww_s3cret@localhost/wntworth_db'
             }
         }
-        mock_exists.side_effect = lambda path: any(x in path for x in ("03_fob_sync", "04_observability", "05_f_get_permissions", "05__f_get_permissions", "f_get_permissions"))
+        mock_exists.side_effect = lambda path: any(x in path for x in ("03_fob_sync", "04_observability", "05_f_get_permissions", "05__f_get_permissions", "f_get_permissions", "06_gcal_sync", "gcal_sync"))
         
         mock_conn = MagicMock()
         mock_cur = MagicMock()
@@ -28,7 +28,7 @@ class TestDeployTriggers(unittest.TestCase):
         
         # Assert database commands were executed
         mock_connect.assert_called_once_with('postgresql://wentworth_user:ww_s3cret@localhost/wntworth_db')
-        self.assertEqual(mock_cur.execute.call_count, 3)
+        self.assertEqual(mock_cur.execute.call_count, 4)
         mock_cur.execute.assert_any_call("CREATE TRIGGER test;")
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -67,7 +67,7 @@ class TestDeployTriggers(unittest.TestCase):
                 'postgres_connect_string': 'postgresql://db'
             }
         }
-        mock_exists.side_effect = lambda path: any(x in path for x in ("03_fob_sync", "04_observability", "05_f_get_permissions", "05__f_get_permissions", "f_get_permissions"))
+        mock_exists.side_effect = lambda path: any(x in path for x in ("03_fob_sync", "04_observability", "05_f_get_permissions", "05__f_get_permissions", "f_get_permissions", "06_gcal_sync", "gcal_sync"))
         
         mock_conn = MagicMock()
         mock_cur = MagicMock()

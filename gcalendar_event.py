@@ -14,28 +14,53 @@ import argparse
 import logging
 from door_controller.common_lib.gcal_sync import GoogleCalendarSync, GOOGLE_API_AVAILABLE
 from door_controller.key_management_application.db_manager import FobDatabaseManager
+from door_controller.common_lib.utils import load_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main():
+    config = load_config() or {}
+    gcal_cfg = config.get("gcal", {})
+    settings_cfg = config.get("settings", {})
+
+    default_sa_file = (
+        os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+        or gcal_cfg.get("service_account_file")
+        or settings_cfg.get("gcal_service_account_file")
+        or "service_account.json"
+    )
+    default_calendar_id = (
+        os.environ.get("CALENDAR_ID")
+        or gcal_cfg.get("calendar_id")
+        or settings_cfg.get("gcal_calendar_id")
+        or "primary"
+    )
+    default_timezone = (
+        os.environ.get("GCAL_TIMEZONE")
+        or gcal_cfg.get("timezone")
+        or settings_cfg.get("gcal_timezone")
+        or "America/New_York"
+    )
+
     parser = argparse.ArgumentParser(
         description="BeSeen Door Controller - Google Calendar Integration Tool"
     )
     parser.add_argument(
         "--service-account-file",
-        default=os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"),
-        help="Path to Google Service Account JSON key file (default: service_account.json)"
+        default=default_sa_file,
+        help=f"Path to Google Service Account JSON key file (default from config: {default_sa_file})"
     )
     parser.add_argument(
         "--calendar-id",
-        default=os.environ.get("CALENDAR_ID", "primary"),
-        help="Target Google Calendar ID (default: primary or CALENDAR_ID env var)"
+        default=default_calendar_id,
+        help=f"Target Google Calendar ID (default from config: {default_calendar_id})"
     )
     parser.add_argument(
         "--timezone",
-        default="America/New_York",
-        help="Timezone string for calendar events (default: America/New_York)"
+        default=default_timezone,
+        help=f"Timezone string for calendar events (default from config: {default_timezone})"
     )
+
     parser.add_argument(
         "--dry-run",
         action="store_true",

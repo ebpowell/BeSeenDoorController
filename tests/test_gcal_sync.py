@@ -14,6 +14,19 @@ class TestGoogleCalendarSync(unittest.TestCase):
             db_manager=self.mock_db
         )
 
+    def test_config_file_loading(self):
+        with patch('door_controller.common_lib.gcal_sync.load_config') as mock_load_cfg:
+            mock_load_cfg.return_value = {
+                'gcal': {
+                    'service_account_file': 'custom_service_account.json',
+                    'calendar_id': 'custom_cal_id@gmail.com',
+                    'timezone': 'America/Chicago'
+                }
+            }
+            syncer = GoogleCalendarSync()
+            self.assertEqual(syncer.calendar_id, 'custom_cal_id@gmail.com')
+            self.assertEqual(syncer.timezone, 'America/Chicago')
+
     def test_format_event_payload_private_event(self):
         res = {
             'reservation_id': 42,
@@ -86,6 +99,51 @@ class TestGoogleCalendarSync(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['action'], 'dry_run')
         self.assertEqual(results[0]['reservation_id'], '1')
+
+    def test_sync_single_reservation_dry_run(self):
+        res = {
+            'reservation_id': 5,
+            'property_id': 10001,
+            'address': '101 Main St',
+            'owner_name': 'Charlie',
+            'reservation_date': '2026-08-25',
+            'from_time': '10:00:00',
+            'to_time': '14:00:00'
+        }
+        res_out = self.syncer.sync_single_reservation(res, dry_run=True)
+        self.assertEqual(res_out['action'], 'dry_run')
+        self.assertEqual(res_out['reservation_id'], '5')
+
+    def test_delete_single_reservation_dry_run(self):
+        res_out = self.syncer.delete_single_reservation(5, dry_run=True)
+        self.assertEqual(res_out['action'], 'dry_run_deleted')
+        self.assertEqual(res_out['reservation_id'], '5')
+
+    def test_process_trigger_event(self):
+        new_row = {
+            'reservation_id': 10,
+            'property_id': 10001,
+            'address': '101 Main St',
+            'owner_name': 'Dave',
+            'reservation_date': '2026-08-30',
+            'from_time': '09:00:00',
+            'to_time': '11:00:00'
+        }
+        old_row = {'reservation_id': 10}
+
+        # Test INSERT
+        insert_res = self.syncer.process_trigger_event("INSERT", new_row=new_row, dry_run=True)
+        self.assertEqual(insert_res['action'], 'dry_run')
+        self.assertEqual(insert_res['reservation_id'], '10')
+
+        # Test UPDATE
+        update_res = self.syncer.process_trigger_event("UPDATE", new_row=new_row, old_row=old_row, dry_run=True)
+        self.assertEqual(update_res['action'], 'dry_run')
+
+        # Test DELETE
+        delete_res = self.syncer.process_trigger_event("DELETE", old_row=old_row, dry_run=True)
+        self.assertEqual(delete_res['action'], 'dry_run_deleted')
+        self.assertEqual(delete_res['reservation_id'], '10')
 
 if __name__ == '__main__':
     unittest.main()
