@@ -11,7 +11,7 @@ try:
 except ImportError:
     GOOGLE_API_AVAILABLE = False
 
-from door_controller.common_lib.utils import log_info, load_config
+from door_controller.common_lib.utils import log_info, load_config, log_error
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,19 @@ class GoogleCalendarSync:
                 self.calendar_service = build('calendar', 'v3', credentials=creds)
                 log_info(f"GoogleCalendarSync: Initialized Google Calendar service with {self.service_account_file}")
             except Exception as e:
-                log_info(f"GoogleCalendarSync Warning: Could not initialize Google Calendar service: {e}")
+                log_error(f"GoogleCalendarSync Warning: Could not initialize Google Calendar service: {e}")
+        else:
+            if not GOOGLE_API_AVAILABLE:
+                log_error("GoogleCalendarSync Warning: google-auth / google-api-python-client packages not installed.")
+            if not os.path.exists(self.service_account_file):
+                log_error(f"GoogleCalendarSync Warning: Service Account file '{self.service_account_file}' not found.")
+
+        if self.calendar_id.endswith(".iam.gserviceaccount.com") or self.calendar_id == "primary":
+            log_info(
+                f"GoogleCalendarSync Notice: calendar_id is set to '{self.calendar_id}'. "
+                "When using a Google Service Account, 'primary' or service account email targets the Service Account's private calendar. "
+                "To display events in a human user/community Google Calendar, set calendar_id to the shared Google Calendar ID in config.yaml."
+            )
 
     def is_eligible_for_sync(self, res: Dict[str, Any]) -> bool:
         """
@@ -254,9 +266,17 @@ class GoogleCalendarSync:
 
         payload = self.format_event_payload(res)
 
-        if dry_run or not self.calendar_service:
+        if dry_run:
             log_info(f"[DRY-RUN] Would sync Reservation #{res_id_str} ({payload['summary']}) to Google Calendar")
             return {'reservation_id': res_id_str, 'action': 'dry_run', 'payload': payload}
+
+        if not self.calendar_service:
+            err_msg = (
+                f"Google Calendar API service is not initialized. Check service_account_file '{self.service_account_file}' "
+                "path and ensure google-auth and google-api-python-client packages are installed."
+            )
+            log_error(f"GoogleCalendarSync Error: Cannot sync reservation #{res_id_str}. {err_msg}")
+            return {'reservation_id': res_id_str, 'action': 'error', 'error': err_msg}
 
         if existing_gcal_events is None:
             existing_gcal_events = self._fetch_existing_gcal_events()
@@ -281,7 +301,7 @@ class GoogleCalendarSync:
                 log_info(f"GoogleCalendarSync: Created GCal Event {gcal_id} for Reservation #{res_id_str}")
                 return {'reservation_id': res_id_str, 'action': 'created', 'gcal_id': gcal_id, 'link': created_event.get('htmlLink')}
         except Exception as e:
-            log_info(f"GoogleCalendarSync Error syncing Reservation #{res_id_str}: {e}")
+            log_error(f"GoogleCalendarSync Error syncing Reservation #{res_id_str}: {e}")
             return {'reservation_id': res_id_str, 'action': 'error', 'error': str(e)}
 
     def delete_single_reservation(
@@ -294,9 +314,14 @@ class GoogleCalendarSync:
         Deletes a single reservation from Google Calendar by reservation_id.
         """
         res_id_str = str(reservation_id)
-        if dry_run or not self.calendar_service:
+        if dry_run:
             log_info(f"[DRY-RUN] Would delete GCal Event for Reservation #{res_id_str}")
             return {'reservation_id': res_id_str, 'action': 'dry_run_deleted'}
+
+        if not self.calendar_service:
+            err_msg = f"Google Calendar API service is not initialized. Cannot delete reservation #{res_id_str}."
+            log_error(f"GoogleCalendarSync Error: {err_msg}")
+            return {'reservation_id': res_id_str, 'action': 'error', 'error': err_msg}
 
         if existing_gcal_events is None:
             existing_gcal_events = self._fetch_existing_gcal_events()
@@ -312,7 +337,7 @@ class GoogleCalendarSync:
                 log_info(f"GoogleCalendarSync: Deleted GCal Event {gcal_id} for Reservation #{res_id_str}")
                 return {'reservation_id': res_id_str, 'action': 'deleted', 'gcal_id': gcal_id}
             except Exception as e:
-                log_info(f"GoogleCalendarSync Error deleting Reservation #{res_id_str}: {e}")
+                log_error(f"GoogleCalendarSync Error deleting Reservation #{res_id_str}: {e}")
                 return {'reservation_id': res_id_str, 'action': 'error', 'error': str(e)}
         else:
             log_info(f"GoogleCalendarSync Notice: No existing GCal Event found for Reservation #{res_id_str} to delete")
@@ -361,9 +386,11 @@ class GoogleCalendarSync:
             res_result = self.sync_single_reservation(res, existing_gcal_events=existing_gcal_events, dry_run=dry_run)
             results.append(res_result)
             action = res_result.get('action')
-            if action in ('created', 'dry_run'):
+            if action == 'created':
                 created_count += 1
             elif action == 'updated':
                 updated_count += 1
+            elif action == 'dry_run':
+                created_count += 1
 
         return created_count, updated_count, results

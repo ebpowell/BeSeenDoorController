@@ -18,11 +18,11 @@ settings:
     - http://69.21.119.147
     # - http://69.21.119.148
   gcal_service_account_file: config/service_account.json
-  gcal_calendar_id: primary
+  gcal_calendar_id: wentworth-calendar@wentworth-calendar.iam.gserviceaccount.com
   gcal_timezone: America/New_York
 
 gcal:
   service_account_file: config/service_account.json
-  calendar_id: primary
+  calendar_id: wentworth-calendar@wentworth-calendar.iam.gserviceaccount.com
   timezone: America/New_York
 

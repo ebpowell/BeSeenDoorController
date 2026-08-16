@@ -83,6 +83,18 @@ def main():
     print(f"Dry-Run Mode:         {'ENABLED' if args.dry_run else 'DISABLED'}")
     print("-----------------------------------------------------")
 
+    if args.calendar_id.endswith(".iam.gserviceaccount.com") or args.calendar_id == "primary":
+        print("⚠️ CALENDAR ID NOTICE:")
+        print(f"   Target Calendar ID is currently '{args.calendar_id}'.")
+        print("   When using a Google Service Account, setting calendar_id to the Service Account email")
+        print("   or 'primary' pushes events into the Service Account's hidden internal calendar,")
+        print("   which IS NOT VISIBLE on your personal or HOA Google Calendar UI in your web browser.")
+        print("\n💡 TO DISPLAY EVENTS IN YOUR GOOGLE CALENDAR UI:")
+        print("   1. Open your target Google Calendar in a browser (e.g., your_email@gmail.com).")
+        print("   2. Under 'Settings and sharing' > 'Share with specific people', add your Service Account email")
+        print("      (e.g., wentworth-calendar@wentworth-calendar.iam.gserviceaccount.com) with 'Make changes to events' permission.")
+        print("   3. Set 'calendar_id' in config/config.yaml to your target Google Calendar ID (e.g., your_email@gmail.com or c_xxx@group.calendar.google.com).\n")
+
     if not GOOGLE_API_AVAILABLE:
         print("⚠️ Warning: google-auth and google-api-python-client packages are not installed.")
         print("To enable live API push, run: pip install google-auth google-api-python-client\n")
@@ -120,6 +132,10 @@ def main():
                     print(f"[DRY-RUN] Res #{res_id}: Summary='{p.get('summary')}' | Start={p.get('start', {}).get('dateTime')}")
                 elif action in ('created', 'updated'):
                     print(f"[{action.upper()}] Res #{res_id}: GCal ID={item.get('gcal_id')}")
+                elif action == 'skipped_ineligible':
+                    print(f"[SKIPPED] Res #{res_id}: {item.get('reason')}")
+                elif action in ('deleted', 'dry_run_deleted'):
+                    print(f"[DELETED] Res #{res_id}: Removed from GCal")
                 elif action == 'error':
                     print(f"[ERROR] Res #{res_id}: {item.get('error')}")
 
