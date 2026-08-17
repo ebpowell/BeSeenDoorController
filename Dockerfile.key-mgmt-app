@@ -33,7 +33,7 @@ WORKDIR /app
 
 # Create a non-root user for security and create necessary folders
 RUN adduser --system --group doorcontroller && \
-    mkdir -p /app/data /app/config /app/log && \
+    mkdir -p /app/data /app/config /app/log /app/certs && \
     chown -R doorcontroller:doorcontroller /app
 
 # Switch to the non-root user

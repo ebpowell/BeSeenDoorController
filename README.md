@@ -27,6 +27,37 @@ If you wish to run the Flask application directly in your host environment using
 
 ---
 
+## SSL / HTTPS WebUI Security
+
+The Web UI application supports full SSL/TLS encryption for secure HTTPS access and enforces secure session cookies (`SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE='Lax'`).
+
+### Configuration Options
+
+SSL can be enabled via **Environment Variables**, **CLI Arguments**, or **`config.yaml`**:
+
+1. **Environment Variables**:
+   ```bash
+   export SSL_ENABLED=true
+   export SSL_CERT=/path/to/server.crt
+   export SSL_KEY=/path/to/server.key
+   ```
+2. **Command Line Flags**:
+   ```bash
+   BeSeen_web --ssl --cert /app/certs/server.crt --key /app/certs/server.key --port 5000
+   ```
+3. **`config.yaml` Configuration**:
+   ```yaml
+   ssl:
+     enabled: true
+     cert_file: config/certs/server.crt
+     key_file: config/certs/server.key
+   ```
+
+> [!NOTE]
+> If `SSL_ENABLED=true` (or `--ssl` is passed) but no certificate/key files are specified or found on disk, the Web UI automatically falls back to an **adhoc self-signed SSL certificate context**.
+
+---
+
 ## Web Application Features
 
 ### 1. Key Fob Management (`/fobs` or `/`)

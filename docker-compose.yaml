@@ -8,6 +8,7 @@ services:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
+      - /opt/data/door_controller/certs:/app/certs
       # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
  #     - /etc/timezone:/etc/timezone:ro
@@ -17,6 +18,10 @@ services:
       APP_CONFIG_DIR: /app/config
       # APP_MODE: production
       TZ: America/New_York
+      # SSL / HTTPS Configuration options:
+      # SSL_ENABLED: "true"
+      # SSL_CERT: /app/certs/server.crt
+      # SSL_KEY: /app/certs/server.key
 
     # Set the user to run processes inside the container
     user: doorcontroller

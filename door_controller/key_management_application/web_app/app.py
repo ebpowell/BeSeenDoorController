@@ -4,11 +4,106 @@ import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from door_controller.key_management_application.db_manager import FobDatabaseManager
-from door_controller.common_lib.utils import log_info
+from door_controller.common_lib.utils import log_info, load_config
 
 app = Flask(__name__)
 # Secret key is required for session and flash messaging.
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'beseen_secret_key_123!_change_me')
+
+def get_ssl_config(cli_args=None):
+    """
+    Resolves SSL configuration options from CLI arguments, environment variables, or config.yaml.
+    """
+    cfg = {
+        'enabled': False,
+        'cert': None,
+        'key': None
+    }
+    
+    # Config file configuration
+    try:
+        config_data = load_config()
+        ssl_section = config_data.get('ssl', {}) if isinstance(config_data, dict) else {}
+        cfg['enabled'] = bool(ssl_section.get('enabled', False))
+        cfg['cert'] = ssl_section.get('cert_file') or ssl_section.get('cert')
+        cfg['key'] = ssl_section.get('key_file') or ssl_section.get('key')
+    except Exception as e:
+        log_info(f"Notice: Unable to parse ssl section from config file: {e}")
+
+    # Environment variable overrides
+    env_ssl = os.environ.get('SSL_ENABLED', '').strip().lower()
+    if env_ssl in ('true', '1', 'yes', 'on'):
+        cfg['enabled'] = True
+    elif env_ssl in ('false', '0', 'no', 'off'):
+        cfg['enabled'] = False
+
+    env_cert = os.environ.get('SSL_CERT') or os.environ.get('SSL_CERT_PATH') or os.environ.get('SSL_CERT_FILE')
+    if env_cert:
+        cfg['cert'] = env_cert
+
+    env_key = os.environ.get('SSL_KEY') or os.environ.get('SSL_KEY_PATH') or os.environ.get('SSL_KEY_FILE')
+    if env_key:
+        cfg['key'] = env_key
+
+    # Command-line argument overrides
+    if cli_args:
+        if getattr(cli_args, 'ssl', False):
+            cfg['enabled'] = True
+        if getattr(cli_args, 'cert', None):
+            cfg['cert'] = getattr(cli_args, 'cert')
+        if getattr(cli_args, 'key', None):
+            cfg['key'] = getattr(cli_args, 'key')
+
+    return cfg
+
+def get_ssl_context(ssl_cfg):
+    """
+    Returns Flask ssl_context based on resolved ssl_cfg.
+    - If enabled and cert/key exist: returns (cert_path, key_path).
+    - If enabled and no valid cert/key provided: returns 'adhoc'.
+    - If disabled: returns None.
+    """
+    if not ssl_cfg or not ssl_cfg.get('enabled'):
+        return None
+
+    cert = ssl_cfg.get('cert')
+    key = ssl_cfg.get('key')
+
+    if cert and key:
+        if os.path.exists(cert) and os.path.exists(key):
+            return (cert, key)
+        else:
+            log_info(f"SSL Warning: Certificate path ({cert}) or Key path ({key}) not found on disk. Falling back to adhoc SSL context.")
+            return 'adhoc'
+    else:
+        return 'adhoc'
+
+def configure_app_security(app_instance, ssl_enabled=False):
+    """
+    Configures session cookie security flags and security headers on the Flask app.
+    """
+    app_instance.config['SESSION_COOKIE_HTTPONLY'] = True
+    app_instance.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app_instance.config['SSL_ENABLED'] = ssl_enabled
+    
+    if ssl_enabled:
+        app_instance.config['SESSION_COOKIE_SECURE'] = True
+    else:
+        app_instance.config['SESSION_COOKIE_SECURE'] = False
+
+# Apply initial default security configuration
+_initial_ssl_cfg = get_ssl_config()
+_initial_ssl_context = get_ssl_context(_initial_ssl_cfg)
+configure_app_security(app, ssl_enabled=(_initial_ssl_context is not None))
+
+@app.before_request
+def enforce_ssl_redirect():
+    """Redirect unencrypted HTTP traffic to HTTPS if SSL is enabled and request is HTTP."""
+    if app.config.get('SSL_ENABLED') and not request.is_secure:
+        if request.headers.get('X-Forwarded-Proto', 'http') == 'http':
+            # Preserve host and path when redirecting
+            url = request.url.replace('http://', 'https://', 1)
+            return redirect(url, code=301)
 
 # Lazy initialize FobDatabaseManager
 db_mgr = None
@@ -804,9 +899,29 @@ def calendar_embed():
         log_info(f"Web UI Error: Failed to load embedded calendar view. {e}")
         return f"Error loading calendar embed: {e}", 500
 
-def main():
+def main(args=None):
+    import argparse
+    parser = argparse.ArgumentParser(description="BeSeen Door Controller Web Interface")
+    parser.add_argument("--host", default=os.environ.get("FLASK_HOST", "0.0.0.0"), help="Host IP to bind (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("FLASK_PORT", 5000)), help="Port to listen on (default: 5000)")
+    parser.add_argument("--ssl", action="store_true", help="Enable SSL/TLS security")
+    parser.add_argument("--cert", help="Path to SSL certificate file (.crt / .pem)")
+    parser.add_argument("--key", help="Path to SSL private key file (.key)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    
+    parsed_args = parser.parse_args(args)
+
+    ssl_cfg = get_ssl_config(parsed_args)
+    ssl_context = get_ssl_context(ssl_cfg)
+    configure_app_security(app, ssl_enabled=(ssl_context is not None))
+
     log_info("Starting BeSeen Door Controller Web Interface...")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    if ssl_context:
+        log_info(f"SSL/TLS Security ENABLED on https://{parsed_args.host}:{parsed_args.port}")
+    else:
+        log_info(f"Running without SSL/TLS on http://{parsed_args.host}:{parsed_args.port}")
+
+    app.run(host=parsed_args.host, port=parsed_args.port, debug=parsed_args.debug, ssl_context=ssl_context)
 
 if __name__ == '__main__':
     main()

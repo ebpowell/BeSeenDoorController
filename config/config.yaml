@@ -18,11 +18,16 @@ settings:
     - http://69.21.119.147
     # - http://69.21.119.148
   gcal_service_account_file: config/service_account.json
-  gcal_calendar_id: wentworth-calendar@wentworth-calendar.iam.gserviceaccount.com
+  gcal_calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
   gcal_timezone: America/New_York
 
 gcal:
   service_account_file: config/service_account.json
-  calendar_id: wentworth-calendar@wentworth-calendar.iam.gserviceaccount.com
+  calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
   timezone: America/New_York
+
+ssl:
+  enabled: false
+  cert_file: config/certs/server.crt
+  key_file: config/certs/server.key
 
