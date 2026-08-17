@@ -12,8 +12,10 @@ RETURNS TRIGGER AS $$
     if not os.path.exists(project_path):
         project_path = '/home/ebpowell/GIT_REPO/BeSeenDoorController'
 
-    if os.path.exists(project_path) and project_path not in sys.path:
-        sys.path.append(project_path)
+    if os.path.exists(project_path):
+        if project_path in sys.path:
+            sys.path.remove(project_path)
+        sys.path.insert(0, project_path)
 
     # Set configuration directory environment variable
     os.environ['APP_CONFIG_DIR'] = os.path.join(project_path, 'config')

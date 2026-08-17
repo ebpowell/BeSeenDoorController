@@ -7,17 +7,37 @@ RETURNS TRIGGER AS $$
     import sys
     import os
 
-    # Resolve project path dynamically (supporting container '/app' and local dev)
-    project_path = '/app'
-    if not os.path.exists(project_path):
-        project_path = '/home/ebpowell/GIT_REPO/BeSeenDoorController'
+    # Resolve project path dynamically (supporting container '/app', host git repo, and site-packages)
+    candidate_paths = [
+        '/app',
+        '/home/ebpowell/GIT_REPO/BeSeenDoorController',
+        os.getcwd()
+    ]
 
-    if os.path.exists(project_path) and project_path not in sys.path:
-        sys.path.append(project_path)
+    project_path = None
+    for p in candidate_paths:
+        if p and os.path.exists(os.path.join(p, 'door_controller', 'common_lib', 'gcal_sync.py')):
+            project_path = p
+            break
 
-    os.environ['APP_CONFIG_DIR'] = os.path.join(project_path, 'config')
+    if not project_path:
+        # Fallback to /app if present
+        if os.path.exists('/app'):
+            project_path = '/app'
+        elif os.path.exists('/home/ebpowell/GIT_REPO/BeSeenDoorController'):
+            project_path = '/home/ebpowell/GIT_REPO/BeSeenDoorController'
 
-    from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+    if project_path:
+        if project_path in sys.path:
+            sys.path.remove(project_path)
+        sys.path.insert(0, project_path)
+        os.environ['APP_CONFIG_DIR'] = os.path.join(project_path, 'config')
+
+    try:
+        from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+    except ModuleNotFoundError as e:
+        plpy.warning(f"GoogleCalendarSync trigger notice: Could not import GoogleCalendarSync module: {e}")
+        return "OK"
 
     event = TD["event"]
     old_row = dict(TD["old"]) if TD["old"] is not None else None

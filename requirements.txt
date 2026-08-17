@@ -10,3 +10,5 @@ web-browser
 Flask
 pyOpenSSL
 cryptography
+google-api-python-client
+google-auth
