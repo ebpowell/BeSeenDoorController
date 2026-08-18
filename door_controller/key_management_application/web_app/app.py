@@ -762,6 +762,7 @@ def deposits():
         deposit_status = request.form.get('deposit_status', 'On File').strip()
         check_or_ref_no = request.form.get('check_or_ref_no', '').strip()
         deposit_date = request.form.get('deposit_date', '').strip()
+        date_added = request.form.get('date_added', '').strip()
         reservation_id = request.form.get('reservation_id', '').strip()
         notes = request.form.get('notes', '').strip()
 
@@ -783,6 +784,7 @@ def deposits():
                 deposit_status=deposit_status,
                 check_or_ref_no=check_or_ref_no if check_or_ref_no else None,
                 deposit_date=deposit_date if deposit_date else None,
+                date_added=date_added if date_added else None,
                 reservation_id=reservation_id if reservation_id else None,
                 notes=notes if notes else None,
                 received_by=username

@@ -165,6 +165,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="date_added">Date Deposit Added *</label>
+                        <input type="date" id="date_added" name="date_added" required style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
                         <label for="deposit_status">Deposit Status *</label>
                         <select id="deposit_status" name="deposit_status" class="form-control" style="width: 100%; padding: 0.75rem 1rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: var(--text-primary); font-size: 0.95rem;">
                             <option value="On File" selected>On File (Active)</option>
@@ -235,6 +240,7 @@
                                 <th>Address</th>
                                 <th>Owner Name</th>
                                 <th>Amount</th>
+                                <th>Date Added</th>
                                 <th>Date Received</th>
                                 <th>Ref #</th>
                                 <th>Status</th>
@@ -255,8 +261,11 @@
                                         <td data-label="Amount">
                                             <strong style="color: #34d399; font-size: 1rem;">${{ "%.2f"|format(dep.amount|float) }}</strong>
                                         </td>
+                                        <td data-label="Date Added">
+                                            <span>{{ dep.date_added.strftime('%Y-%m-%d') if dep.date_added and dep.date_added.strftime else dep.date_added or 'N/A' }}</span>
+                                        </td>
                                         <td data-label="Date Received">
-                                            <span>{{ dep.deposit_date.strftime('%Y-%m-%d') if dep.deposit_date.strftime else dep.deposit_date }}</span>
+                                            <span>{{ dep.deposit_date.strftime('%Y-%m-%d') if dep.deposit_date and dep.deposit_date.strftime else dep.deposit_date }}</span>
                                         </td>
                                         <td data-label="Ref #">
                                             {% if dep.check_or_ref_no %}
@@ -352,10 +361,15 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // Default deposit_date to today
+        // Default deposit_date and date_added to today
         const depDateInput = document.getElementById('deposit_date');
         if (depDateInput && !depDateInput.value) {
             depDateInput.value = new Date().toISOString().split('T')[0];
+        }
+
+        const dateAddedInput = document.getElementById('date_added');
+        if (dateAddedInput && !dateAddedInput.value) {
+            dateAddedInput.value = new Date().toISOString().split('T')[0];
         }
 
         const lookupInput = document.getElementById('addressLookup');

@@ -62,6 +62,7 @@ class FobDatabaseManager:
                             amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
                             deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
                             deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                            date_added DATE NOT NULL DEFAULT CURRENT_DATE,
                             check_or_ref_no VARCHAR(100),
                             received_by VARCHAR(100),
                             refund_date DATE,
@@ -69,6 +70,9 @@ class FobDatabaseManager:
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         );
+
+                        ALTER TABLE key_fobs.clubhouse_deposits ADD COLUMN IF NOT EXISTS date_added DATE DEFAULT CURRENT_DATE;
+                        ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS deposit_added_date DATE;
                     """)
                 conn.commit()
         except Exception as e:
@@ -1537,7 +1541,7 @@ class FobDatabaseManager:
     def list_clubhouse_deposits(self):
         """
         List all clubhouse deposits joined with properties, owners, and optional reservations.
-        Data is tracked by property_id. Sorted by deposit_date DESC, deposit_id DESC.
+        Data is tracked by property_id. Sorted by date_added DESC, deposit_id DESC.
         """
         log_info("Database: Fetching all clubhouse deposits.")
         query = """
@@ -1545,7 +1549,8 @@ class FobDatabaseManager:
                 d.deposit_id, d.property_id, d.reservation_id,
                 COALESCE(d.amount, 150.00) AS amount,
                 COALESCE(d.deposit_status, 'On File') AS deposit_status,
-                d.deposit_date, d.check_or_ref_no, d.received_by,
+                d.deposit_date, COALESCE(d.date_added, d.deposit_date) AS date_added,
+                d.check_or_ref_no, d.received_by,
                 d.refund_date, d.notes, d.created_at, d.updated_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name,
@@ -1555,7 +1560,7 @@ class FobDatabaseManager:
             JOIN key_fobs.properties p ON d.property_id = p.property_id
             LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
             LEFT JOIN key_fobs.clubhouse_reservations r ON d.reservation_id = r.reservation_id
-            ORDER BY d.deposit_date DESC, d.deposit_id DESC;
+            ORDER BY COALESCE(d.date_added, d.deposit_date) DESC, d.deposit_id DESC;
         """
         try:
             with self._get_connection() as conn:
@@ -1583,7 +1588,8 @@ class FobDatabaseManager:
                 d.deposit_id, d.property_id, d.reservation_id,
                 COALESCE(d.amount, 150.00) AS amount,
                 COALESCE(d.deposit_status, 'On File') AS deposit_status,
-                d.deposit_date, d.check_or_ref_no, d.received_by,
+                d.deposit_date, COALESCE(d.date_added, d.deposit_date) AS date_added,
+                d.check_or_ref_no, d.received_by,
                 d.refund_date, d.notes, d.created_at, d.updated_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name
@@ -1599,7 +1605,7 @@ class FobDatabaseManager:
 
     def add_clubhouse_deposit(self, property_id, amount=150.00, deposit_status='On File', 
                               check_or_ref_no=None, notes=None, reservation_id=None, 
-                              deposit_date=None, received_by='system'):
+                              deposit_date=None, date_added=None, received_by='system'):
         """
         Add a new clubhouse deposit record tracked by property_id.
         """
@@ -1611,6 +1617,11 @@ class FobDatabaseManager:
         elif isinstance(deposit_date, str):
             deposit_date = datetime.datetime.strptime(deposit_date, "%Y-%m-%d").date()
 
+        if not date_added:
+            date_added = datetime.date.today()
+        elif isinstance(date_added, str):
+            date_added = datetime.datetime.strptime(date_added, "%Y-%m-%d").date()
+
         if reservation_id:
             try:
                 reservation_id = int(reservation_id)
@@ -1619,15 +1630,15 @@ class FobDatabaseManager:
 
         query = """
             INSERT INTO key_fobs.clubhouse_deposits (
-                property_id, reservation_id, amount, deposit_status, deposit_date,
+                property_id, reservation_id, amount, deposit_status, deposit_date, date_added,
                 check_or_ref_no, received_by, notes
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING deposit_id;
         """
         with self._get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, (
-                    property_id, reservation_id, amount, deposit_status, deposit_date,
+                    property_id, reservation_id, amount, deposit_status, deposit_date, date_added,
                     check_or_ref_no, received_by, notes
                 ))
                 dep_id = cur.fetchone()[0]
@@ -1635,12 +1646,13 @@ class FobDatabaseManager:
                 if reservation_id and deposit_status == 'On File':
                     cur.execute("""
                         UPDATE key_fobs.clubhouse_reservations
-                        SET deposit_on_file = TRUE
+                        SET deposit_on_file = TRUE,
+                            deposit_added_date = %s
                         WHERE reservation_id = %s;
-                    """, (reservation_id,))
+                    """, (date_added, reservation_id))
                 self.log_audit_action(
                     cur, received_by, "Record Clubhouse Deposit",
-                    f"Recorded ${float(amount):.2f} deposit (Status: {deposit_status}, Ref: {check_or_ref_no or 'N/A'}) for property_id={property_id}"
+                    f"Recorded ${float(amount):.2f} deposit (Status: {deposit_status}, Ref: {check_or_ref_no or 'N/A'}, Date Added: {date_added}) for property_id={property_id}"
                 )
             conn.commit()
 

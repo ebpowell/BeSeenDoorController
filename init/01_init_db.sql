@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS key_fobs.clubhouse_deposits (
     amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
     deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
     deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    date_added DATE NOT NULL DEFAULT CURRENT_DATE,
     check_or_ref_no VARCHAR(100),
     received_by VARCHAR(100),
     refund_date DATE,
