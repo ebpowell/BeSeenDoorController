@@ -115,6 +115,25 @@ def get_db_mgr():
         db_mgr.ensure_db_functions()
     return db_mgr
 
+def trigger_gcal_sync(reservation_id, action='sync'):
+    """
+    Triggers Google Calendar synchronization directly from Web UI application actions.
+    Supports action='sync' (insert/update) or action='delete'.
+    """
+    try:
+        from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+        syncer = GoogleCalendarSync()
+        if action == 'delete':
+            res = syncer.delete_single_reservation(reservation_id)
+            log_info(f"Web UI GCal Sync (Delete) for Reservation #{reservation_id}: {res.get('action')}")
+        else:
+            res_dict = get_db_mgr().get_reservation_by_id(reservation_id)
+            if res_dict:
+                res = syncer.sync_single_reservation(res_dict)
+                log_info(f"Web UI GCal Sync Result for Reservation #{reservation_id}: {res.get('action')}")
+    except Exception as e:
+        log_info(f"Web UI GCal Sync Notice for Reservation #{reservation_id}: {e}")
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -424,6 +443,7 @@ def reservations():
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
+            trigger_gcal_sync(res_id, 'sync')
 
             if event_type == 'HOA Event':
                 flash("Official Board of Directors (HOA) Event added successfully! Rate: $0.00", "success")
@@ -498,6 +518,7 @@ def hoa_reservations():
                 username=username
             )
             get_db_mgr().sync_clubhouse_reservation_permissions()
+            trigger_gcal_sync(res_id, 'sync')
 
             flash(f"Official HOA Event '{event_name}' scheduled successfully for {reservation_date}!", "success")
             if displaced:
@@ -531,6 +552,7 @@ def delete_reservation(reservation_id):
         deleted = get_db_mgr().delete_reservation(reservation_id, username=username)
         if deleted:
             get_db_mgr().sync_clubhouse_reservation_permissions()
+            trigger_gcal_sync(reservation_id, 'delete')
             flash("Clubhouse reservation deleted successfully.", "success")
         else:
             flash("Reservation not found.", "warning")
@@ -549,6 +571,7 @@ def toggle_payment(reservation_id):
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'payment_made', new_value, username=username)
         get_db_mgr().sync_clubhouse_reservation_permissions()
+        trigger_gcal_sync(reservation_id, 'sync')
         flash("Payment status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle payment for reservation {reservation_id}. {e}")
@@ -565,6 +588,7 @@ def toggle_deposit(reservation_id):
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'deposit_on_file', new_value, username=username)
         get_db_mgr().sync_clubhouse_reservation_permissions()
+        trigger_gcal_sync(reservation_id, 'sync')
         flash("Deposit status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle deposit for reservation {reservation_id}. {e}")
@@ -581,6 +605,7 @@ def toggle_agreement(reservation_id):
         username = session.get('username', 'system')
         get_db_mgr().update_reservation_status(reservation_id, 'agreement_received', new_value, username=username)
         get_db_mgr().sync_clubhouse_reservation_permissions()
+        trigger_gcal_sync(reservation_id, 'sync')
         flash("Rental agreement status updated.", "success")
     except Exception as e:
         log_info(f"Web UI Error: Failed to toggle agreement for reservation {reservation_id}. {e}")

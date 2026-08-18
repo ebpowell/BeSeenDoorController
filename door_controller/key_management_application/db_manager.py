@@ -916,6 +916,32 @@ class FobDatabaseManager:
                 cur.execute(query)
                 return cur.fetchall()
 
+    def get_reservation_by_id(self, reservation_id):
+        """
+        Fetch a single clubhouse reservation by reservation_id with property address and owner details.
+        """
+        log_info(f"Database: Fetching reservation ID {reservation_id}.")
+        query = """
+            SELECT 
+                r.reservation_id, r.property_id, r.reservation_date, 
+                r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.agreement_received,
+                COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup,
+                COALESCE(r.event_type, 'Private Event') AS event_type,
+                COALESCE(r.reschedule_required, FALSE) AS reschedule_required,
+                r.event_name, r.event_description,
+                r.created_at,
+                p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.clubhouse_reservations r
+            LEFT JOIN key_fobs.properties p ON r.property_id = p.property_id
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            WHERE r.reservation_id = %s;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (reservation_id,))
+                return cur.fetchone()
+
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
                         payment_made=False, deposit_on_file=False, agreement_received=False,

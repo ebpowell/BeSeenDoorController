@@ -108,10 +108,15 @@ class GoogleCalendarSync:
     def is_eligible_for_sync(self, res: Dict[str, Any]) -> bool:
         """
         Determines if a reservation is eligible to be synced to Google Calendar.
-        - Community events / HOA events (or events without property_id that are not explicitly Private Events)
-          do not require payment, deposit, or agreement flags.
-        - Private events MUST have payment_made, deposit_on_file, and agreement_received (or agreement_recieved) all set to True.
+        - Community / HOA / Board events do not require payment, deposit, or agreement flags.
+        - Config option sync_all_reservations: true or require_payment_for_sync: false syncs all reservations.
+        - Private events otherwise require payment_made, deposit_on_file, and agreement_received.
         """
+        config = load_config() or {}
+        gcal_cfg = config.get("gcal", {})
+        if gcal_cfg.get("sync_all_reservations") is True or gcal_cfg.get("require_payment_for_sync") is False:
+            return True
+
         event_type = str(res.get('event_type') or 'Private Event')
         property_id = res.get('property_id')
 
