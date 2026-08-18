@@ -961,6 +961,26 @@ class FobDatabaseManager:
                 cur.execute(query, (reservation_id,))
                 return cur.fetchone()
 
+    def has_deposit_on_file(self, property_id):
+        """
+        Returns True if property_id has an active security deposit ('On File').
+        """
+        if not property_id:
+            return False
+        query = """
+            SELECT COUNT(*) AS cnt 
+            FROM key_fobs.clubhouse_deposits
+            WHERE property_id = %s AND COALESCE(deposit_status, 'On File') = 'On File';
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(query, (property_id,))
+                    row = cur.fetchone()
+                    return bool(row and row['cnt'] > 0)
+        except Exception:
+            return False
+
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
                         payment_made=False, deposit_on_file=False, agreement_received=False,
@@ -972,9 +992,14 @@ class FobDatabaseManager:
         Enforces 24-hour prior calendar availability rule if early_setup is requested.
         Enforces that Community Organization events cannot request early set-up.
         Enforces administrative role restrictions for HOA Events and BoD conflict displacement precedence.
+        Automatically sets deposit_on_file=TRUE if an active deposit exists for property_id.
         """
         log_info(f"Database: Adding reservation for property_id={property_id} on {reservation_date} (blocks={blocks}, event_type={event_type}, early_setup={early_setup}, role={user_role}, event_name={event_name})")
         
+        # Auto-detect if property has an active deposit on file
+        if not deposit_on_file and property_id:
+            deposit_on_file = self.has_deposit_on_file(property_id)
+
         allowed_roles = ['managementco', 'sysadmin', 'secretary', 'management']
         if event_type == 'HOA Event':
             if not user_role or str(user_role).lower() not in allowed_roles:
@@ -1542,6 +1567,7 @@ class FobDatabaseManager:
         """
         List all clubhouse deposits joined with properties, owners, and optional reservations.
         Data is tracked by property_id. Sorted by date_added DESC, deposit_id DESC.
+        Includes covered_reservations_count for the property.
         """
         log_info("Database: Fetching all clubhouse deposits.")
         query = """
@@ -1555,7 +1581,12 @@ class FobDatabaseManager:
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name,
                 o.phone, o.email,
-                r.reservation_date, r.event_name, r.event_type
+                r.reservation_date, r.event_name, r.event_type,
+                (
+                    SELECT COUNT(*) 
+                    FROM key_fobs.clubhouse_reservations res 
+                    WHERE res.property_id = d.property_id
+                ) AS covered_reservations_count
             FROM key_fobs.clubhouse_deposits d
             JOIN key_fobs.properties p ON d.property_id = p.property_id
             LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
@@ -1608,6 +1639,7 @@ class FobDatabaseManager:
                               deposit_date=None, date_added=None, received_by='system'):
         """
         Add a new clubhouse deposit record tracked by property_id.
+        Automatically updates all reservations for this property if deposit_status is 'On File'.
         """
         log_info(f"Database: Adding deposit for property_id={property_id}, amount={amount}, status={deposit_status}")
         self._create_reservation_tables()
@@ -1643,13 +1675,13 @@ class FobDatabaseManager:
                 ))
                 dep_id = cur.fetchone()[0]
 
-                if reservation_id and deposit_status == 'On File':
+                if deposit_status == 'On File':
                     cur.execute("""
                         UPDATE key_fobs.clubhouse_reservations
                         SET deposit_on_file = TRUE,
                             deposit_added_date = %s
-                        WHERE reservation_id = %s;
-                    """, (date_added, reservation_id))
+                        WHERE property_id = %s;
+                    """, (date_added, property_id))
                 self.log_audit_action(
                     cur, received_by, "Record Clubhouse Deposit",
                     f"Recorded ${float(amount):.2f} deposit (Status: {deposit_status}, Ref: {check_or_ref_no or 'N/A'}, Date Added: {date_added}) for property_id={property_id}"
@@ -1661,6 +1693,7 @@ class FobDatabaseManager:
     def update_clubhouse_deposit(self, deposit_id, deposit_status, refund_date=None, notes=None, username='system'):
         """
         Update deposit status, refund date, and notes for a deposit record.
+        Updates deposit_on_file for all property reservations based on property deposit status.
         """
         log_info(f"Database: Updating deposit_id={deposit_id} to status={deposit_status}")
         if refund_date and isinstance(refund_date, str):
@@ -1675,26 +1708,27 @@ class FobDatabaseManager:
                 notes = COALESCE(%s, notes),
                 updated_at = CURRENT_TIMESTAMP
             WHERE deposit_id = %s
-            RETURNING property_id, reservation_id;
+            RETURNING property_id;
         """
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (deposit_status, refund_date, notes, deposit_id))
                 row = cur.fetchone()
-                if row and row['reservation_id']:
-                    res_id = row['reservation_id']
-                    if deposit_status in ('Refunded', 'Forfeited'):
-                        cur.execute("""
-                            UPDATE key_fobs.clubhouse_reservations
-                            SET deposit_on_file = FALSE
-                            WHERE reservation_id = %s;
-                        """, (res_id,))
-                    elif deposit_status == 'On File':
-                        cur.execute("""
-                            UPDATE key_fobs.clubhouse_reservations
-                            SET deposit_on_file = TRUE
-                            WHERE reservation_id = %s;
-                        """, (res_id,))
+                if row and (row.get('property_id') if isinstance(row, dict) else row[0]):
+                    prop_id = row.get('property_id') if isinstance(row, dict) else row[0]
+                    cur.execute("""
+                        SELECT COUNT(*) AS cnt FROM key_fobs.clubhouse_deposits
+                        WHERE property_id = %s AND COALESCE(deposit_status, 'On File') = 'On File';
+                    """, (prop_id,))
+                    cnt_row = cur.fetchone()
+                    cnt_val = cnt_row.get('cnt') if isinstance(cnt_row, dict) else (cnt_row[0] if (isinstance(cnt_row, (tuple, list)) and len(cnt_row) > 0) else cnt_row)
+                    has_active = bool(cnt_val and (cnt_val > 0 if isinstance(cnt_val, (int, float)) else True))
+                    cur.execute("""
+                        UPDATE key_fobs.clubhouse_reservations
+                        SET deposit_on_file = %s
+                        WHERE property_id = %s;
+                    """, (has_active, prop_id))
+
                 self.log_audit_action(
                     cur, username, "Update Deposit Status",
                     f"Updated deposit #{deposit_id} to status '{deposit_status}'"
@@ -1703,13 +1737,31 @@ class FobDatabaseManager:
 
     def delete_clubhouse_deposit(self, deposit_id, username='system'):
         """
-        Delete a clubhouse deposit record.
+        Delete a clubhouse deposit record and update property reservations.
         """
         log_info(f"Database: Deleting deposit_id={deposit_id}")
-        query = "DELETE FROM key_fobs.clubhouse_deposits WHERE deposit_id = %s;"
         with self._get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, (deposit_id,))
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT property_id FROM key_fobs.clubhouse_deposits WHERE deposit_id = %s;", (deposit_id,))
+                row = cur.fetchone()
+                prop_id = row.get('property_id') if isinstance(row, dict) else (row[0] if (isinstance(row, (tuple, list)) and len(row) > 0) else row)
+
+                cur.execute("DELETE FROM key_fobs.clubhouse_deposits WHERE deposit_id = %s;", (deposit_id,))
+
+                if prop_id:
+                    cur.execute("""
+                        SELECT COUNT(*) AS cnt FROM key_fobs.clubhouse_deposits
+                        WHERE property_id = %s AND COALESCE(deposit_status, 'On File') = 'On File';
+                    """, (prop_id,))
+                    cnt_row = cur.fetchone()
+                    cnt_val = cnt_row.get('cnt') if isinstance(cnt_row, dict) else (cnt_row[0] if (isinstance(cnt_row, (tuple, list)) and len(cnt_row) > 0) else cnt_row)
+                    has_active = bool(cnt_val and (cnt_val > 0 if isinstance(cnt_val, (int, float)) else True))
+                    cur.execute("""
+                        UPDATE key_fobs.clubhouse_reservations
+                        SET deposit_on_file = %s
+                        WHERE property_id = %s;
+                    """, (has_active, prop_id))
+
                 self.log_audit_action(
                     cur, username, "Delete Clubhouse Deposit",
                     f"Deleted deposit #{deposit_id}"
