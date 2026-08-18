@@ -143,6 +143,22 @@ INSERT INTO key_fobs.reservation_fee_config (config_key, fee_amount, description
 ('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
 ON CONFLICT (config_key) DO NOTHING;
 
+-- Create key_fobs.clubhouse_deposits table
+CREATE TABLE IF NOT EXISTS key_fobs.clubhouse_deposits (
+    deposit_id SERIAL PRIMARY KEY,
+    property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
+    reservation_id INT REFERENCES key_fobs.clubhouse_reservations(reservation_id) ON DELETE SET NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
+    deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
+    deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    check_or_ref_no VARCHAR(100),
+    received_by VARCHAR(100),
+    refund_date DATE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create key_fobs.vint_acl_data table (Access Control List Rules)
 CREATE TABLE IF NOT EXISTS key_fobs.vint_acl_data (
     fob_id INT NOT NULL,

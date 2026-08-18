@@ -54,6 +54,21 @@ class FobDatabaseManager:
                         ('single_block_fee', 15.00, 'Fee for reserving a single time block'),
                         ('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
                         ON CONFLICT (config_key) DO NOTHING;
+
+                        CREATE TABLE IF NOT EXISTS key_fobs.clubhouse_deposits (
+                            deposit_id SERIAL PRIMARY KEY,
+                            property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
+                            reservation_id INT REFERENCES key_fobs.clubhouse_reservations(reservation_id) ON DELETE SET NULL,
+                            amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
+                            deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
+                            deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                            check_or_ref_no VARCHAR(100),
+                            received_by VARCHAR(100),
+                            refund_date DATE,
+                            notes TEXT,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        );
                     """)
                 conn.commit()
         except Exception as e:
@@ -1515,6 +1530,179 @@ class FobDatabaseManager:
                     self.log_audit_action(cur, username, "Update Access Rule Times", details)
             conn.commit()
         return rowcount > 0
+
+    # -------------------------------------------------------------------------
+    # Clubhouse Deposits Management
+    # -------------------------------------------------------------------------
+    def list_clubhouse_deposits(self):
+        """
+        List all clubhouse deposits joined with properties, owners, and optional reservations.
+        Data is tracked by property_id. Sorted by deposit_date DESC, deposit_id DESC.
+        """
+        log_info("Database: Fetching all clubhouse deposits.")
+        query = """
+            SELECT 
+                d.deposit_id, d.property_id, d.reservation_id,
+                COALESCE(d.amount, 150.00) AS amount,
+                COALESCE(d.deposit_status, 'On File') AS deposit_status,
+                d.deposit_date, d.check_or_ref_no, d.received_by,
+                d.refund_date, d.notes, d.created_at, d.updated_at,
+                p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name,
+                o.phone, o.email,
+                r.reservation_date, r.event_name, r.event_type
+            FROM key_fobs.clubhouse_deposits d
+            JOIN key_fobs.properties p ON d.property_id = p.property_id
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            LEFT JOIN key_fobs.clubhouse_reservations r ON d.reservation_id = r.reservation_id
+            ORDER BY d.deposit_date DESC, d.deposit_id DESC;
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(query)
+                    return cur.fetchall()
+        except Exception as e:
+            log_info(f"Database: Error listing clubhouse deposits: {e}. Attempting auto-creation.")
+            self._create_reservation_tables()
+            try:
+                with self._get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(query)
+                        return cur.fetchall()
+            except Exception as e2:
+                log_info(f"Database: Secondary error listing clubhouse deposits: {e2}")
+                return []
+
+    def get_deposit_by_id(self, deposit_id):
+        """
+        Fetch a single deposit record by deposit_id.
+        """
+        query = """
+            SELECT 
+                d.deposit_id, d.property_id, d.reservation_id,
+                COALESCE(d.amount, 150.00) AS amount,
+                COALESCE(d.deposit_status, 'On File') AS deposit_status,
+                d.deposit_date, d.check_or_ref_no, d.received_by,
+                d.refund_date, d.notes, d.created_at, d.updated_at,
+                p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.clubhouse_deposits d
+            JOIN key_fobs.properties p ON d.property_id = p.property_id
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            WHERE d.deposit_id = %s;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (deposit_id,))
+                return cur.fetchone()
+
+    def add_clubhouse_deposit(self, property_id, amount=150.00, deposit_status='On File', 
+                              check_or_ref_no=None, notes=None, reservation_id=None, 
+                              deposit_date=None, received_by='system'):
+        """
+        Add a new clubhouse deposit record tracked by property_id.
+        """
+        log_info(f"Database: Adding deposit for property_id={property_id}, amount={amount}, status={deposit_status}")
+        self._create_reservation_tables()
+
+        if not deposit_date:
+            deposit_date = datetime.date.today()
+        elif isinstance(deposit_date, str):
+            deposit_date = datetime.datetime.strptime(deposit_date, "%Y-%m-%d").date()
+
+        if reservation_id:
+            try:
+                reservation_id = int(reservation_id)
+            except (ValueError, TypeError):
+                reservation_id = None
+
+        query = """
+            INSERT INTO key_fobs.clubhouse_deposits (
+                property_id, reservation_id, amount, deposit_status, deposit_date,
+                check_or_ref_no, received_by, notes
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING deposit_id;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (
+                    property_id, reservation_id, amount, deposit_status, deposit_date,
+                    check_or_ref_no, received_by, notes
+                ))
+                dep_id = cur.fetchone()[0]
+
+                if reservation_id and deposit_status == 'On File':
+                    cur.execute("""
+                        UPDATE key_fobs.clubhouse_reservations
+                        SET deposit_on_file = TRUE
+                        WHERE reservation_id = %s;
+                    """, (reservation_id,))
+                self.log_audit_action(
+                    cur, received_by, "Record Clubhouse Deposit",
+                    f"Recorded ${float(amount):.2f} deposit (Status: {deposit_status}, Ref: {check_or_ref_no or 'N/A'}) for property_id={property_id}"
+                )
+            conn.commit()
+
+        return dep_id
+
+    def update_clubhouse_deposit(self, deposit_id, deposit_status, refund_date=None, notes=None, username='system'):
+        """
+        Update deposit status, refund date, and notes for a deposit record.
+        """
+        log_info(f"Database: Updating deposit_id={deposit_id} to status={deposit_status}")
+        if refund_date and isinstance(refund_date, str):
+            refund_date = datetime.datetime.strptime(refund_date, "%Y-%m-%d").date()
+        elif deposit_status == 'Refunded' and not refund_date:
+            refund_date = datetime.date.today()
+
+        query = """
+            UPDATE key_fobs.clubhouse_deposits
+            SET deposit_status = %s,
+                refund_date = %s,
+                notes = COALESCE(%s, notes),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE deposit_id = %s
+            RETURNING property_id, reservation_id;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (deposit_status, refund_date, notes, deposit_id))
+                row = cur.fetchone()
+                if row and row['reservation_id']:
+                    res_id = row['reservation_id']
+                    if deposit_status in ('Refunded', 'Forfeited'):
+                        cur.execute("""
+                            UPDATE key_fobs.clubhouse_reservations
+                            SET deposit_on_file = FALSE
+                            WHERE reservation_id = %s;
+                        """, (res_id,))
+                    elif deposit_status == 'On File':
+                        cur.execute("""
+                            UPDATE key_fobs.clubhouse_reservations
+                            SET deposit_on_file = TRUE
+                            WHERE reservation_id = %s;
+                        """, (res_id,))
+                self.log_audit_action(
+                    cur, username, "Update Deposit Status",
+                    f"Updated deposit #{deposit_id} to status '{deposit_status}'"
+                )
+            conn.commit()
+
+    def delete_clubhouse_deposit(self, deposit_id, username='system'):
+        """
+        Delete a clubhouse deposit record.
+        """
+        log_info(f"Database: Deleting deposit_id={deposit_id}")
+        query = "DELETE FROM key_fobs.clubhouse_deposits WHERE deposit_id = %s;"
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (deposit_id,))
+                self.log_audit_action(
+                    cur, username, "Delete Clubhouse Deposit",
+                    f"Deleted deposit #{deposit_id}"
+                )
+            conn.commit()
 
 
 

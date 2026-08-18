@@ -753,6 +753,118 @@ def toggle_agreement(reservation_id):
 
     return redirect(url_for('reservations'))
 
+@app.route('/deposits', methods=['GET', 'POST'])
+@login_required
+def deposits():
+    if request.method == 'POST':
+        property_id_str = request.form.get('property_id', '').strip()
+        amount_str = request.form.get('amount', '150.00').strip()
+        deposit_status = request.form.get('deposit_status', 'On File').strip()
+        check_or_ref_no = request.form.get('check_or_ref_no', '').strip()
+        deposit_date = request.form.get('deposit_date', '').strip()
+        reservation_id = request.form.get('reservation_id', '').strip()
+        notes = request.form.get('notes', '').strip()
+
+        if not property_id_str:
+            flash("Property is required to record a deposit.", "warning")
+            return redirect(url_for('deposits'))
+
+        try:
+            property_id = int(property_id_str)
+            try:
+                amount = float(amount_str)
+            except ValueError:
+                amount = 150.00
+
+            username = session.get('username', 'system')
+            dep_id = get_db_mgr().add_clubhouse_deposit(
+                property_id=property_id,
+                amount=amount,
+                deposit_status=deposit_status,
+                check_or_ref_no=check_or_ref_no if check_or_ref_no else None,
+                deposit_date=deposit_date if deposit_date else None,
+                reservation_id=reservation_id if reservation_id else None,
+                notes=notes if notes else None,
+                received_by=username
+            )
+            flash(f"Clubhouse security deposit of ${amount:.2f} recorded successfully (Deposit #{dep_id}).", "success")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add deposit. {e}")
+            flash(f"Database error recording deposit: {e}", "danger")
+
+        return redirect(url_for('deposits'))
+
+    # GET request
+    try:
+        deposit_list = get_db_mgr().list_clubhouse_deposits()
+        properties = get_db_mgr().list_properties()
+        reservations = get_db_mgr().list_reservations()
+
+        total_on_file = sum(float(d.get('amount', 0)) for d in deposit_list if d.get('deposit_status') == 'On File')
+        total_refunded = sum(float(d.get('amount', 0)) for d in deposit_list if d.get('deposit_status') == 'Refunded')
+        total_forfeited = sum(float(d.get('amount', 0)) for d in deposit_list if d.get('deposit_status') == 'Forfeited')
+        active_count = sum(1 for d in deposit_list if d.get('deposit_status') == 'On File')
+
+        return render_template(
+            'deposits.html',
+            deposits=deposit_list,
+            properties=properties,
+            reservations=reservations,
+            total_on_file=total_on_file,
+            total_refunded=total_refunded,
+            total_forfeited=total_forfeited,
+            active_count=active_count
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load deposits page. {e}")
+        flash(f"Error loading deposits: {e}", "danger")
+        return render_template(
+            'deposits.html',
+            deposits=[],
+            properties=[],
+            reservations=[],
+            total_on_file=0.0,
+            total_refunded=0.0,
+            total_forfeited=0.0,
+            active_count=0
+        )
+
+@app.route('/deposits/update/<int:deposit_id>', methods=['POST'])
+@login_required
+def update_deposit(deposit_id):
+    try:
+        deposit_status = request.form.get('deposit_status', 'On File').strip()
+        refund_date = request.form.get('refund_date', '').strip()
+        notes = request.form.get('notes', '').strip()
+        username = session.get('username', 'system')
+
+        get_db_mgr().update_clubhouse_deposit(
+            deposit_id=deposit_id,
+            deposit_status=deposit_status,
+            refund_date=refund_date if refund_date else None,
+            notes=notes if notes else None,
+            username=username
+        )
+        flash(f"Deposit #{deposit_id} status updated to '{deposit_status}'.", "success")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to update deposit #{deposit_id}. {e}")
+        flash(f"Database error updating deposit: {e}", "danger")
+
+    return redirect(url_for('deposits'))
+
+@app.route('/deposits/delete/<int:deposit_id>', methods=['POST'])
+@login_required
+def delete_deposit(deposit_id):
+    try:
+        username = session.get('username', 'system')
+        get_db_mgr().delete_clubhouse_deposit(deposit_id, username=username)
+        flash(f"Deposit #{deposit_id} deleted successfully.", "success")
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to delete deposit #{deposit_id}. {e}")
+        flash(f"Database error deleting deposit: {e}", "danger")
+
+    return redirect(url_for('deposits'))
+
 @app.route('/doors')
 @login_required
 def doors():
