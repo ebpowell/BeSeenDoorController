@@ -25,11 +25,22 @@ class GoogleCalendarSync:
         service_account_file: Optional[str] = None,
         calendar_id: Optional[str] = None,
         timezone: Optional[str] = None,
+        sync_mode: Optional[str] = None,
         db_manager: Any = None
     ):
         config = load_config() or {}
         gcal_cfg = config.get("gcal", {})
         settings_cfg = config.get("settings", {})
+
+        # Sync Mode resolution: 'application', 'database', 'both', 'disabled'
+        raw_mode = (
+            sync_mode
+            or os.environ.get("GCAL_SYNC_MODE")
+            or gcal_cfg.get("sync_mode")
+            or settings_cfg.get("gcal_sync_mode")
+            or "both"
+        )
+        self.sync_mode = str(raw_mode).strip().lower()
 
         # Service Account File resolution
         sa_file = (
@@ -89,7 +100,7 @@ class GoogleCalendarSync:
                     self.service_account_file, scopes=scopes
                 )
                 self.calendar_service = build('calendar', 'v3', credentials=creds)
-                log_info(f"GoogleCalendarSync: Initialized Google Calendar service with {self.service_account_file}")
+                log_info(f"GoogleCalendarSync: Initialized Google Calendar service with {self.service_account_file} (sync_mode='{self.sync_mode}')")
             except Exception as e:
                 log_error(f"GoogleCalendarSync Warning: Could not initialize Google Calendar service: {e}")
         else:
@@ -104,6 +115,14 @@ class GoogleCalendarSync:
                 "When using a Google Service Account, 'primary' or service account email targets the Service Account's private calendar. "
                 "To display events in a human user/community Google Calendar, set calendar_id to the shared Google Calendar ID in config.yaml."
             )
+
+    def is_application_sync_enabled(self) -> bool:
+        """Returns True if sync_mode allows application-level sync (application, both, all)."""
+        return self.sync_mode in ('application', 'app', 'web_app', 'both', 'all')
+
+    def is_database_sync_enabled(self) -> bool:
+        """Returns True if sync_mode allows database trigger-level sync (database, db, postgres, both, all)."""
+        return self.sync_mode in ('database', 'db', 'postgres', 'both', 'all')
 
     def is_eligible_for_sync(self, res: Dict[str, Any]) -> bool:
         """
@@ -358,6 +377,13 @@ class GoogleCalendarSync:
         """
         Processes a PostgreSQL trigger event (INSERT, UPDATE, DELETE).
         """
+        if not self.is_database_sync_enabled():
+            log_info(f"GoogleCalendarSync Notice: Database trigger sync is disabled by configuration (sync_mode='{self.sync_mode}').")
+            return {
+                'action': 'skipped_disabled',
+                'reason': f"Database trigger sync is disabled by configuration (sync_mode='{self.sync_mode}')."
+            }
+
         event_upper = (event_type or "").upper()
         if event_upper in ("INSERT", "UPDATE"):
             if not new_row:

@@ -22,6 +22,7 @@ settings:
   gcal_timezone: America/New_York
 
 gcal:
+  sync_mode: application  # Options: application, database, both, disabled
   service_account_file: config/service_account.json
   calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
   timezone: America/New_York

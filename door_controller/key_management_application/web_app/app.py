@@ -117,12 +117,15 @@ def get_db_mgr():
 
 def trigger_gcal_sync(reservation_id, action='sync'):
     """
-    Triggers Google Calendar synchronization directly from Web UI application actions.
+    Triggers Google Calendar synchronization directly from Web UI application actions if application sync_mode is enabled.
     Supports action='sync' (insert/update) or action='delete'.
     """
     try:
         from door_controller.common_lib.gcal_sync import GoogleCalendarSync
         syncer = GoogleCalendarSync()
+        if not syncer.is_application_sync_enabled():
+            log_info(f"Web UI GCal Sync Notice: Application-level sync is disabled by configuration (sync_mode='{syncer.sync_mode}').")
+            return
         if action == 'delete':
             res = syncer.delete_single_reservation(reservation_id)
             log_info(f"Web UI GCal Sync (Delete) for Reservation #{reservation_id}: {res.get('action')}")
