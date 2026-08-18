@@ -107,41 +107,45 @@ class FobDatabaseManager:
                     )
                     v_row = cur.fetchone()
                     if v_row and v_row[0] == 'VIEW':
-                        cur.execute("""
-                            CREATE OR REPLACE VIEW key_fobs.vint_acl_data AS
-                            SELECT 
-                                k.fob_id,
-                                gp.door_id,
-                                d.door_no,
-                                d.controller_ip,
-                                gp.allow,
-                                gp.start_time,
-                                gp.end_time,
-                                COALESCE(
-                                    CASE 
-                                        WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-                                        ELSE NULL
-                                    END,
-                                    gp.start_date,
-                                    '2000-01-01'::date
-                                ) AS start_date,
-                                COALESCE(
-                                    CASE 
-                                        WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-                                        ELSE NULL
-                                    END,
-                                    gp.end_date,
-                                    '2099-12-31'::date
-                                ) AS end_date
-                            FROM key_fobs.group_permissions gp
-                            JOIN key_fobs.groups g ON gp.group_id = g.group_id
-                            JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
-                            JOIN key_fobs.properties p ON pgp.property_id = p.property_id
-                            JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
-                            JOIN door_controller.door d ON gp.door_id = d.door_id;
-                        """)
+                        try:
+                            cur.execute("DROP VIEW IF EXISTS key_fobs.vint_acl_data CASCADE;")
+                            cur.execute("""
+                                CREATE VIEW key_fobs.vint_acl_data AS
+                                SELECT 
+                                    k.fob_id,
+                                    gp.door_id,
+                                    d.door_no,
+                                    d.controller_ip,
+                                    gp.allow,
+                                    gp.start_time,
+                                    gp.end_time,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
+                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.start_date,
+                                        '2000-01-01'::date
+                                    ) AS start_date,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
+                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.end_date,
+                                        '2099-12-31'::date
+                                    ) AS end_date
+                                FROM key_fobs.group_permissions gp
+                                JOIN key_fobs.groups g ON gp.group_id = g.group_id
+                                JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
+                                JOIN key_fobs.properties p ON pgp.property_id = p.property_id
+                                JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
+                                JOIN door_controller.door d ON gp.door_id = d.door_id;
+                            """)
+                        except Exception as ve:
+                            log_info(f"Notice recreating vint_acl_data view: {ve}")
 
                     # 3. Create or replace f_get_permissions function
                     cur.execute("""
