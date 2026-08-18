@@ -485,6 +485,72 @@ def reservations():
         flash(f"Error loading reservations: {e}", "danger")
         return render_template('reservations.html', reservations=[], properties=[], blocks_list=[], fee_config={'single_block_fee': 15.0, 'multi_block_fee': 30.0})
 
+def generate_recurring_dates(recurrence_type, start_date_str, occurrences=6, ordinal=1, day_of_week=0, day_of_month=15):
+    """
+    Generates a list of datetime.date objects for a recurring schedule.
+    """
+    import calendar, datetime
+    dates = []
+    if isinstance(start_date_str, str):
+        curr_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    else:
+        curr_date = start_date_str
+
+    if recurrence_type == 'nth_weekday':
+        # E.g., 2nd Thursday (ordinal=2, day_of_week=3 [0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun])
+        year = curr_date.year
+        month = curr_date.month
+        
+        while len(dates) < occurrences:
+            cal = calendar.monthcalendar(year, month)
+            matching_days = [week[day_of_week] for week in cal if week[day_of_week] != 0]
+            if matching_days:
+                if ordinal == 5 or ordinal > len(matching_days):
+                    target_day = matching_days[-1]
+                else:
+                    target_day = matching_days[ordinal - 1]
+                
+                target_date = datetime.date(year, month, target_day)
+                if target_date >= curr_date:
+                    dates.append(target_date)
+            
+            if month == 12:
+                month = 1
+                year += 1
+            else:
+                month += 1
+
+    elif recurrence_type == 'weekly':
+        # Every week on day_of_week
+        days_ahead = day_of_week - curr_date.weekday()
+        if days_ahead < 0:
+            days_ahead += 7
+        target_date = curr_date + datetime.timedelta(days=days_ahead)
+        
+        while len(dates) < occurrences:
+            dates.append(target_date)
+            target_date += datetime.timedelta(weeks=1)
+
+    elif recurrence_type == 'day_of_month':
+        # E.g., 15th of every month
+        year = curr_date.year
+        month = curr_date.month
+        
+        while len(dates) < occurrences:
+            _, max_days = calendar.monthrange(year, month)
+            target_day = min(day_of_month, max_days)
+            target_date = datetime.date(year, month, target_day)
+            if target_date >= curr_date:
+                dates.append(target_date)
+            
+            if month == 12:
+                month = 1
+                year += 1
+            else:
+                month += 1
+
+    return dates
+
 @app.route('/reservations/hoa', methods=['GET', 'POST'])
 @login_required
 def hoa_reservations():
@@ -495,12 +561,13 @@ def hoa_reservations():
         return redirect(url_for('reservations'))
 
     if request.method == 'POST':
-        reservation_date = request.form.get('reservation_date', '').strip()
+        schedule_type = request.form.get('schedule_type', 'single').strip()
         event_name = request.form.get('event_name', '').strip()
         event_description = request.form.get('event_description', '').strip()
+        blocks = request.form.getlist('blocks')
 
-        if not reservation_date or not event_name:
-            flash("Reservation Date and Event Name are required for HOA Events.", "warning")
+        if not event_name:
+            flash("Event Name is required for HOA Events.", "warning")
             return redirect(url_for('hoa_reservations'))
 
         try:
@@ -508,25 +575,94 @@ def hoa_reservations():
             props = get_db_mgr().list_properties()
             property_id = props[0]['property_id'] if props else 10001
 
-            res_id, displaced = get_db_mgr().add_reservation(
-                property_id=property_id,
-                reservation_date=reservation_date,
-                event_type='HOA Event',
-                event_name=event_name,
-                event_description=event_description,
-                user_role=user_role,
-                username=username
-            )
-            get_db_mgr().sync_clubhouse_reservation_permissions()
-            trigger_gcal_sync(res_id, 'sync')
+            if schedule_type == 'recurring':
+                recurrence_type = request.form.get('recurrence_type', 'nth_weekday')
+                try:
+                    ordinal = int(request.form.get('ordinal', 2))
+                    day_of_week = int(request.form.get('day_of_week', 3))
+                    day_of_month = int(request.form.get('day_of_month', 15))
+                    occurrences = int(request.form.get('occurrences', 6))
+                except ValueError:
+                    ordinal, day_of_week, day_of_month, occurrences = 2, 3, 15, 6
 
-            flash(f"Official HOA Event '{event_name}' scheduled successfully for {reservation_date}!", "success")
-            if displaced:
-                for d in displaced:
-                    addr = d.get('address', 'Unknown Property')
-                    fee_val = float(d.get('fee', 15.00))
-                    res_id_val = d.get('reservation_id', '')
-                    flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
+                start_date_str = request.form.get('start_date', '').strip()
+                if not start_date_str:
+                    import datetime
+                    start_date_str = datetime.date.today().strftime('%Y-%m-%d')
+
+                target_dates = generate_recurring_dates(
+                    recurrence_type=recurrence_type,
+                    start_date_str=start_date_str,
+                    occurrences=occurrences,
+                    ordinal=ordinal,
+                    day_of_week=day_of_week,
+                    day_of_month=day_of_month
+                )
+
+                if not target_dates:
+                    flash("No matching dates generated for the selected recurrence pattern.", "danger")
+                    return redirect(url_for('hoa_reservations'))
+
+                total_created = 0
+                all_displaced = []
+                created_dates_str = []
+
+                for t_date in target_dates:
+                    date_fmt = t_date.strftime('%Y-%m-%d')
+                    res_id, displaced = get_db_mgr().add_reservation(
+                        property_id=property_id,
+                        reservation_date=date_fmt,
+                        blocks=blocks if blocks else None,
+                        event_type='HOA Event',
+                        event_name=event_name,
+                        event_description=event_description,
+                        user_role=user_role,
+                        username=username
+                    )
+                    total_created += 1
+                    created_dates_str.append(date_fmt)
+                    if displaced:
+                        all_displaced.extend(displaced)
+                    trigger_gcal_sync(res_id, 'sync')
+
+                get_db_mgr().sync_clubhouse_reservation_permissions()
+
+                ord_name = {1:'1st', 2:'2nd', 3:'3rd', 4:'4th', 5:'Last'}.get(ordinal, 'Nth')
+                dow_name = {0:'Monday', 1:'Tuesday', 2:'Wednesday', 3:'Thursday', 4:'Friday', 5:'Saturday', 6:'Sunday'}.get(day_of_week, '')
+                pattern_desc = f"{ord_name} {dow_name} of every month" if recurrence_type == 'nth_weekday' else f"Every {dow_name}" if recurrence_type == 'weekly' else f"Day {day_of_month} of every month"
+
+                flash(f"Successfully scheduled {total_created} recurring HOA Events for '{pattern_desc}'! Dates: {', '.join(created_dates_str)}", "success")
+
+                if all_displaced:
+                    dis_details = ", ".join([f"Reservation #{d.get('reservation_id')} ({d.get('address')})" for d in all_displaced])
+                    flash(f"CONFLICT WARNING: {len(all_displaced)} private reservation(s) were displaced by recurring HOA events ({dis_details}). Marked for rescheduling; fee refunds required.", "warning")
+
+            else:
+                reservation_date = request.form.get('reservation_date', '').strip()
+                if not reservation_date:
+                    flash("Reservation Date is required.", "warning")
+                    return redirect(url_for('hoa_reservations'))
+
+                res_id, displaced = get_db_mgr().add_reservation(
+                    property_id=property_id,
+                    reservation_date=reservation_date,
+                    blocks=blocks if blocks else None,
+                    event_type='HOA Event',
+                    event_name=event_name,
+                    event_description=event_description,
+                    user_role=user_role,
+                    username=username
+                )
+                get_db_mgr().sync_clubhouse_reservation_permissions()
+                trigger_gcal_sync(res_id, 'sync')
+
+                flash(f"Official HOA Event '{event_name}' scheduled successfully for {reservation_date}!", "success")
+                if displaced:
+                    for d in displaced:
+                        addr = d.get('address', 'Unknown Property')
+                        fee_val = float(d.get('fee', 15.00))
+                        res_id_val = d.get('reservation_id', '')
+                        flash(f"CONFLICT DETECTED: Reservation #{res_id_val} for '{addr}' was displaced by the HOA Event and marked for rescheduling. Early set-up revoked. Action Required: Issue fee refund of ${fee_val:.2f} to property owner.", "warning")
         except ValueError as ve:
             flash(str(ve), "danger")
         except Exception as e:
@@ -538,11 +674,12 @@ def hoa_reservations():
     # GET request
     try:
         res_list = get_db_mgr().list_reservations()
-        return render_template('hoa_reservations.html', reservations=res_list)
+        blocks_list = get_db_mgr().list_reservation_blocks()
+        return render_template('hoa_reservations.html', reservations=res_list, blocks_list=blocks_list)
     except Exception as e:
         log_info(f"Web UI Error: Failed to load HOA reservations page. {e}")
         flash(f"Error loading HOA reservations: {e}", "danger")
-        return render_template('hoa_reservations.html', reservations=[])
+        return render_template('hoa_reservations.html', reservations=[], blocks_list=[])
 
 @app.route('/reservations/delete/<int:reservation_id>', methods=['POST'])
 @login_required

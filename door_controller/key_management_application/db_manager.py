@@ -1008,7 +1008,19 @@ class FobDatabaseManager:
         if event_type == 'HOA Event':
             early_setup = False
             calc_fee = 0.00
-            block_tuples = [('08:00:00', '23:00:00')]
+            block_tuples = []
+            if blocks:
+                active_blocks = self.list_reservation_blocks()
+                block_map = {}
+                for b in active_blocks:
+                    s_time = str(b['start_time']) if hasattr(b['start_time'], 'strftime') else str(b['start_time'])
+                    e_time = str(b['end_time']) if hasattr(b['end_time'], 'strftime') else str(b['end_time'])
+                    block_map[b['block_key']] = (s_time, e_time)
+                for b in blocks:
+                    if b in block_map:
+                        block_tuples.append(block_map[b])
+            if not block_tuples:
+                block_tuples = [('08:00:00', '23:00:00')]
         else:
             if early_setup:
                 if self.has_reservations_in_previous_24h(res_date_obj):

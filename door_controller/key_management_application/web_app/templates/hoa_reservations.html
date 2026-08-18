@@ -1,6 +1,57 @@
 {% extends 'base.html' %}
 
-{% block title %}HOA Board Events{% endblock %}
+{% block title %}HOA Board & Community Events{% endblock %}
+
+{% block extra_head %}
+<style>
+    .schedule-type-toggle {
+        display: flex;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 1.25rem;
+    }
+    .schedule-option {
+        flex: 1;
+        text-align: center;
+        padding: 0.6rem 1rem;
+        cursor: pointer;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        transition: all 0.25 ease;
+    }
+    .schedule-option.active {
+        background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(99, 102, 241, 0.3));
+        border: 1px solid rgba(168, 85, 247, 0.5);
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+    }
+
+    .recurrence-box {
+        background: rgba(168, 85, 247, 0.05);
+        border: 1px solid rgba(168, 85, 247, 0.2);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .grid-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .block-selection-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -11,21 +62,148 @@
                 <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="color: #c084fc;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4-8l2-2m0 0l2 2m-2-2v6"></path>
                 </svg>
-                Schedule HOA Board Event
+                Schedule HOA / Community Event
             </h2>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.4;">
-                Administrative portal for Board of Directors & Management Company events. HOA Events reserve the entire clubhouse for the full day ($0.00 fee rate) and take absolute precedence over private reservations.
+                Administrative portal for Board of Directors & Community events. HOA Events take absolute precedence over private reservations and auto-displace conflicts.
             </p>
 
             <form id="hoaReserveForm" action="/reservations/hoa" method="POST">
-                <div class="form-group">
-                    <label for="event_name">Event Name *</label>
-                    <input type="text" id="event_name" name="event_name" placeholder="e.g., Annual HOA General Meeting" required style="width: 100%;">
+                <input type="hidden" id="schedule_type" name="schedule_type" value="single">
+
+                <!-- Schedule Mode Selector -->
+                <div class="schedule-type-toggle">
+                    <div class="schedule-option active" id="optSingle" onclick="setScheduleMode('single')">
+                        📅 Single Event
+                    </div>
+                    <div class="schedule-option" id="optRecurring" onclick="setScheduleMode('recurring')">
+                        🔄 Recurring Series
+                    </div>
                 </div>
 
                 <div class="form-group">
+                    <label for="event_name">Event Name *</label>
+                    <input type="text" id="event_name" name="event_name" placeholder="e.g., Board General Meeting, Bunco Night" required style="width: 100%;">
+                </div>
+
+                <!-- Single Event Date Picker -->
+                <div class="form-group" id="singleDateGroup">
                     <label for="reservation_date">Event Date *</label>
                     <input type="date" id="reservation_date" name="reservation_date" required style="width: 100%;">
+                </div>
+
+                <!-- Recurring Event Options Panel -->
+                <div class="recurrence-box" id="recurringPanel" style="display: none;">
+                    <h4 style="margin-top: 0; margin-bottom: 0.85rem; color: #d8b4fe; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Recurring Pattern Settings
+                    </h4>
+
+                    <div class="form-group" style="margin-bottom: 0.85rem;">
+                        <label for="recurrence_type">Pattern Type</label>
+                        <select id="recurrence_type" name="recurrence_type" class="form-control" onchange="onRecurrencePatternChange()" style="width: 100%; padding: 0.6rem 0.85rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: #ffffff;">
+                            <option value="nth_weekday" selected>Nth Weekday of Month (e.g., 2nd Thursday, 4th Tuesday)</option>
+                            <option value="weekly">Weekly (e.g., Every Thursday)</option>
+                            <option value="day_of_month">Specific Day of Month (e.g., 15th of every month)</option>
+                        </select>
+                    </div>
+
+                    <!-- Nth Weekday Selectors -->
+                    <div class="grid-2col" id="nthWeekdayGroup" style="margin-bottom: 0.85rem;">
+                        <div>
+                            <label for="ordinal">Occurrence</label>
+                            <select id="ordinal" name="ordinal" class="form-control" onchange="updateRecurrencePreview()" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: #ffffff;">
+                                <option value="1">1st</option>
+                                <option value="2" selected>2nd</option>
+                                <option value="3">3rd</option>
+                                <option value="4">4th</option>
+                                <option value="5">Last</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="day_of_week">Day of Week</label>
+                            <select id="day_of_week" name="day_of_week" class="form-control" onchange="updateRecurrencePreview()" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: rgba(15, 17, 26, 0.95); border: 1px solid var(--card-border); color: #ffffff;">
+                                <option value="0">Monday</option>
+                                <option value="1">Tuesday</option>
+                                <option value="2">Wednesday</option>
+                                <option value="3" selected>Thursday</option>
+                                <option value="4">Friday</option>
+                                <option value="5">Saturday</option>
+                                <option value="6">Sunday</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Specific Day of Month Input -->
+                    <div class="form-group" id="dayOfMonthGroup" style="display: none; margin-bottom: 0.85rem;">
+                        <label for="day_of_month">Day of Month (1 - 31)</label>
+                        <input type="number" id="day_of_month" name="day_of_month" value="15" min="1" max="31" onchange="updateRecurrencePreview()" style="width: 100%;">
+                    </div>
+
+                    <div class="grid-2col">
+                        <div>
+                            <label for="start_date">Start Date</label>
+                            <input type="date" id="start_date" name="start_date" onchange="updateRecurrencePreview()" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label for="occurrences">Series Length (# Months)</label>
+                            <input type="number" id="occurrences" name="occurrences" value="6" min="1" max="24" onchange="updateRecurrencePreview()" style="width: 100%;">
+                        </div>
+                    </div>
+
+                    <div id="recurrencePreviewText" style="font-size: 0.8rem; color: #c084fc; margin-top: 0.75rem; font-weight: 500;">
+                        Preview: Schedules 6 events on the 2nd Thursday of each month.
+                    </div>
+                </div>
+
+                <!-- Time Blocks Selection -->
+                <div class="form-group">
+                    <div class="block-selection-header">
+                        <label style="margin-bottom: 0;">Reservation Time Block(s)</label>
+                        <button type="button" class="btn btn-secondary" onclick="toggleSelectAllBlocks()" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 4px;">
+                            Select All (Full Day)
+                        </button>
+                    </div>
+
+                    <div class="blocks-container" id="hoaBlocksContainer" style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; margin-bottom: 1.25rem;">
+                        {% if blocks_list %}
+                            {% for block in blocks_list %}
+                                <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.65rem 0.85rem; border-radius: 8px; cursor: pointer;">
+                                    <div>
+                                        <strong style="display: block; color: var(--text-primary); font-size: 0.9rem;">{{ block.block_name }}</strong>
+                                        <span style="font-size: 0.8rem; color: var(--text-secondary);">
+                                            {{ block.start_time.strftime('%H:%M') if block.start_time.strftime else block.start_time }} – {{ block.end_time.strftime('%H:%M') if block.end_time.strftime else block.end_time }}
+                                        </span>
+                                    </div>
+                                    <input type="checkbox" name="blocks" value="{{ block.block_key }}" checked class="hoa-block-cb" style="width: 18px; height: 18px; accent-color: #a855f7;">
+                                </label>
+                            {% endfor %}
+                        {% else %}
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.65rem 0.85rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary); font-size: 0.9rem;">Block 1: Morning</strong>
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary);">08:00 – 12:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block1" checked class="hoa-block-cb" style="width: 18px; height: 18px; accent-color: #a855f7;">
+                            </label>
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.65rem 0.85rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary); font-size: 0.9rem;">Block 2: Afternoon</strong>
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary);">13:00 – 17:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block2" checked class="hoa-block-cb" style="width: 18px; height: 18px; accent-color: #a855f7;">
+                            </label>
+                            <label class="block-card" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 0.65rem 0.85rem; border-radius: 8px; cursor: pointer;">
+                                <div>
+                                    <strong style="display: block; color: var(--text-primary); font-size: 0.9rem;">Block 3: Evening</strong>
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary);">18:00 – 23:00</span>
+                                </div>
+                                <input type="checkbox" name="blocks" value="block3" checked class="hoa-block-cb" style="width: 18px; height: 18px; accent-color: #a855f7;">
+                            </label>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -35,15 +213,15 @@
 
                 <div class="pricing-summary-card" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <span style="font-size: 0.85rem; color: #d8b4fe; display: block; font-weight: 600;">Full-Day Board Precedence</span>
-                        <span style="font-size: 0.75rem; color: var(--text-secondary);">Reserves all time blocks (08:00 – 23:00)</span>
+                        <span style="font-size: 0.85rem; color: #d8b4fe; display: block; font-weight: 600;">HOA Board Precedence</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">Displaces private booking conflicts on matching dates</span>
                     </div>
                     <div style="text-align: right;">
                         <strong style="font-size: 1.25rem; color: #c084fc;">$0.00</strong>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #a855f7, #6366f1); border: none;">
+                <button type="submit" class="btn btn-primary" id="btnSubmit" style="background: linear-gradient(135deg, #a855f7, #6366f1); border: none;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
@@ -102,7 +280,13 @@
                                                 </span>
                                             </td>
                                             <td data-label="Timeslot">
-                                                <span class="badge-success" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">Full Day</span>
+                                                {% if res.from_time or res.to_time %}
+                                                    <span class="badge-success" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; font-family: monospace; font-size: 0.85rem;">
+                                                        {{ res.from_time.strftime('%H:%M') if res.from_time.strftime else res.from_time }} – {{ res.to_time.strftime('%H:%M') if res.to_time.strftime else res.to_time }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge-success" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">Full Day</span>
+                                                {% endif %}
                                             </td>
                                             <td data-label="Rate">
                                                 <strong style="color: #c084fc;">$0.00</strong>
@@ -132,6 +316,95 @@
 
 {% block scripts %}
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set default start_date to today
+        const startDateInput = document.getElementById('start_date');
+        if (startDateInput && !startDateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            startDateInput.value = today;
+        }
+        updateRecurrencePreview();
+    });
+
+    function setScheduleMode(mode) {
+        const scheduleTypeInput = document.getElementById('schedule_type');
+        const optSingle = document.getElementById('optSingle');
+        const optRecurring = document.getElementById('optRecurring');
+        const singleDateGroup = document.getElementById('singleDateGroup');
+        const recurringPanel = document.getElementById('recurringPanel');
+        const reservationDate = document.getElementById('reservation_date');
+        const btnSubmit = document.getElementById('btnSubmit');
+
+        scheduleTypeInput.value = mode;
+
+        if (mode === 'recurring') {
+            optSingle.classList.remove('active');
+            optRecurring.classList.add('active');
+            singleDateGroup.style.display = 'none';
+            recurringPanel.style.display = 'block';
+            reservationDate.removeAttribute('required');
+            btnSubmit.innerHTML = `
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Schedule Recurring Series
+            `;
+        } else {
+            optSingle.classList.add('active');
+            optRecurring.classList.remove('active');
+            singleDateGroup.style.display = 'block';
+            recurringPanel.style.display = 'none';
+            reservationDate.setAttribute('required', 'required');
+            btnSubmit.innerHTML = `
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Schedule HOA Event
+            `;
+        }
+    }
+
+    function onRecurrencePatternChange() {
+        const pattern = document.getElementById('recurrence_type').value;
+        const nthWeekdayGroup = document.getElementById('nthWeekdayGroup');
+        const dayOfMonthGroup = document.getElementById('dayOfMonthGroup');
+
+        if (pattern === 'nth_weekday') {
+            nthWeekdayGroup.style.display = 'grid';
+            dayOfMonthGroup.style.display = 'none';
+        } else if (pattern === 'day_of_month') {
+            nthWeekdayGroup.style.display = 'none';
+            dayOfMonthGroup.style.display = 'block';
+        } else {
+            nthWeekdayGroup.style.display = 'none';
+            dayOfMonthGroup.style.display = 'none';
+        }
+        updateRecurrencePreview();
+    }
+
+    function updateRecurrencePreview() {
+        const pattern = document.getElementById('recurrence_type').value;
+        const occurrences = document.getElementById('occurrences').value || 6;
+        const previewText = document.getElementById('recurrencePreviewText');
+        const ordText = document.getElementById('ordinal').options[document.getElementById('ordinal').selectedIndex].text;
+        const dowText = document.getElementById('day_of_week').options[document.getElementById('day_of_week').selectedIndex].text;
+        const dom = document.getElementById('day_of_month').value || 15;
+
+        if (pattern === 'nth_weekday') {
+            previewText.textContent = `Preview: Schedules ${occurrences} events on the ${ordText} ${dowText} of each month.`;
+        } else if (pattern === 'weekly') {
+            previewText.textContent = `Preview: Schedules ${occurrences} weekly events on every ${dowText}.`;
+        } else if (pattern === 'day_of_month') {
+            previewText.textContent = `Preview: Schedules ${occurrences} monthly events on Day ${dom} of each month.`;
+        }
+    }
+
+    function toggleSelectAllBlocks() {
+        const cbs = document.querySelectorAll('.hoa-block-cb');
+        let allChecked = Array.from(cbs).every(cb => cb.checked);
+        cbs.forEach(cb => cb.checked = !allChecked);
+    }
+
     function filterHoaEvents() {
         const searchText = document.getElementById('searchHoaEvents').value.toLowerCase();
         const table = document.getElementById('hoaTable');
