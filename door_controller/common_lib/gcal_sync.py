@@ -116,7 +116,7 @@ class GoogleCalendarSync:
         property_id = res.get('property_id')
 
         is_community_or_hoa = (
-            event_type in ('HOA Event', 'Community Event')
+            event_type in ('HOA Event', 'Community Event', 'Community Organization', 'Board Meeting')
             or (property_id is None and event_type != 'Private Event')
         )
 

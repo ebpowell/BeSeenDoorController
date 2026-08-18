@@ -71,9 +71,15 @@ RETURNS TRIGGER AS $$
     try:
         syncer = GoogleCalendarSync()
         res = syncer.process_trigger_event(event_type=event, old_row=old_row, new_row=new_row)
-        plpy.info(f"GoogleCalendarSync: Processed trigger event '{event}' for reservation. Action result: {res.get('action')}")
+        action = res.get('action')
+        if action in ('created', 'updated', 'deleted'):
+            plpy.info(f"GoogleCalendarSync: Successfully synced trigger event '{event}' to Google Calendar. Action: {action}, GCal Event ID: {res.get('gcal_id')}")
+        elif action == 'skipped_ineligible':
+            plpy.info(f"GoogleCalendarSync Notice: Skipped GCal sync for '{event}'. Reason: {res.get('reason')}")
+        else:
+            plpy.warning(f"GoogleCalendarSync Warning: GCal sync result for '{event}': {res}")
     except Exception as e:
-        plpy.warning(f"GoogleCalendarSync: Warning executing trigger on {event}: {e}")
+        plpy.warning(f"GoogleCalendarSync Error: Warning executing trigger on {event}: {e}")
 
     return "OK"
 $$ LANGUAGE plpython3u;
