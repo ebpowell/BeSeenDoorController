@@ -17,23 +17,14 @@ class FobDatabaseManager:
 
     _functions_ensured = False
 
-    def ensure_db_functions(self):
-        if FobDatabaseManager._functions_ensured:
-            return
+    def _create_reservation_tables(self):
+        """Ensures key_fobs.reservation_blocks and key_fobs.reservation_fee_config exist and are seeded."""
         try:
             conn = self._get_connection()
             if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
                 return
             with conn:
                 with conn.cursor() as cur:
-                    # 0. Ensure fee and early_setup columns exist in key_fobs.clubhouse_reservations
-                    cur.execute("""
-                        ALTER TABLE key_fobs.clubhouse_reservations 
-                        ADD COLUMN IF NOT EXISTS fee DECIMAL(10,2) DEFAULT 15.00,
-                        ADD COLUMN IF NOT EXISTS early_setup BOOLEAN DEFAULT FALSE;
-                    """)
-
-                    # 0b. Ensure key_fobs.reservation_blocks table exists and is seeded
                     cur.execute("""
                         CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
                             block_id SERIAL PRIMARY KEY,
@@ -51,10 +42,7 @@ class FobDatabaseManager:
                         ('block2', 'Block 2: Afternoon', '13:00:00', '17:00:00', 2),
                         ('block3', 'Block 3: Evening', '18:00:00', '23:00:00', 3)
                         ON CONFLICT (block_key) DO NOTHING;
-                    """)
 
-                    # 0c. Ensure key_fobs.reservation_fee_config table exists and is seeded
-                    cur.execute("""
                         CREATE TABLE IF NOT EXISTS key_fobs.reservation_fee_config (
                             config_key VARCHAR(50) PRIMARY KEY,
                             fee_amount DECIMAL(10,2) NOT NULL,
@@ -66,6 +54,26 @@ class FobDatabaseManager:
                         ('single_block_fee', 15.00, 'Fee for reserving a single time block'),
                         ('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
                         ON CONFLICT (config_key) DO NOTHING;
+                    """)
+                conn.commit()
+        except Exception as e:
+            log_info(f"Database notice creating reservation tables: {e}")
+
+    def ensure_db_functions(self):
+        if FobDatabaseManager._functions_ensured:
+            return
+        self._create_reservation_tables()
+        try:
+            conn = self._get_connection()
+            if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
+                return
+            with conn:
+                with conn.cursor() as cur:
+                    # 0. Ensure fee and early_setup columns exist in key_fobs.clubhouse_reservations
+                    cur.execute("""
+                        ALTER TABLE key_fobs.clubhouse_reservations 
+                        ADD COLUMN IF NOT EXISTS fee DECIMAL(10,2) DEFAULT 15.00,
+                        ADD COLUMN IF NOT EXISTS early_setup BOOLEAN DEFAULT FALSE;
                     """)
 
                     # 1. Backfill NULL month/day columns in group_permissions from start_date/end_date if columns exist
@@ -808,12 +816,20 @@ class FobDatabaseManager:
                     cur.execute(query)
                     return cur.fetchall()
         except Exception as e:
-            log_info(f"Database: Error listing reservation blocks: {e}")
-            return [
-                {'block_key': 'block1', 'block_name': 'Block 1: Morning', 'start_time': '08:00:00', 'end_time': '12:00:00', 'display_order': 1},
-                {'block_key': 'block2', 'block_name': 'Block 2: Afternoon', 'start_time': '13:00:00', 'end_time': '17:00:00', 'display_order': 2},
-                {'block_key': 'block3', 'block_name': 'Block 3: Evening', 'start_time': '18:00:00', 'end_time': '23:00:00', 'display_order': 3},
-            ]
+            log_info(f"Database: Error listing reservation blocks: {e}. Attempting auto-creation.")
+            self._create_reservation_tables()
+            try:
+                with self._get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(query)
+                        return cur.fetchall()
+            except Exception as e2:
+                log_info(f"Database: Secondary error listing reservation blocks: {e2}")
+                return [
+                    {'block_key': 'block1', 'block_name': 'Block 1: Morning', 'start_time': '08:00:00', 'end_time': '12:00:00', 'display_order': 1},
+                    {'block_key': 'block2', 'block_name': 'Block 2: Afternoon', 'start_time': '13:00:00', 'end_time': '17:00:00', 'display_order': 2},
+                    {'block_key': 'block3', 'block_name': 'Block 3: Evening', 'start_time': '18:00:00', 'end_time': '23:00:00', 'display_order': 3},
+                ]
 
     def get_reservation_fee_config(self):
         """
@@ -833,8 +849,20 @@ class FobDatabaseManager:
                     if rows:
                         for row in rows:
                             defaults[row['config_key']] = float(row['fee_amount'])
+                        return defaults
         except Exception as e:
-            log_info(f"Database: Error fetching fee config: {e}")
+            log_info(f"Database: Error fetching fee config: {e}. Attempting auto-creation.")
+            self._create_reservation_tables()
+            try:
+                with self._get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(query)
+                        rows = cur.fetchall()
+                        if rows:
+                            for row in rows:
+                                defaults[row['config_key']] = float(row['fee_amount'])
+            except Exception as e2:
+                log_info(f"Database: Secondary error fetching fee config: {e2}")
         return defaults
 
     def has_reservations_in_previous_24h(self, target_date):
