@@ -52,3 +52,9 @@ __pycache__/
 *$py.class
 .venv/
 my_venv/
+
+# Credentials
+service_account.json
+**/service_account.json
+config/service_account.json
+

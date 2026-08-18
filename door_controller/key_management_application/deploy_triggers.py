@@ -59,6 +59,10 @@ def deploy():
         find_sql_file("01_group_permissions.sql") or
         find_sql_file("group_permissions.sql")
     )
+    gcal_trigger_path = (
+        find_sql_file("06_gcal_sync_trigger.sql") or
+        find_sql_file("gcal_sync_trigger.sql")
+    )
     
     if not trigger_path:
         print("Error: Could not locate 03_fob_sync_trigger.sql or fob_sync_trigger.sql script.", file=sys.stderr)
@@ -72,10 +76,15 @@ def deploy():
         print("Error: Could not locate 05__f_get_permissions.sql, key_fobs_f_get_permissions.sql, or group_permissions.sql script.", file=sys.stderr)
         sys.exit(1)     
 
+    if not gcal_trigger_path:
+        print("Error: Could not locate 06_gcal_sync_trigger.sql or gcal_sync_trigger.sql script.", file=sys.stderr)
+        sys.exit(1)
+
         
     print(f"Found trigger script: {trigger_path}")
     print(f"Found observability script: {observability_path}")
     print(f"Found group permissions script: {group_permissions_path}")
+    print(f"Found GCal sync trigger script: {gcal_trigger_path}")
 
     # Read scripts
     try:
@@ -85,6 +94,8 @@ def deploy():
             observability_sql = f.read()
         with open(group_permissions_path, 'r', encoding='utf-8') as f:
             group_permissions_sql = f.read()
+        with open(gcal_trigger_path, 'r', encoding='utf-8') as f:
+            gcal_trigger_sql = f.read()
     except Exception as e:
         print(f"Error reading SQL files: {e}", file=sys.stderr)
         sys.exit(1)
@@ -103,9 +114,13 @@ def deploy():
             
             print(f"Applying group permissions from: {group_permissions_path} ...")
             cur.execute(group_permissions_sql)
+
+            print(f"Applying GCal sync trigger and PL/Python function from: {gcal_trigger_path} ...")
+            cur.execute(gcal_trigger_sql)
         
             conn.commit()
             print("Triggers, PL/Python functions, and observability views deployed successfully!")
+
     except Exception as e:
         print(f"\nFailed to deploy database schemas: {e}", file=sys.stderr)
         print("Rollback performed.", file=sys.stderr)

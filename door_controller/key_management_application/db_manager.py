@@ -17,23 +17,14 @@ class FobDatabaseManager:
 
     _functions_ensured = False
 
-    def ensure_db_functions(self):
-        if FobDatabaseManager._functions_ensured:
-            return
+    def _create_reservation_tables(self):
+        """Ensures key_fobs.reservation_blocks and key_fobs.reservation_fee_config exist and are seeded."""
         try:
             conn = self._get_connection()
             if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
                 return
             with conn:
                 with conn.cursor() as cur:
-                    # 0. Ensure fee and early_setup columns exist in key_fobs.clubhouse_reservations
-                    cur.execute("""
-                        ALTER TABLE key_fobs.clubhouse_reservations 
-                        ADD COLUMN IF NOT EXISTS fee DECIMAL(10,2) DEFAULT 15.00,
-                        ADD COLUMN IF NOT EXISTS early_setup BOOLEAN DEFAULT FALSE;
-                    """)
-
-                    # 0b. Ensure key_fobs.reservation_blocks table exists and is seeded
                     cur.execute("""
                         CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
                             block_id SERIAL PRIMARY KEY,
@@ -51,10 +42,7 @@ class FobDatabaseManager:
                         ('block2', 'Block 2: Afternoon', '13:00:00', '17:00:00', 2),
                         ('block3', 'Block 3: Evening', '18:00:00', '23:00:00', 3)
                         ON CONFLICT (block_key) DO NOTHING;
-                    """)
 
-                    # 0c. Ensure key_fobs.reservation_fee_config table exists and is seeded
-                    cur.execute("""
                         CREATE TABLE IF NOT EXISTS key_fobs.reservation_fee_config (
                             config_key VARCHAR(50) PRIMARY KEY,
                             fee_amount DECIMAL(10,2) NOT NULL,
@@ -66,6 +54,26 @@ class FobDatabaseManager:
                         ('single_block_fee', 15.00, 'Fee for reserving a single time block'),
                         ('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
                         ON CONFLICT (config_key) DO NOTHING;
+                    """)
+                conn.commit()
+        except Exception as e:
+            log_info(f"Database notice creating reservation tables: {e}")
+
+    def ensure_db_functions(self):
+        if FobDatabaseManager._functions_ensured:
+            return
+        self._create_reservation_tables()
+        try:
+            conn = self._get_connection()
+            if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
+                return
+            with conn:
+                with conn.cursor() as cur:
+                    # 0. Ensure fee and early_setup columns exist in key_fobs.clubhouse_reservations
+                    cur.execute("""
+                        ALTER TABLE key_fobs.clubhouse_reservations 
+                        ADD COLUMN IF NOT EXISTS fee DECIMAL(10,2) DEFAULT 15.00,
+                        ADD COLUMN IF NOT EXISTS early_setup BOOLEAN DEFAULT FALSE;
                     """)
 
                     # 1. Backfill NULL month/day columns in group_permissions from start_date/end_date if columns exist
@@ -99,41 +107,45 @@ class FobDatabaseManager:
                     )
                     v_row = cur.fetchone()
                     if v_row and v_row[0] == 'VIEW':
-                        cur.execute("""
-                            CREATE OR REPLACE VIEW key_fobs.vint_acl_data AS
-                            SELECT 
-                                k.fob_id,
-                                gp.door_id,
-                                d.door_no,
-                                d.controller_ip,
-                                gp.allow,
-                                gp.start_time,
-                                gp.end_time,
-                                COALESCE(
-                                    CASE 
-                                        WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-                                        THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-                                        ELSE NULL
-                                    END,
-                                    gp.start_date,
-                                    '2000-01-01'::date
-                                ) AS start_date,
-                                COALESCE(
-                                    CASE 
-                                        WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-                                        THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-                                        ELSE NULL
-                                    END,
-                                    gp.end_date,
-                                    '2099-12-31'::date
-                                ) AS end_date
-                            FROM key_fobs.group_permissions gp
-                            JOIN key_fobs.groups g ON gp.group_id = g.group_id
-                            JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
-                            JOIN key_fobs.properties p ON pgp.property_id = p.property_id
-                            JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
-                            JOIN door_controller.door d ON gp.door_id = d.door_id;
-                        """)
+                        try:
+                            cur.execute("DROP VIEW IF EXISTS key_fobs.vint_acl_data CASCADE;")
+                            cur.execute("""
+                                CREATE VIEW key_fobs.vint_acl_data AS
+                                SELECT 
+                                    k.fob_id,
+                                    gp.door_id,
+                                    d.door_no,
+                                    d.controller_ip,
+                                    gp.allow,
+                                    gp.start_time,
+                                    gp.end_time,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
+                                            THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.start_date,
+                                        '2000-01-01'::date
+                                    ) AS start_date,
+                                    COALESCE(
+                                        CASE 
+                                            WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
+                                            THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
+                                            ELSE NULL
+                                        END,
+                                        gp.end_date,
+                                        '2099-12-31'::date
+                                    ) AS end_date
+                                FROM key_fobs.group_permissions gp
+                                JOIN key_fobs.groups g ON gp.group_id = g.group_id
+                                JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
+                                JOIN key_fobs.properties p ON pgp.property_id = p.property_id
+                                JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
+                                JOIN door_controller.door d ON gp.door_id = d.door_id;
+                            """)
+                        except Exception as ve:
+                            log_info(f"Notice recreating vint_acl_data view: {ve}")
 
                     # 3. Create or replace f_get_permissions function
                     cur.execute("""
@@ -808,12 +820,20 @@ class FobDatabaseManager:
                     cur.execute(query)
                     return cur.fetchall()
         except Exception as e:
-            log_info(f"Database: Error listing reservation blocks: {e}")
-            return [
-                {'block_key': 'block1', 'block_name': 'Block 1: Morning', 'start_time': '08:00:00', 'end_time': '12:00:00', 'display_order': 1},
-                {'block_key': 'block2', 'block_name': 'Block 2: Afternoon', 'start_time': '13:00:00', 'end_time': '17:00:00', 'display_order': 2},
-                {'block_key': 'block3', 'block_name': 'Block 3: Evening', 'start_time': '18:00:00', 'end_time': '23:00:00', 'display_order': 3},
-            ]
+            log_info(f"Database: Error listing reservation blocks: {e}. Attempting auto-creation.")
+            self._create_reservation_tables()
+            try:
+                with self._get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(query)
+                        return cur.fetchall()
+            except Exception as e2:
+                log_info(f"Database: Secondary error listing reservation blocks: {e2}")
+                return [
+                    {'block_key': 'block1', 'block_name': 'Block 1: Morning', 'start_time': '08:00:00', 'end_time': '12:00:00', 'display_order': 1},
+                    {'block_key': 'block2', 'block_name': 'Block 2: Afternoon', 'start_time': '13:00:00', 'end_time': '17:00:00', 'display_order': 2},
+                    {'block_key': 'block3', 'block_name': 'Block 3: Evening', 'start_time': '18:00:00', 'end_time': '23:00:00', 'display_order': 3},
+                ]
 
     def get_reservation_fee_config(self):
         """
@@ -833,8 +853,20 @@ class FobDatabaseManager:
                     if rows:
                         for row in rows:
                             defaults[row['config_key']] = float(row['fee_amount'])
+                        return defaults
         except Exception as e:
-            log_info(f"Database: Error fetching fee config: {e}")
+            log_info(f"Database: Error fetching fee config: {e}. Attempting auto-creation.")
+            self._create_reservation_tables()
+            try:
+                with self._get_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(query)
+                        rows = cur.fetchall()
+                        if rows:
+                            for row in rows:
+                                defaults[row['config_key']] = float(row['fee_amount'])
+            except Exception as e2:
+                log_info(f"Database: Secondary error fetching fee config: {e2}")
         return defaults
 
     def has_reservations_in_previous_24h(self, target_date):
@@ -883,6 +915,32 @@ class FobDatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query)
                 return cur.fetchall()
+
+    def get_reservation_by_id(self, reservation_id):
+        """
+        Fetch a single clubhouse reservation by reservation_id with property address and owner details.
+        """
+        log_info(f"Database: Fetching reservation ID {reservation_id}.")
+        query = """
+            SELECT 
+                r.reservation_id, r.property_id, r.reservation_date, 
+                r.from_time, r.to_time, r.payment_made, r.deposit_on_file, r.agreement_received,
+                COALESCE(r.fee, 15.00) AS fee, COALESCE(r.early_setup, FALSE) AS early_setup,
+                COALESCE(r.event_type, 'Private Event') AS event_type,
+                COALESCE(r.reschedule_required, FALSE) AS reschedule_required,
+                r.event_name, r.event_description,
+                r.created_at,
+                p.address,
+                CONCAT(o.first_name, ' ', o.last_name) AS owner_name
+            FROM key_fobs.clubhouse_reservations r
+            LEFT JOIN key_fobs.properties p ON r.property_id = p.property_id
+            LEFT JOIN key_fobs.owners o ON p.property_id = o.property_id
+            WHERE r.reservation_id = %s;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (reservation_id,))
+                return cur.fetchone()
 
     def add_reservation(self, property_id, reservation_date, from_time=None, to_time=None, 
                         blocks=None, early_setup=False, fee=None,
@@ -950,7 +1008,19 @@ class FobDatabaseManager:
         if event_type == 'HOA Event':
             early_setup = False
             calc_fee = 0.00
-            block_tuples = [('08:00:00', '23:00:00')]
+            block_tuples = []
+            if blocks:
+                active_blocks = self.list_reservation_blocks()
+                block_map = {}
+                for b in active_blocks:
+                    s_time = str(b['start_time']) if hasattr(b['start_time'], 'strftime') else str(b['start_time'])
+                    e_time = str(b['end_time']) if hasattr(b['end_time'], 'strftime') else str(b['end_time'])
+                    block_map[b['block_key']] = (s_time, e_time)
+                for b in blocks:
+                    if b in block_map:
+                        block_tuples.append(block_map[b])
+            if not block_tuples:
+                block_tuples = [('08:00:00', '23:00:00')]
         else:
             if early_setup:
                 if self.has_reservations_in_previous_24h(res_date_obj):

@@ -59,6 +59,7 @@ class fob_swipes(door_controller):
                             next_index =  swipes[len(swipes)-20][0]
                             print("No Records returned", 'Next Index:', next_index)
                             time.sleep(5)
+
                     except:
                         pass
         print('Records to add:',len(swipes))
