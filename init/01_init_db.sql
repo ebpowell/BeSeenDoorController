@@ -147,7 +147,7 @@ ON CONFLICT (config_key) DO NOTHING;
 CREATE TABLE IF NOT EXISTS key_fobs.clubhouse_deposits (
     deposit_id SERIAL PRIMARY KEY,
     property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
-    reservation_id INT REFERENCES key_fobs.clubhouse_reservations(reservation_id) ON DELETE SET NULL,
+    reservation_id INT,
     amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
     deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
     deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
