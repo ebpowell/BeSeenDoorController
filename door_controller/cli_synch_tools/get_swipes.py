@@ -26,18 +26,20 @@ def main():
 
     obj_db = postgres(config.get('settings', {}).get('postgres_connect_string'))
     urls = config['settings']['urls']
-    if sys.argv[1] == 'All':
-        # Intialize the slop table for the new records
+    username = config.get('settings', {}).get('username')
+    password = config.get('settings', {}).get('password')
+
+    is_all_mode = len(sys.argv) > 1 and sys.argv[1] == 'All'
+    if is_all_mode:
+        # Initialize the slop table for the new records
         for url in urls:
-            obj_extract = ww_data_extractor({config.get('settings', {}).get('username')},
-                                            {config.get('settings', {}).get('password')}, url, obj_db)
+            obj_extract = ww_data_extractor(username, password, url, obj_db)
             # Add records from controller
             obj_extract.get_historical_fob_swipes()
     else:
         obj_db.insert_swipe_start_record()
         for url in urls:
-            obj_extract = ww_data_extractor({config.get('settings', {}).get('username')},
-                                            {config.get('settings', {}).get('password')}, url, obj_db)
+            obj_extract = ww_data_extractor(username, password, url, obj_db)
             # Add records from controller
             obj_extract.get_recent_fob_swipes()
         # Copy records from slop table to the main table.
