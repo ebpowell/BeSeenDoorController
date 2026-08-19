@@ -1593,7 +1593,6 @@ class FobDatabaseManager:
                 d.refund_date, d.notes, d.created_at, d.updated_at,
                 p.address,
                 CONCAT(o.first_name, ' ', o.last_name) AS owner_name,
-                o.phone, o.email,
                 r.reservation_date, r.event_name, r.event_type,
                 (
                     SELECT COUNT(*) 
