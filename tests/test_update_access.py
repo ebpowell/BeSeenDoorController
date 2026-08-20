@@ -163,8 +163,8 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertTrue(result)
         mock_sync_access.assert_called_once_with('http://69.21.119.147', limit_changes=10, num_batches=4, recovery_delay=5)
         self.assertEqual(mock_collect_metrics.call_count, 2)
-        mock_collect_metrics.assert_any_call(sync_phase='pre_sync')
-        mock_collect_metrics.assert_any_call(sync_phase='post_sync')
+        mock_collect_metrics.assert_any_call(sync_phase='pre_sync', target_controller_url='http://69.21.119.147')
+        mock_collect_metrics.assert_any_call(sync_phase='post_sync', target_controller_url='http://69.21.119.147')
 
     def test_derive_run_schedule_skips_edge_runs(self):
         ref_time = datetime(2026, 6, 16, 22, 30, 0)

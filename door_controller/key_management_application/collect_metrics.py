@@ -63,7 +63,7 @@ def record_metric(cur, controller_ip, name, value, metadata=None):
         VALUES (%s, %s, %s, %s);
     """, (controller_ip, name, value, Json(metadata) if metadata else None))
 
-def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="standalone", config=None):
+def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="standalone", config=None, target_controller_url=None):
     """
     Collects door controller system metrics and runs statistical audits.
     Writes results to door_controller.controller_metrics table for Grafana visualization.
@@ -72,8 +72,9 @@ def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="sta
     :param sample_percent: Percentage of total fobs to audit.
     :param sync_phase: Label describing sync phase (e.g. 'pre_sync', 'post_sync', 'standalone').
     :param config: Optional configuration dictionary.
+    :param target_controller_url: Optional URL or IP of specific controller to target.
     """
-    log_info(f"Starting door controller metrics collection (phase='{sync_phase}')...")
+    log_info(f"Starting door controller metrics collection (phase='{sync_phase}', target='{target_controller_url or 'all'}')...")
 
     if config is None:
         config = load_config() or {}
@@ -82,6 +83,11 @@ def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="sta
     username = settings.get('username')
     password = settings.get('password')
     urls = settings.get('urls', [])
+
+    target_ip_filter = None
+    if target_controller_url:
+        parsed_target = urllib.parse.urlparse(target_controller_url)
+        target_ip_filter = parsed_target.hostname if parsed_target.hostname else target_controller_url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
 
     config_sample_size = settings.get('metrics_sample_size')
     config_sample_percent = settings.get('metrics_sample_percent')
@@ -125,7 +131,9 @@ def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="sta
         # Record DB-only metrics for each active controller
         db_meta = {'sync_phase': sync_phase} if sync_phase else None
         for controller_ip in active_controllers:
-            ip_str = str(controller_ip)
+            ip_str = str(controller_ip).replace("/32", "")
+            if target_ip_filter and ip_str != target_ip_filter:
+                continue
             m_count = missing_counts.get(controller_ip, 0)
             u_count = unassigned_counts.get(controller_ip, 0)
             record_metric(cur, ip_str, 'missing_assigned_fobs_count', m_count, metadata=db_meta)
@@ -149,6 +157,9 @@ def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="sta
             controller_ip = parsed.hostname
             if not controller_ip:
                 controller_ip = url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+
+            if target_ip_filter and controller_ip != target_ip_filter:
+                continue
 
             log_info(f"Auditing controller {url} (IP: {controller_ip}) [Phase: {sync_phase}]")
 

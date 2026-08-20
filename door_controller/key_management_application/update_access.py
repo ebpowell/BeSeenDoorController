@@ -43,11 +43,12 @@ class AccessSynchronizer(ControllerScheduler):
         """
         Executes Section 1 (Pre-check), Section 2 (4-batch Sync with recovery delays), and Section 3 (Post-check).
         Allows 5 seconds between sections and batches for the controller board hardware to recover.
+        Targeted specifically to controller_url so telemetry collection aligns cleanly with controller sync.
         """
         # Section 1: Pre-check
         log_info(f"Section 1/3: Executing pre-synchronization data quality collection for controller: {controller_url}")
         try:
-            collect_metrics_stats(sync_phase='pre_sync')
+            collect_metrics_stats(sync_phase='pre_sync', target_controller_url=controller_url)
         except Exception as e:
             log_error(f"Pre-sync metrics collection error for {controller_url}: {e}")
 
@@ -64,7 +65,7 @@ class AccessSynchronizer(ControllerScheduler):
         # Section 3: Post-check
         log_info(f"Section 3/3: Executing post-synchronization data quality collection for controller: {controller_url}")
         try:
-            collect_metrics_stats(sync_phase='post_sync')
+            collect_metrics_stats(sync_phase='post_sync', target_controller_url=controller_url)
         except Exception as e:
             log_error(f"Post-sync metrics collection error for {controller_url}: {e}")
 
