@@ -51,9 +51,9 @@ class ww_data_extractor:
         # means we are work backward until we intesect the existing result-set in the database.
         # When the Fob Supplied list returns a starting value that is older than the starting value in the database,
         # the process needs to termiinate, thus the db_max_id should be static for this function.
-        query = F"""SELECT max(record_id) FROM dataload.t_keyswipes_slop where door_controller_ip=('{self.url}')"""
+        query = F"""SELECT COALESCE(max(record_id), 0) FROM dataload.t_keyswipes_slop where door_controller_ip=('{self.url}')"""
         # Store the maximum record value in db at start of the process to refer to later
-        db_max_id = self.obj_db.get_maxid(query)
+        db_max_id = int(self.obj_db.get_maxid(query) or 0)
         obj_swipe = fob_swipes(self.url, self.username, self.password)
         lst_swipes = obj_swipe.get_new_swipes(5)
         # new Swipes starts at newest swipe and works backwards
@@ -163,7 +163,7 @@ class ww_data_extractor:
             # the process needs to termiinate, thus the db_max_id should be static for this function.
             # query = F"""SELECT max(record_id) FROM dataload.t_keyswipes_slop where door_controller_ip=('{self.url}')"""
             # Store the maximum record value in db at start of the process to refer to later
-            db_max_id = start_id
+            db_max_id = int(start_id or 0)
             obj_swipe = fob_swipes(self.url, self.username, self.password)
             lst_swipes = obj_swipe.get_swipe_range(self.iterations, db_max_id)
             # new Swipes starts at newest swipe and works backwards

@@ -8,12 +8,14 @@ class postgres:
 
     def get_maxid(self, query):
         max_id = 0
-        # Add records tp SQLite database
         cur = self.db_con.cursor()
         cur.execute(query)
         row = cur.fetchone()
-        if row:
-            max_id = row[0]
+        if row and row[0] is not None:
+            try:
+                max_id = int(row[0])
+            except (ValueError, TypeError):
+                max_id = 0
         return max_id
 
     def gen_swipe_record(self, record, sql):
