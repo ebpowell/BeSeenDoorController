@@ -10,6 +10,8 @@ from door_controller.common_lib.fobs import key_fobs
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.controller_scheduler import ControllerScheduler
 
+from door_controller.key_management_application.collect_metrics import collect_metrics_stats
+
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns a non-200 status code."""
     def __init__(self, status_code, response_body=None):
@@ -38,7 +40,36 @@ class AccessSynchronizer(ControllerScheduler):
             self.db_mgr.ensure_db_functions()
 
     def execute_action(self, controller_url, limit_changes=None):
-        return self.synchronize_access(controller_url, limit_changes=limit_changes)
+        """
+        Executes Section 1 (Pre-check), Section 2 (4-batch Sync with recovery delays), and Section 3 (Post-check).
+        Allows 5 seconds between sections and batches for the controller board hardware to recover.
+        Targeted specifically to controller_url so telemetry collection aligns cleanly with controller sync.
+        """
+        # Section 1: Pre-check
+        log_info(f"Section 1/3: Executing pre-synchronization data quality collection for controller: {controller_url}")
+        try:
+            collect_metrics_stats(sync_phase='pre_sync', target_controller_url=controller_url)
+        except Exception as e:
+            log_error(f"Pre-sync metrics collection error for {controller_url}: {e}")
+
+        log_info("Section 1 Complete. Pausing 5 seconds for controller board recovery...")
+        time.sleep(5)
+
+        # Section 2: Sync (4 batches with 5s recovery delays)
+        log_info(f"Section 2/3: Executing 4-batch permissions synchronization for controller: {controller_url}")
+        result = self.synchronize_access(controller_url, limit_changes=limit_changes, num_batches=4, recovery_delay=5)
+
+        log_info("Section 2 Complete. Pausing 5 seconds for controller board recovery...")
+        time.sleep(5)
+
+        # Section 3: Post-check
+        log_info(f"Section 3/3: Executing post-synchronization data quality collection for controller: {controller_url}")
+        try:
+            collect_metrics_stats(sync_phase='post_sync', target_controller_url=controller_url)
+        except Exception as e:
+            log_error(f"Post-sync metrics collection error for {controller_url}: {e}")
+
+        return result
 
     def extract_cidr(self, url):
         return extract_cidr(url)
@@ -61,9 +92,11 @@ class AccessSynchronizer(ControllerScheduler):
         else:
             return lst_results
 
-    def synchronize_access(self, controller_url, limit_changes=None):
+    def synchronize_access(self, controller_url, limit_changes=None, num_batches=4, recovery_delay=5):
         """
         Executes synchronization for a single controller using database as single source of truth.
+        Divides fob processing into num_batches sections (default 4) with recovery_delay seconds (default 5s)
+        between transaction batches to prevent controller board overload.
         """
         log_info(f"Starting synchronization for controller: {controller_url}")
         
@@ -80,73 +113,50 @@ class AccessSynchronizer(ControllerScheduler):
         # Fetch expected fobs from database
         try:
             db_fobs = self.db_mgr.list_fobs()
-            db_fobs_keys = {int(f['fob_id']) for f in db_fobs}
+            db_fobs_keys = sorted(list({int(f['fob_id']) for f in db_fobs}))
         except Exception as e:
             log_error(f"Error fetching expected fobs from database: {e}")
             return False
             
-        log_info(f"Postgres database fobs count: {len(db_fobs_keys)}")
+        total_fobs = len(db_fobs_keys)
+        log_info(f"Postgres database fobs count: {total_fobs}")
         
         # Instantiate DataManager
         data_manager = DataManager(controller_url, self.username, self.password)
-        
-        # Iterate over database fobs and synchronize
-        for fob_id in db_fobs_keys:
-            try:
-                rec_id = data_manager.get_record_id(fob_id)
-            except Exception as e:
-                log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
-                # continue
-                
-            if not rec_id:
-                log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                owner = self.db_mgr.get_owner_for_fobid(fob_id)
-                owner_name = owner[:30] if owner else f"Fob {fob_id}"
+
+        if total_fobs == 0:
+            log_info(f"No fobs to synchronize for controller: {controller_url}")
+            return True
+
+        # Split total_fobs into num_batches sections (default 4)
+        chunk_size = max(1, (total_fobs + num_batches - 1) // num_batches)
+        fob_batches = [db_fobs_keys[i:i + chunk_size] for i in range(0, total_fobs, chunk_size)]
+
+        log_info(f"Divided {total_fobs} fobs into {len(fob_batches)} batch(es) for controller {controller_url}")
+
+        for batch_idx, batch_fobs in enumerate(fob_batches, start=1):
+            log_info(f"Processing Batch {batch_idx}/{len(fob_batches)} ({len(batch_fobs)} fobs) for controller {controller_url}...")
+            
+            for fob_id in batch_fobs:
                 try:
-                    add_fob_result = data_manager.add_fob(fob_id, owner_name)
-                    if add_fob_result:
-                        if add_fob_result[1]:
-                            rec_id = add_fob_result[1]
-                            log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
-                            
-                            # Get permissions for Fobid from database
-                            log_info(f"Updating permissions for record: {rec_id}")
-                            expected_perms = self.get_expected_permissions(fob_id, cidr)
-                            target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
-                            # Update the controller
-                            response = data_manager.set_permissions(target_perms_new, rec_id)
-                            changes_made += 1
-                            continue
-                        else:
-                            log_error(f"Fob: {fob_id} not added;")
-                            continue
-                    else:
-                        log_error(f"Fob: {fob_id} addition failed;")
-                        continue
+                    rec_id = data_manager.get_record_id(fob_id)
                 except Exception as e:
-                    log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
-                    continue
+                    log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
                     
-            log_info(f"Checking ACL rules for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}")
-            try:
-                # Fetch current permissions from controller
-                current_perms_rows = data_manager.get_permissions_record(rec_id)
-                if current_perms_rows is None:
-                    log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
-                    # continue
-                    # Add the fob and set permissions
+                if not rec_id:
+                    log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
+                    owner = self.db_mgr.get_owner_for_fobid(fob_id)
+                    owner_name = owner[:30] if owner else f"Fob {fob_id}"
                     try:
-                        add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
+                        add_fob_result = data_manager.add_fob(fob_id, owner_name)
                         if add_fob_result:
                             if add_fob_result[1]:
                                 rec_id = add_fob_result[1]
                                 log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
                                 
-                                # Get permissions for Fobid from database
                                 log_info(f"Updating permissions for record: {rec_id}")
                                 expected_perms = self.get_expected_permissions(fob_id, cidr)
                                 target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
-                                # Update the controller
                                 response = data_manager.set_permissions(target_perms_new, rec_id)
                                 changes_made += 1
                                 continue
@@ -159,67 +169,94 @@ class AccessSynchronizer(ControllerScheduler):
                     except Exception as e:
                         log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
                         continue
+                        
+                log_info(f"Checking ACL rules for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}")
+                try:
+                    current_perms_rows = data_manager.get_permissions_record(rec_id)
+                    if current_perms_rows is None:
+                        log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
+                        try:
+                            add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
+                            if add_fob_result:
+                                if add_fob_result[1]:
+                                    rec_id = add_fob_result[1]
+                                    log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
+                                    
+                                    log_info(f"Updating permissions for record: {rec_id}")
+                                    expected_perms = self.get_expected_permissions(fob_id, cidr)
+                                    target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
+                                    response = data_manager.set_permissions(target_perms_new, rec_id)
+                                    changes_made += 1
+                                    continue
+                                else:
+                                    log_error(f"Fob: {fob_id} not added;")
+                                    continue
+                            else:
+                                log_error(f"Fob: {fob_id} addition failed;")
+                                continue
+                        except Exception as e:
+                            log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
+                            continue
 
-                current_perms = {}
-                for perm_row in current_perms_rows:
-                    door_name = perm_row[2]
-                    door_no = parse_door_name(door_name)
-                    allow_str = perm_row[3]
-                    allow = (allow_str == "Allow")
-                    if door_no is not None:
-                        current_perms[door_no] = allow
-                        
-                # Get expected permissions from database
-                expected_perms = self.get_expected_permissions(fob_id, cidr)
-                
-                # Compare
-                delta = False
-                target_perms = []
-                for door_no, current_allow in current_perms.items():
-                    expected_allow = expected_perms.get(door_no, False)
-                    target_perms.append((door_no, expected_allow))
-                    if current_allow != expected_allow:
-                        delta = True
-                        
-                if delta:
-                    if limit_changes is not None and changes_made >= limit_changes:
-                        log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}.")
-                        break
-                    log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {controller_url}. "
-                             f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
-                    response = data_manager.set_permissions(target_perms, rec_id)
-                    # 1. Handle a completely failed request (e.g., max retries hit, returning None)
-                    if response is None:
-                        raise ExternalSystemError(
-                            status_code=500, 
-                            response_body="Connection failed. Max retries reached with no response."
-                        )
+                    current_perms = {}
+                    for perm_row in current_perms_rows:
+                        door_name = perm_row[2]
+                        door_no = parse_door_name(door_name)
+                        allow_str = perm_row[3]
+                        allow = (allow_str == "Allow")
+                        if door_no is not None:
+                            current_perms[door_no] = allow
+                            
+                    expected_perms = self.get_expected_permissions(fob_id, cidr)
                     
-                    # 2. Check for non-200 status codes
-                    if response.status_code != 200:
-                        raise ExternalSystemError(
-                            status_code=response.status_code,
-                            response_body=getattr(response, 'text', '') # Safe access to body text if it exists
-                        )
-                    changes_made += 1
-                    # Log to DB audit logs
-                    with self.db_mgr._get_connection() as conn:
-                        with conn.cursor() as cur:
-                            self.db_mgr.log_audit_action(
-                                cur, 'system', 'Sync ACL Rules',
-                                f"Updated ACL rules for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url} to {target_perms}"
+                    delta = False
+                    target_perms = []
+                    for door_no, current_allow in current_perms.items():
+                        expected_allow = expected_perms.get(door_no, False)
+                        target_perms.append((door_no, expected_allow))
+                        if current_allow != expected_allow:
+                            delta = True
+                            
+                    if delta:
+                        if limit_changes is not None and changes_made >= limit_changes:
+                            log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}.")
+                            break
+                        log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {controller_url}. "
+                                 f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
+                        response = data_manager.set_permissions(target_perms, rec_id)
+                        if response is None:
+                            raise ExternalSystemError(
+                                status_code=500, 
+                                response_body="Connection failed. Max retries reached with no response."
                             )
-                        conn.commit()
-                else:
-                    log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
+                        
+                        if response.status_code != 200:
+                            raise ExternalSystemError(
+                                status_code=response.status_code,
+                                response_body=getattr(response, 'text', '')
+                            )
+                        changes_made += 1
+                        with self.db_mgr._get_connection() as conn:
+                            with conn.cursor() as cur:
+                                self.db_mgr.log_audit_action(
+                                    cur, 'system', 'Sync ACL Rules',
+                                    f"Updated ACL rules for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url} to {target_perms}"
+                                )
+                            conn.commit()
+                    else:
+                        log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
 
-            except ExternalSystemError as e:
-                    # Log the exact details, then either handle it or re-raise it
+                except ExternalSystemError as e:
                     print(f"Error updating permissions: {e} (Status: {e.status_code})")
                     print(f"Response details: {e.response_body}")
-                    
-            except Exception as e:
-                log_error(f"Error syncing ACL rules for Fob {fob_id} on controller {controller_url}: {e}")
+                        
+                except Exception as e:
+                    log_error(f"Error syncing ACL rules for Fob {fob_id} on controller {controller_url}: {e}")
+
+            # Allow recovery_delay (5s) between batches so the controller hardware recovers
+            if batch_idx < len(fob_batches):
+                log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {recovery_delay} seconds for board recovery...")
+                time.sleep(recovery_delay)
                 
         log_info(f"Finished synchronization for controller: {controller_url}")
         return True
@@ -283,11 +320,11 @@ def main(argv=None):
             log_info("Scheduler daemon stopped by user request.")
     else:
         # Run-once mode: run synchronizations in parallel threads and wait for them to finish
-        log_info("Running single synchronization run in parallel threads.")
+        log_info("Running single synchronization run with built-in pre- and post-sync metrics collection.")
         threads = []
         for url in urls:
             t = threading.Thread(
-                target=synchronizer.synchronize_access,
+                target=synchronizer.execute_action,
                 args=(url, limit_changes),
                 name=f"SyncThread-Once-{url}"
             )
