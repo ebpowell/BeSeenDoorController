@@ -260,11 +260,11 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% set hoa_found = False %}
+                            {% set ns = namespace(found=False) %}
                             {% if reservations %}
                                 {% for res in reservations %}
                                     {% if res.event_type == 'HOA Event' %}
-                                        {% set hoa_found = True %}
+                                        {% set ns.found = True %}
                                         <tr>
                                             <td data-label="Event Name">
                                                 <strong style="color: #d8b4fe; font-size: 0.95rem;">
@@ -300,7 +300,7 @@
                                     {% endif %}
                                 {% endfor %}
                             {% endif %}
-                            {% if not hoa_found %}
+                            {% if not ns.found %}
                                 <tr>
                                     <td colspan="6" class="no-data">No HOA Board events scheduled.</td>
                                 </tr>

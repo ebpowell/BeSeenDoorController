@@ -1146,7 +1146,78 @@ class FobDatabaseManager:
             conn.commit()
 
         res_id = reservation_ids[0] if reservation_ids else None
+        if early_setup and res_id:
+            try:
+                self.add_early_setup_previous_day_reservation(
+                    property_id=property_id,
+                    reservation_date=res_date_obj,
+                    payment_made=payment_made,
+                    deposit_on_file=deposit_on_file,
+                    agreement_received=agreement_received,
+                    event_type=event_type,
+                    user_role=user_role,
+                    event_name=event_name,
+                    event_description=event_description,
+                    username=username
+                )
+            except Exception as e:
+                log_error(f"Error creating automatic previous day Block 3 early setup reservation: {e}")
+
         return res_id, displaced_reservations
+
+    def add_early_setup_previous_day_reservation(self, property_id, reservation_date, 
+                                                 payment_made=False, deposit_on_file=False,
+                                                 agreement_received=False, event_type='Private Event',
+                                                 user_role='ManagementCo', event_name=None,
+                                                 event_description=None, username='system'):
+        """
+        Adds a reservation for 'Block 3: Evening' (18:00 to 23:00) on the previous day
+        for a property address if they have a clubhouse reservation and checked 'Request Early Setup'.
+        """
+        if isinstance(reservation_date, str):
+            res_date_obj = datetime.datetime.strptime(reservation_date, "%Y-%m-%d").date()
+        elif isinstance(reservation_date, datetime.datetime):
+            res_date_obj = reservation_date.date()
+        else:
+            res_date_obj = reservation_date
+
+        prev_date_obj = res_date_obj - datetime.timedelta(days=1)
+        log_info(f"Database: Adding early setup reservation for Block 3: Evening on previous day {prev_date_obj} for property_id={property_id}")
+
+        if self.has_reservations_in_previous_24h(res_date_obj):
+            raise ValueError("Early set-up is not allowed because another reservation exists in the previous 24 hours.")
+
+        if not deposit_on_file and property_id:
+            deposit_on_file = self.has_deposit_on_file(property_id)
+
+        active_blocks = self.list_reservation_blocks()
+        block3_info = next((b for b in active_blocks if b.get('block_key') == 'block3'), None)
+        from_time = str(block3_info['start_time']) if block3_info else '18:00:00'
+        to_time = str(block3_info['end_time']) if block3_info else '23:00:00'
+
+        setup_name = f"Early Setup - {event_name}" if event_name else f"Early Setup for Reservation on {res_date_obj}"
+        setup_desc = f"Block 3 Evening Early Setup for event on {res_date_obj}. {event_description or ''}".strip()
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT address FROM key_fobs.properties WHERE property_id = %s;", (property_id,))
+                prop_row = cur.fetchone()
+                address = prop_row[0] if prop_row else f"ID {property_id}"
+
+                query = """
+                    INSERT INTO key_fobs.clubhouse_reservations 
+                        (property_id, reservation_date, from_time, to_time, payment_made, deposit_on_file, agreement_received, fee, early_setup, event_type, reschedule_required, event_name, event_description)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 0.00, TRUE, %s, FALSE, %s, %s)
+                    RETURNING reservation_id;
+                """
+                cur.execute(query, (property_id, prev_date_obj, from_time, to_time, payment_made, deposit_on_file, agreement_received, event_type, setup_name, setup_desc))
+                res_id = cur.fetchone()[0]
+
+                details = f"Reserved early setup (Block 3: Evening) for '{address}' on {prev_date_obj} (Main event date: {res_date_obj})"
+                self.log_audit_action(cur, username, "Add Early Setup Reservation", details)
+            conn.commit()
+
+        return res_id
 
     def delete_reservation(self, reservation_id, username='system'):
         """

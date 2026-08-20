@@ -214,7 +214,7 @@ class TestReservations(unittest.TestCase):
 
         response = self.client.get('/reservations/hoa')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Schedule HOA Board Event', response.data)
+        self.assertIn(b'Schedule HOA / Community Event', response.data)
         self.assertIn(b'Board Meeting', response.data)
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
@@ -244,6 +244,7 @@ class TestReservations(unittest.TestCase):
         mock_db.add_reservation.assert_called_once_with(
             property_id=10001,
             reservation_date='2026-09-15',
+            blocks=None,
             event_type='HOA Event',
             event_name='Annual General Meeting',
             event_description='Community election & budget review',
@@ -251,6 +252,40 @@ class TestReservations(unittest.TestCase):
             username='admin1'
         )
         self.assertIn(b"scheduled successfully", response.data)
+
+    @patch('door_controller.key_management_application.db_manager.FobDatabaseManager._get_connection')
+    def test_add_early_setup_previous_day_reservation(self, mock_get_conn):
+        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        db_mgr = FobDatabaseManager('postgresql://db')
+        
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_get_conn.return_value.__enter__.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+        with patch.object(db_mgr, 'has_reservations_in_previous_24h', return_value=False), \
+             patch.object(db_mgr, 'has_deposit_on_file', return_value=True), \
+             patch.object(db_mgr, 'list_reservation_blocks', return_value=[
+                 {'block_key': 'block3', 'start_time': '18:00:00', 'end_time': '23:00:00'}
+             ]):
+            mock_cur.fetchone.side_effect = [
+                ('101 Main St',), # Property address
+                (999,)            # Inserted reservation ID
+            ]
+            
+            res_id = db_mgr.add_early_setup_previous_day_reservation(
+                property_id=10001,
+                reservation_date='2026-08-15',
+                event_name='Birthday Party'
+            )
+
+            self.assertEqual(res_id, 999)
+            # Verify insert query targeted previous day '2026-08-14' with Block 3 times 18:00 to 23:00
+            insert_call_args = mock_cur.execute.call_args_list[1][0][1]
+            self.assertEqual(insert_call_args[0], 10001)
+            self.assertEqual(str(insert_call_args[1]), '2026-08-14')
+            self.assertEqual(insert_call_args[2], '18:00:00')
+            self.assertEqual(insert_call_args[3], '23:00:00')
 
     @patch('door_controller.key_management_application.web_app.app.get_db_mgr')
     def test_calendar_view_get_success(self, mock_get_db_mgr):
