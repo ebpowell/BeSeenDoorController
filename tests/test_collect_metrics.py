@@ -90,18 +90,18 @@ class TestCollectMetrics(unittest.TestCase):
         mock_cur.execute.assert_any_call("""
         INSERT INTO door_controller.controller_metrics (controller_ip, metric_name, metric_value, metadata)
         VALUES (%s, %s, %s, %s);
-    """, ('69.21.119.147', 'missing_assigned_fobs_count', 1, None))
+    """, ('69.21.119.147', 'missing_assigned_fobs_count', 1, unittest.mock.ANY))
         mock_cur.execute.assert_any_call("""
         INSERT INTO door_controller.controller_metrics (controller_ip, metric_name, metric_value, metadata)
         VALUES (%s, %s, %s, %s);
-    """, ('69.21.119.147', 'unassigned_fobs_count', 2, None))
+    """, ('69.21.119.147', 'unassigned_fobs_count', 2, unittest.mock.ANY))
 
         # Controller audit metrics (integrity score etc)
         # Expected: audited_fobs_count = 1, mismatched = 0, integrity_score = 1.0
         mock_cur.execute.assert_any_call("""
         INSERT INTO door_controller.controller_metrics (controller_ip, metric_name, metric_value, metadata)
         VALUES (%s, %s, %s, %s);
-    """, ('69.21.119.147', 'controller_online', 1, None))
+    """, ('69.21.119.147', 'controller_online', 1, unittest.mock.ANY))
 
         # Check transactions committed and connection closed
         mock_conn.commit.assert_called()

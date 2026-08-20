@@ -10,6 +10,8 @@ from door_controller.common_lib.fobs import key_fobs
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.controller_scheduler import ControllerScheduler
 
+from door_controller.key_management_application.collect_metrics import collect_metrics_stats
+
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns a non-200 status code."""
     def __init__(self, status_code, response_body=None):
@@ -38,7 +40,24 @@ class AccessSynchronizer(ControllerScheduler):
             self.db_mgr.ensure_db_functions()
 
     def execute_action(self, controller_url, limit_changes=None):
-        return self.synchronize_access(controller_url, limit_changes=limit_changes)
+        """
+        Executes pre-sync data quality collection, access synchronization, and post-sync data quality collection.
+        """
+        log_info(f"Executing pre-synchronization metrics collection for controller: {controller_url}")
+        try:
+            collect_metrics_stats(sync_phase='pre_sync')
+        except Exception as e:
+            log_error(f"Pre-sync metrics collection error for {controller_url}: {e}")
+
+        result = self.synchronize_access(controller_url, limit_changes=limit_changes)
+
+        log_info(f"Executing post-synchronization metrics collection for controller: {controller_url}")
+        try:
+            collect_metrics_stats(sync_phase='post_sync')
+        except Exception as e:
+            log_error(f"Post-sync metrics collection error for {controller_url}: {e}")
+
+        return result
 
     def extract_cidr(self, url):
         return extract_cidr(url)
@@ -283,11 +302,11 @@ def main(argv=None):
             log_info("Scheduler daemon stopped by user request.")
     else:
         # Run-once mode: run synchronizations in parallel threads and wait for them to finish
-        log_info("Running single synchronization run in parallel threads.")
+        log_info("Running single synchronization run with built-in pre- and post-sync metrics collection.")
         threads = []
         for url in urls:
             t = threading.Thread(
-                target=synchronizer.synchronize_access,
+                target=synchronizer.execute_action,
                 args=(url, limit_changes),
                 name=f"SyncThread-Once-{url}"
             )
