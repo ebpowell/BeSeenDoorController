@@ -37,7 +37,7 @@ class AccessSynchronizer(ControllerScheduler):
         self.db_config = db_mgr.conn_str
         self.db_mgr = db_mgr
         if hasattr(self.db_mgr, 'ensure_db_functions'):
-            self.db_mgr.ensure_db_functions()
+            self.db_mgr.ensure_db_functions(1)
 
     def execute_action(self, controller_url, limit_changes=None):
         """

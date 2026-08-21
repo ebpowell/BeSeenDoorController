@@ -51,7 +51,7 @@ def get_sql_files(init_dir):
     sql_files.sort()
     return [os.path.join(init_dir, f) for f in sql_files]
 
-def deploy():
+def deploy(mode=0):
     """
     Reads all SQL scripts in the 'init' folder sequentially and deploys them to the database configured in config.yaml.
     """
@@ -94,6 +94,10 @@ def deploy():
     except Exception as e:
         print(f"Error reading SQL files: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if mode == 1: 
+        # Skip the '01_init.sql' file if mode is 1 (for testing purposes)
+        sql_contents = [(path, content) for path, content in sql_contents if not os.path.basename(path).startswith("01_init.sql")]
         
     # 4. Connect to DB and deploy within a single transaction
     print("Connecting to database...")
