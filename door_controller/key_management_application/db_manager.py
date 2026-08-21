@@ -261,6 +261,13 @@ class FobDatabaseManager:
                     cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_name VARCHAR(150);")
                     cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_description TEXT;")
                 conn.commit()
+
+            try:
+                from door_controller.key_management_application.deploy_triggers import deploy
+                deploy()
+            except Exception as dep_err:
+                log_info(f"Notice deploying database SQL scripts: {dep_err}")
+
             FobDatabaseManager._functions_ensured = True
         except Exception as e:
             log_info(f"Database function auto-update notice: {e}")

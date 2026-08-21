@@ -27,7 +27,7 @@ BEGIN
         FROM key_fobs.group_permissions gp
         INNER JOIN door_controller.door d 
             ON gp.door_id = d.door_id 
-        WHERE (p_controller_ip IS NULL OR gp.controller_ip = p_controller_ip)
+        WHERE (p_controller_ip IS NULL OR d.controller_ip = p_controller_ip)
           AND gp.allow = true
     ), runtime AS 
     (
@@ -35,17 +35,17 @@ BEGIN
         FROM rule_dates rd 
         WHERE start_date <= p_date
           AND end_date >= p_date
-          AND (p_controller_ip IS NULL OR controller_ip = p_controller_ip)
+          AND (p_controller_ip IS NULL OR rd.controller_ip = p_controller_ip)
         UNION
         SELECT DISTINCT end_time runtime, rd.controller_ip
         FROM rule_dates rd	
         WHERE start_date <= p_date
           AND end_date >= p_date
-          AND (p_controller_ip IS NULL OR controller_ip = p_controller_ip)
+          AND (p_controller_ip IS NULL OR rd.controller_ip = p_controller_ip)
     )
     SELECT DISTINCT runtime, rt.controller_ip FROM runtime rt
     ORDER BY runtime ASC;
 END;
 $$;
 
-SELECT * FROM key_fobs.f_get_runtimes(CURRENT_DATE);
+SELECT * FROM key_fobs.f_get_runtimes(CURRENT_DATE,  '69.21.119.148/32');

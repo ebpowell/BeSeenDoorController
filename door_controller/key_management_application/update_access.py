@@ -112,7 +112,12 @@ class AccessSynchronizer(ControllerScheduler):
             
         # Fetch expected fobs from database
         try:
-            db_fobs = self.db_mgr.list_fobs()
+            # Get the list of groups from the database for the given controller CIDR
+            groups = self.db_mgr.get_groups_for_controller(cidr)
+            db_fobs = []
+            for group in groups: #Build the fob list from all groups associated with the controller for the time
+                log_info(f"Group {group} is associated with controller {controller_url}")   
+                db_fobs.extend(self.db_mgr.list_fobs(group_id=group))
             db_fobs_keys = sorted(list({int(f['fob_id']) for f in db_fobs}))
         except Exception as e:
             log_error(f"Error fetching expected fobs from database: {e}")
