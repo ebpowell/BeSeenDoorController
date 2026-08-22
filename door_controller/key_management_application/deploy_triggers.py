@@ -1,6 +1,7 @@
 import os
 import sys
 import psycopg2
+import sqlparse
 from door_controller.common_lib.utils import load_config, log_info
 
 def find_init_dir():
@@ -110,10 +111,12 @@ def deploy(mode=0):
             for path, sql_content in sql_contents:
                 filename = os.path.basename(path)
                 print(f"Applying {filename} from: {path} ...")
-                cur.execute(sql_content)
-        
-            conn.commit()
-            print("All SQL scripts deployed successfully!")
+                for statement in sqlparse.split(sql_content):
+                    stmt = statement.strip()
+                    if stmt:
+                        cur.execute(stmt)
+        conn.commit()
+        print("All SQL scripts deployed successfully!")
 
     except Exception as e:
         print(f"\nFailed to deploy database schemas: {e}", file=sys.stderr)
