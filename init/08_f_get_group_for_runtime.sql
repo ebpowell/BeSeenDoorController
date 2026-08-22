@@ -24,16 +24,16 @@ BEGIN
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
-          and start_time <= current_time
-          and end_time >= current_time
+          and run_time <= current_time
+        --   and end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
         UNION
         SELECT DISTINCT vad.controller_ip, vad.group_id
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
-          AND start_time <= current_time
-          AND end_time >= current_time
+          AND run_time <= current_time
+        --   AND end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
     )
     SELECT DISTINCT rt.controller_ip, rt.group_id FROM runtime rt;
