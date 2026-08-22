@@ -1,14 +1,14 @@
 
-                CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
-                    block_id SERIAL PRIMARY KEY,
-                    block_key VARCHAR(50) UNIQUE NOT NULL,
-                    block_name VARCHAR(100) NOT NULL,
-                    start_time TIME NOT NULL,
-                    end_time TIME NOT NULL,
-                    display_order INT DEFAULT 1,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
+                block_id SERIAL PRIMARY KEY,
+                block_key VARCHAR(50) UNIQUE NOT NULL,
+                block_name VARCHAR(100) NOT NULL,
+                start_time TIME NOT NULL,
+                end_time TIME NOT NULL,
+                display_order INT DEFAULT 1,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
                 INSERT INTO key_fobs.reservation_blocks (block_key, block_name, start_time, end_time, display_order) VALUES
                 ('block1', 'Block 1: Morning', '08:00:00', '12:00:00', 1),

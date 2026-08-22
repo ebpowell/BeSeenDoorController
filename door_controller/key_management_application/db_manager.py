@@ -95,7 +95,7 @@ class FobDatabaseManager:
         if FobDatabaseManager._functions_ensured:
             return
         else:
-            import deploy_triggers
+            import door_controller.key_management_application.deploy_triggers as deploy_triggers
             deploy_triggers.deploy(1)
             FobDatabaseManager._functions_ensured = True
             return
