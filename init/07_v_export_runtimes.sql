@@ -40,9 +40,9 @@ WITH permissions AS (
                                   ON gp.door_id = d.door_id
                                 WHERE gp.allow = true
                             )
-                            select distinct controller_ip, atm.start_time  run_time,atm.start_date, atm.end_date, group_id
+                            select distinct controller_ip, atm.start_time, end_time,atm.start_date, atm.end_date, group_id
                             FROM allow_times atm
-                            union
-                            select distinct controller_ip, atm.end_time  run_time,atm.start_date run_time, atm.end_date, group_id
-                            FROM allow_times atm;
+--                            union
+--                            select distinct controller_ip, atm.end_time  run_time,atm.start_date run_time, atm.end_date, group_id
+--                            FROM allow_times atm;
 						

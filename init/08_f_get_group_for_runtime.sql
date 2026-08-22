@@ -1,7 +1,7 @@
 -- get the permission change schedule for a given date 
-
+drop function key_fobs.f_get_group_for_runtime(p_controller_ip CIDR);
 create or replace function key_fobs.f_get_group_for_runtime(p_controller_ip CIDR DEFAULT NULL)
-returns table (group_id TIME,
+returns table (group_id INT,
 				controller_ip CIDR)
 language plpgsql
 as
@@ -24,19 +24,19 @@ BEGIN
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
-          and run_time <= current_time
-        --   and end_time >= current_time
+          and start_time <= current_time
+          and end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
         UNION
         SELECT DISTINCT vad.controller_ip, vad.group_id
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
-          AND run_time <= current_time
-        --   AND end_time >= current_time
+          AND start_time <= current_time
+          AND end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
     )
-    SELECT DISTINCT rt.controller_ip, rt.group_id FROM runtime rt;
+    SELECT DISTINCT rt.group_id, rt.controller_ip FROM runtime rt;
 END;
 $$;
 
