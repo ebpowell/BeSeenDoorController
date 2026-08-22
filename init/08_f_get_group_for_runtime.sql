@@ -20,7 +20,7 @@ BEGIN
 
     RETURN QUERY
     WITH runtime AS (
-        SELECT DISTINCT vad.controller_ip, group_id
+        SELECT DISTINCT vad.controller_ip, vad.group_id
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
@@ -28,7 +28,7 @@ BEGIN
           and end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
         UNION
-        SELECT DISTINCT vad.controller_ip, group_id
+        SELECT DISTINCT vad.controller_ip, vad.group_id
         FROM key_fobs.v_export_runtimes vad 
         WHERE start_date <= current_date
           AND end_date >= current_date
@@ -36,7 +36,7 @@ BEGIN
           AND end_time >= current_time
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
     )
-    SELECT DISTINCT rt.controller_ip, group_id FROM runtime rt;
+    SELECT DISTINCT rt.controller_ip, rt.group_id FROM runtime rt;
 END;
 $$;
 
