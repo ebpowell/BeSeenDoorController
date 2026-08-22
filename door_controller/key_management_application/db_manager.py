@@ -17,80 +17,6 @@ class FobDatabaseManager:
 
     _functions_ensured = False
 
-    # def _create_reservation_tables(self):
-    #     """Ensures key_fobs.reservation_blocks, key_fobs.reservation_fee_config, and key_fobs.clubhouse_deposits exist."""
-    #     try:
-    #         conn = self._get_connection()
-    #         if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
-    #             return
-
-    #         ddl_statements = [
-    #             """
-    #             CREATE TABLE IF NOT EXISTS key_fobs.reservation_blocks (
-    #                 block_id SERIAL PRIMARY KEY,
-    #                 block_key VARCHAR(50) UNIQUE NOT NULL,
-    #                 block_name VARCHAR(100) NOT NULL,
-    #                 start_time TIME NOT NULL,
-    #                 end_time TIME NOT NULL,
-    #                 display_order INT DEFAULT 1,
-    #                 is_active BOOLEAN DEFAULT TRUE,
-    #                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    #             );
-    #             """,
-    #             """
-    #             INSERT INTO key_fobs.reservation_blocks (block_key, block_name, start_time, end_time, display_order) VALUES
-    #             ('block1', 'Block 1: Morning', '08:00:00', '12:00:00', 1),
-    #             ('block2', 'Block 2: Afternoon', '13:00:00', '17:00:00', 2),
-    #             ('block3', 'Block 3: Evening', '18:00:00', '23:00:00', 3)
-    #             ON CONFLICT (block_key) DO NOTHING;
-    #             """,
-    #             """
-    #             CREATE TABLE IF NOT EXISTS key_fobs.reservation_fee_config (
-    #                 config_key VARCHAR(50) PRIMARY KEY,
-    #                 fee_amount DECIMAL(10,2) NOT NULL,
-    #                 description TEXT,
-    #                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    #             );
-    #             """,
-    #             """
-    #             INSERT INTO key_fobs.reservation_fee_config (config_key, fee_amount, description) VALUES
-    #             ('single_block_fee', 15.00, 'Fee for reserving a single time block'),
-    #             ('multi_block_fee', 30.00, 'Flat rate fee for reserving 2 or 3 time blocks')
-    #             ON CONFLICT (config_key) DO NOTHING;
-    #             """,
-    #             """
-    #             CREATE TABLE IF NOT EXISTS key_fobs.clubhouse_deposits (
-    #                 deposit_id SERIAL PRIMARY KEY,
-    #                 property_id INT NOT NULL REFERENCES key_fobs.properties(property_id) ON DELETE CASCADE,
-    #                 reservation_id INT,
-    #                 amount DECIMAL(10,2) NOT NULL DEFAULT 150.00,
-    #                 deposit_status VARCHAR(30) NOT NULL DEFAULT 'On File',
-    #                 deposit_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    #                 date_added DATE NOT NULL DEFAULT CURRENT_DATE,
-    #                 check_or_ref_no VARCHAR(100),
-    #                 received_by VARCHAR(100),
-    #                 refund_date DATE,
-    #                 notes TEXT,
-    #                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    #                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    #             );
-    #             """,
-    #             "ALTER TABLE key_fobs.clubhouse_deposits ADD COLUMN IF NOT EXISTS date_added DATE DEFAULT CURRENT_DATE;",
-    #             "ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS deposit_added_date DATE;"
-    #         ]
-
-    #         for stmt in ddl_statements:
-    #             try:
-    #                 with conn:
-    #                     with conn.cursor() as cur:
-    #                         cur.execute(stmt)
-    #                 conn.commit()
-    #             except Exception as e_stmt:
-    #                 log_info(f"Database notice running reservation table DDL: {e_stmt}")
-
-    #     except Exception as e:
-    #         log_info(f"Database notice creating reservation tables: {e}")
-
     def ensure_db_functions(self):
         if FobDatabaseManager._functions_ensured:
             return
@@ -99,183 +25,6 @@ class FobDatabaseManager:
             deploy_triggers.deploy(1)
             FobDatabaseManager._functions_ensured = True
             return
-        # self._create_reservation_tables()
-        # try:
-        #     conn = self._get_connection()
-        #     if hasattr(conn, '_mock_name') or type(conn).__name__ in ('MagicMock', 'Mock'):
-        #         return
-        #     with conn:
-        #         with conn.cursor() as cur:
-        #             # 0. Ensure fee and early_setup columns exist in key_fobs.clubhouse_reservations
-        #             cur.execute("""
-        #                 ALTER TABLE key_fobs.clubhouse_reservations 
-        #                 ADD COLUMN IF NOT EXISTS fee DECIMAL(10,2) DEFAULT 15.00,
-        #                 ADD COLUMN IF NOT EXISTS early_setup BOOLEAN DEFAULT FALSE;
-        #             """)
-
-        #             # 1. Backfill NULL month/day columns in group_permissions from start_date/end_date if columns exist
-        #             cur.execute(
-        #                 """
-        #                 SELECT column_name 
-        #                 FROM information_schema.columns 
-        #                 WHERE table_schema = 'key_fobs' AND table_name = 'group_permissions';
-        #                 """
-        #             )
-        #             gp_cols = {row[0] for row in cur.fetchall()}
-        #             if 'start_month' in gp_cols and 'start_day_of_month' in gp_cols:
-        #                 cur.execute("""
-        #                     UPDATE key_fobs.group_permissions
-        #                     SET 
-        #                         start_month = COALESCE(start_month, EXTRACT(MONTH FROM start_date)::int),
-        #                         start_day_of_month = COALESCE(start_day_of_month, EXTRACT(DAY FROM start_date)::int),
-        #                         end_month = COALESCE(end_month, EXTRACT(MONTH FROM end_date)::int),
-        #                         end_day_of_month = COALESCE(end_day_of_month, EXTRACT(DAY FROM end_date)::int)
-        #                     WHERE (start_month IS NULL OR start_day_of_month IS NULL OR end_month IS NULL OR end_day_of_month IS NULL)
-        #                       AND start_date IS NOT NULL;
-        #                 """)
-
-        #             # 2. Check if key_fobs.vint_acl_data is a VIEW and recreate with null-safe expressions
-        #             cur.execute(
-        #                 """
-        #                 SELECT table_type 
-        #                 FROM information_schema.tables 
-        #                 WHERE table_schema = 'key_fobs' AND table_name = 'vint_acl_data';
-        #                 """
-        #             )
-        #             v_row = cur.fetchone()
-        #             if v_row and v_row[0] == 'VIEW':
-        #                 try:
-        #                     cur.execute("DROP VIEW IF EXISTS key_fobs.vint_acl_data CASCADE;")
-        #                     cur.execute("""
-        #                         CREATE VIEW key_fobs.vint_acl_data AS
-        #                         SELECT 
-        #                             k.fob_id,
-        #                             gp.door_id,
-        #                             d.door_no,
-        #                             d.controller_ip,
-        #                             gp.allow,
-        #                             gp.start_time,
-        #                             gp.end_time,
-        #                             COALESCE(
-        #                                 CASE 
-        #                                     WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-        #                                     THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-        #                                     ELSE NULL
-        #                                 END,
-        #                                 gp.start_date,
-        #                                 '2000-01-01'::date
-        #                             ) AS start_date,
-        #                             COALESCE(
-        #                                 CASE 
-        #                                     WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-        #                                     THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-        #                                     ELSE NULL
-        #                                 END,
-        #                                 gp.end_date,
-        #                                 '2099-12-31'::date
-        #                             ) AS end_date
-        #                         FROM key_fobs.group_permissions gp
-        #                         JOIN key_fobs.groups g ON gp.group_id = g.group_id
-        #                         JOIN key_fobs.property_group_permissions pgp ON g.group_id = pgp.group_id
-        #                         JOIN key_fobs.properties p ON pgp.property_id = p.property_id
-        #                         JOIN key_fobs.keyfobs k ON p.property_id = k.property_id
-        #                         JOIN door_controller.door d ON gp.door_id = d.door_id;
-        #                     """)
-        #                 except Exception as ve:
-        #                     log_info(f"Notice recreating vint_acl_data view: {ve}")
-
-        #             # 3. Create or replace f_get_permissions function
-        #             cur.execute("""
-        #                 CREATE OR REPLACE FUNCTION key_fobs.f_get_permissions (
-        #                     p_fob_id INT, 
-        #                     p_controller_ip CIDR
-        #                 )
-        #                 RETURNS TABLE (
-        #                     door_no INT,
-        #                     allow INT
-        #                 ) 
-        #                 LANGUAGE plpgsql
-        #                 AS $$
-        #                 BEGIN
-        #                     DROP TABLE IF EXISTS temp_doors;
-
-        #                     CREATE TEMP TABLE temp_doors AS
-        #                     SELECT d.door_no, 0 AS allow
-        #                     FROM door_controller.door d
-        #                     WHERE d.controller_ip = p_controller_ip;
-
-        #                     WITH permissions AS (
-        #                         SELECT k.fob_id, MAX(pgp.group_id) AS group_id 
-        #                         FROM key_fobs.keyfobs k 
-        #                         JOIN key_fobs.property_group_permissions pgp 
-        #                           ON k.property_id = pgp.property_id 
-        #                         GROUP BY k.fob_id, k.property_id
-        #                     ),
-        #                     allow_times AS ( 
-        #                         SELECT 
-        #                             p.fob_id,
-        #                             COALESCE(
-        #                                 CASE 
-        #                                     WHEN gp.start_day_of_month IS NOT NULL AND gp.start_month IS NOT NULL 
-        #                                     THEN to_date(concat(gp.start_day_of_month::text, '-', gp.start_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-        #                                     ELSE NULL
-        #                                 END,
-        #                                 gp.start_date,
-        #                                 '2000-01-01'::date
-        #                             ) AS start_date,
-        #                             COALESCE(
-        #                                 CASE 
-        #                                     WHEN gp.end_day_of_month IS NOT NULL AND gp.end_month IS NOT NULL 
-        #                                     THEN to_date(concat(gp.end_day_of_month::text, '-', gp.end_month::text, '-', date_part('year'::text, (now() AT TIME ZONE 'America/New_York'))::text), 'DD-MM-YYYY'::text)
-        #                                     ELSE NULL
-        #                                 END,
-        #                                 gp.end_date,
-        #                                 '2099-12-31'::date
-        #                             ) AS end_date,
-        #                             gp.start_time,
-        #                             gp.end_time,
-        #                             d.door_no,
-        #                             d.controller_ip
-        #                         FROM permissions p
-        #                         JOIN key_fobs.group_permissions gp 
-        #                           ON p.group_id = gp.group_id
-        #                         JOIN door_controller.door d 
-        #                           ON gp.door_id = d.door_id
-        #                         WHERE gp.allow = true
-        #                     )
-        #                     UPDATE temp_doors td
-        #                     SET allow = 1
-        #                     FROM allow_times atm
-        #                     WHERE td.door_no = atm.door_no
-        #                       AND atm.fob_id = p_fob_id
-        #                       AND atm.controller_ip = p_controller_ip
-        #                       AND (atm.start_time IS NULL OR CURRENT_TIME >= atm.start_time::time)
-        #                       AND (atm.end_time IS NULL OR CURRENT_TIME <= atm.end_time::time)
-        #                       AND CURRENT_DATE >= atm.start_date
-        #                       AND CURRENT_DATE <= atm.end_date;   
-
-        #                     RETURN QUERY
-        #                     SELECT td.door_no, td.allow FROM temp_doors td;
-
-        #                     DROP TABLE IF EXISTS temp_doors;
-        #                 END;
-        #                 $$;
-        #             """)
-        #             cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_type VARCHAR(50) DEFAULT 'Private Event';")
-        #             cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS reschedule_required BOOLEAN DEFAULT FALSE;")
-        #             cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_name VARCHAR(150);")
-        #             cur.execute("ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS event_description TEXT;")
-        #         conn.commit()
-
-        #     try:
-        #         from door_controller.key_management_application.deploy_triggers import deploy
-        #         deploy()
-        #     except Exception as dep_err:
-        #         log_info(f"Notice deploying database SQL scripts: {dep_err}")
-
-        #     FobDatabaseManager._functions_ensured = True
-        # except Exception as e:
-        #     log_info(f"Database function auto-update notice: {e}")
 
     def _get_connection(self):
         return psycopg2.connect(self.conn_str)
@@ -474,6 +223,21 @@ class FobDatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, params)
                 return cur.fetchall()
+
+    def get_groups_for_controller(self, cidr):
+        """
+        Get all group IDs associated with a specific controller CIDR.
+        Returns a list of group IDs.
+        """
+        log_info(f"Database: Fetching groups for controller CIDR {cidr}")
+        query = """
+            select * from key_fobs.f_get_group_for_runtime(%s);
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (cidr,))
+                rows = cur.fetchall()
+                return [row[0] for row in rows]
 
     def list_properties(self, group_id=None):
         """
