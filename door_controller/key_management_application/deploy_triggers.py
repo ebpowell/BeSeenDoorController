@@ -81,6 +81,12 @@ def deploy(mode=0):
         sys.exit(1)
 
     print(f"Found SQL directory: {init_dir}")
+    if mode == 0:
+        print("Mode 0: Deploying all SQL files.")
+    else:
+        print("Mode 1: Skipping the first SQL file (for testing).")
+        sql_file_paths = sql_file_paths[1:]  # Skip the first file - database exists
+
     print(f"Found {len(sql_file_paths)} SQL file(s) to execute sequentially:")
     for path in sql_file_paths:
         print(f"  - {os.path.basename(path)}")
@@ -94,10 +100,6 @@ def deploy(mode=0):
     except Exception as e:
         print(f"Error reading SQL files: {e}", file=sys.stderr)
         sys.exit(1)
-
-    if mode == 1: 
-        # Skip the '01_init.sql' file if mode is 1 (for testing purposes)
-        sql_contents = [(path, content) for path, content in sql_contents if not os.path.basename(path).startswith("01_init.sql")]
         
     # 4. Connect to DB and deploy within a single transaction
     print("Connecting to database...")
