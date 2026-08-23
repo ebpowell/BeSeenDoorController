@@ -109,7 +109,7 @@ class AccessSynchronizer(ControllerScheduler):
         to prevent controller board overload.
         """
         log_info(f"Starting synchronization for controller: {controller_url}")
-        
+        fobs_to_add = []
         changes_made = 0
         cidr = extract_cidr(controller_url)
         
@@ -169,59 +169,11 @@ class AccessSynchronizer(ControllerScheduler):
                     
                 if not rec_id:
                     log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                    owner = self.db_mgr.get_owner_for_fobid(fob_id)
-                    owner_name = owner[:30] if owner else f"Fob {fob_id}"
-                    try:
-                        add_fob_result = data_manager.add_fob(fob_id, owner_name)
-                        if add_fob_result:
-                            if add_fob_result[1]:
-                                rec_id = add_fob_result[1]
-                                log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
-                                
-                                log_info(f"Updating permissions for record: {rec_id}")
-                                expected_perms = self.get_expected_permissions(fob_id, cidr)
-                                target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
-                                response = data_manager.set_permissions(target_perms_new, rec_id)
-                                changes_made += 1
-                                continue
-                            else:
-                                log_error(f"Fob: {fob_id} not added;")
-                                continue
-                        else:
-                            log_error(f"Fob: {fob_id} addition failed;")
-                            continue
-                    except Exception as e:
-                        log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
-                        continue
-                        
-                log_info(f"Checking ACL rules for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}")
+                    # Add to a que for addition and permission setting after the loop
+                    fobs_to_add.append((fob_id, self.db_mgr.get_owner_for_fobid(fob_id)))
+                    continue  # Skip to next fob_id since this one needs to be added first
                 try:
                     current_perms_rows = data_manager.get_permissions_record(rec_id)
-                    if current_perms_rows is None:
-                        log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
-                        try:
-                            add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
-                            if add_fob_result:
-                                if add_fob_result[1]:
-                                    rec_id = add_fob_result[1]
-                                    log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
-                                    
-                                    log_info(f"Updating permissions for record: {rec_id}")
-                                    expected_perms = self.get_expected_permissions(fob_id, cidr)
-                                    target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
-                                    response = data_manager.set_permissions(target_perms_new, rec_id)
-                                    changes_made += 1
-                                    continue
-                                else:
-                                    log_error(f"Fob: {fob_id} not added;")
-                                    continue
-                            else:
-                                log_error(f"Fob: {fob_id} addition failed;")
-                                continue
-                        except Exception as e:
-                            log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
-                            continue
-
                     current_perms = {}
                     for perm_row in current_perms_rows:
                         door_name = perm_row[2]
@@ -281,6 +233,29 @@ class AccessSynchronizer(ControllerScheduler):
             if batch_idx < len(fob_batches):
                 log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {recovery_delay} seconds for board recovery...")
                 time.sleep(recovery_delay)
+        log_info(f"Synchronization complete for controller: {controller_url}. Total changes made: {changes_made}")
+        for fob_id, owner_name in fobs_to_add:
+            try:
+                add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
+                time.sleep(recovery_delay)
+                if add_fob_result:
+                    if add_fob_result[1]:
+                        rec_id = add_fob_result[1]
+                        log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
+                        
+                        log_info(f"Updating permissions for record: {rec_id}")
+                        expected_perms = self.get_expected_permissions(fob_id, cidr)
+                        target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
+                        response = data_manager.set_permissions(target_perms_new, rec_id)
+                        changes_made += 1
+                        time.sleep(recovery_delay)
+                    else:
+                        log_error(f"Fob: {fob_id} not added;")
+                else:
+                    log_error(f"Fob: {fob_id} addition failed;")
+            except Exception as e:
+                log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
+        log_info(f"Total changes made after adding missing fobs: {changes_made}")
                 
         log_info(f"Finished synchronization for controller: {controller_url}")
         return True
