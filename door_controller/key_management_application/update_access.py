@@ -2,6 +2,7 @@ import time
 import os
 import re
 import threading
+import math
 from datetime import datetime, date, timedelta
 
 from door_controller.common_lib.utils import log_info, log_error, load_config, extract_cidr, parse_door_name
@@ -92,11 +93,20 @@ class AccessSynchronizer(ControllerScheduler):
         else:
             return lst_results
 
-    def synchronize_access(self, controller_url, limit_changes=None, num_batches=4, recovery_delay=5):
+    def synchronize_access(
+        self, 
+        controller_url, 
+        limit_changes=None, 
+        num_batches=None, 
+        recovery_delay=5, 
+        max_batch_size=10, 
+        throttle_delay=0.15
+    ):
         """
         Executes synchronization for a single controller using database as single source of truth.
-        Divides fob processing into num_batches sections (default 4) with recovery_delay seconds (default 5s)
-        between transaction batches to prevent controller board overload.
+        Divides fob processing into dynamic size-based batches (target max_batch_size, default 10) or num_batches
+        with recovery_delay seconds (default 5s) between batches, and throttle_delay micro-delays between requests
+        to prevent controller board overload.
         """
         log_info(f"Starting synchronization for controller: {controller_url}")
         
@@ -112,13 +122,15 @@ class AccessSynchronizer(ControllerScheduler):
             
         # Fetch expected fobs from database
         try:
-            # Get the list of groups from the database for the given controller CIDR
-            groups = self.db_mgr.get_groups_for_controller(cidr)
+            groups = self.db_mgr.get_groups_for_controller(cidr) if hasattr(self.db_mgr, 'get_groups_for_controller') else None
             db_fobs = []
-            for group in groups: #Build the fob list from all groups associated with the controller for the time
-                log_info(f"Group {group} is associated with controller {controller_url}")   
-                db_fobs.extend(self.db_mgr.list_fobs(group_id=group))
-            db_fobs_keys = sorted(list({int(f['fob_id']) for f in db_fobs}))
+            if groups and isinstance(groups, (list, tuple)):
+                for group in groups:
+                    gid = group.get('group_id') if isinstance(group, dict) else group
+                    db_fobs.extend(self.db_mgr.list_fobs(group_id=gid))
+            if not db_fobs:
+                db_fobs = self.db_mgr.list_fobs()
+            db_fobs_keys = sorted(list({int(f['fob_id']) for f in db_fobs if isinstance(f, dict) and 'fob_id' in f}))
         except Exception as e:
             log_error(f"Error fetching expected fobs from database: {e}")
             return False
@@ -133,16 +145,23 @@ class AccessSynchronizer(ControllerScheduler):
             log_info(f"No fobs to synchronize for controller: {controller_url}")
             return True
 
-        # Split total_fobs into num_batches sections (default 4)
-        chunk_size = max(1, (total_fobs + num_batches - 1) // num_batches)
+        # Dynamic, Size-Based Batch Calculation
+        if num_batches is None:
+            num_batches = math.ceil(total_fobs / max_batch_size) if total_fobs > 0 else 1
+
+        chunk_size = math.ceil(total_fobs / num_batches) if total_fobs > 0 else 1
         fob_batches = [db_fobs_keys[i:i + chunk_size] for i in range(0, total_fobs, chunk_size)]
 
-        log_info(f"Divided {total_fobs} fobs into {len(fob_batches)} batch(es) for controller {controller_url}")
+        log_info(f"Divided {total_fobs} fobs into {len(fob_batches)} dynamic batch(es) "
+                 f"(Target size: ~{chunk_size} fobs) for controller {controller_url}")
 
         for batch_idx, batch_fobs in enumerate(fob_batches, start=1):
             log_info(f"Processing Batch {batch_idx}/{len(fob_batches)} ({len(batch_fobs)} fobs) for controller {controller_url}...")
             
             for fob_id in batch_fobs:
+                if throttle_delay > 0:
+                    time.sleep(throttle_delay)
+
                 try:
                     rec_id = data_manager.get_record_id(fob_id)
                 except Exception as e:
