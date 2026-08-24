@@ -1,6 +1,7 @@
 import os
 from time import sleep
 from door_controller.common_lib.fobs import key_fobs
+from door_controller.common_lib.door_controller import ExternalSystemError
 
 class DataManager(key_fobs):
     def __init__(self, url, username, password, retries=3, retry_sleep=None):
@@ -17,7 +18,8 @@ class DataManager(key_fobs):
             self.retry_sleep = retry_sleep
 
     def add_fob(self, fob_id, name):
-        response = self.navigate()
+        # response = self.navigate()
+        response = self.users_page()
         if response and response.status_code == 200:
             url = self.url + '/ACT_ID_21'
             data = {'s1': 'AddCard'}
@@ -63,8 +65,9 @@ class DataManager(key_fobs):
             rec_id = record_id
         
         rec_id = int(rec_id)
-        self.navigate()
-        
+        # self.navigate()
+        response = self.users_page()
+
         url = self.url + '/ACT_ID_324'
         edit_key = f"E{rec_id - 1}"
         edit_data = {edit_key: 'Edit'}
@@ -111,7 +114,8 @@ class DataManager(key_fobs):
         return None
 
     def del_fob(self, fob_id):
-        response = self.navigate()
+        # response = self.navigate()
+        response = self.users_page()
         if response and response.status_code == 200:
             try:
                 url = self.url + '/ACT_ID_324'

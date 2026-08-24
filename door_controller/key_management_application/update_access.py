@@ -10,8 +10,8 @@ from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.controller_scheduler import ControllerScheduler
-
 from door_controller.key_management_application.collect_metrics import collect_metrics_stats
+from door_controller.common_lib.door_controller import ExternalSystemError
 
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns a non-200 status code."""
@@ -109,7 +109,7 @@ class AccessSynchronizer(ControllerScheduler):
         to prevent controller board overload.
         """
         log_info(f"Starting synchronization for controller: {controller_url}")
-        fobs_to_add = []
+        
         changes_made = 0
         cidr = extract_cidr(controller_url)
         
@@ -155,25 +155,37 @@ class AccessSynchronizer(ControllerScheduler):
         log_info(f"Divided {total_fobs} fobs into {len(fob_batches)} dynamic batch(es) "
                  f"(Target size: ~{chunk_size} fobs) for controller {controller_url}")
 
+        fobs_to_add = []
+        limit_reached = False
         for batch_idx, batch_fobs in enumerate(fob_batches, start=1):
+            if limit_reached:
+                break
+
             log_info(f"Processing Batch {batch_idx}/{len(fob_batches)} ({len(batch_fobs)} fobs) for controller {controller_url}...")
             
             for fob_id in batch_fobs:
                 if throttle_delay > 0:
                     time.sleep(throttle_delay)
 
+                rec_id = None
                 try:
                     rec_id = data_manager.get_record_id(fob_id)
                 except Exception as e:
                     log_error(f"Failed to check Fob {fob_id} existence on controller {controller_url}. Error: {e}")
                     
                 if not rec_id:
-                    log_info(f"Record ID not found for Fob {fob_id}. Adding to controller {controller_url}.")
-                    # Add to a que for addition and permission setting after the loop
-                    fobs_to_add.append((fob_id, self.db_mgr.get_owner_for_fobid(fob_id)))
-                    continue  # Skip to next fob_id since this one needs to be added first
+                    log_info(f"Record ID not found for Fob {fob_id}. Queueing for follow-on addition to controller {controller_url}.")
+                    owner = self.db_mgr.get_owner_for_fobid(fob_id)
+                    owner_name = owner[:30] if owner else f"Fob {fob_id}"
+                    fobs_to_add.append((fob_id, owner_name))
+                    continue
+
                 try:
                     current_perms_rows = data_manager.get_permissions_record(rec_id)
+                    if current_perms_rows is None:
+                        log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
+                        continue
+
                     current_perms = {}
                     for perm_row in current_perms_rows:
                         door_name = perm_row[2]
@@ -196,6 +208,7 @@ class AccessSynchronizer(ControllerScheduler):
                     if delta:
                         if limit_changes is not None and changes_made >= limit_changes:
                             log_info(f"Change limit of {limit_changes} reached. Skipping ACL sync for Fob {fob_id} (Record ID: {rec_id}) on controller {controller_url}.")
+                            limit_reached = True
                             break
                         log_info(f"ACL mismatch detected for Fob {fob_id} (Record ID {rec_id}) on {controller_url}. "
                                  f"Current: {current_perms}, Expected: {expected_perms}. Syncing...")
@@ -206,9 +219,9 @@ class AccessSynchronizer(ControllerScheduler):
                                 response_body="Connection failed. Max retries reached with no response."
                             )
                         
-                        if response.status_code != 200:
+                        if getattr(response, 'status_code', None) != 200:
                             raise ExternalSystemError(
-                                status_code=response.status_code,
+                                status_code=getattr(response, 'status_code', 500),
                                 response_body=getattr(response, 'text', '')
                             )
                         changes_made += 1
@@ -230,16 +243,26 @@ class AccessSynchronizer(ControllerScheduler):
                     log_error(f"Error syncing ACL rules for Fob {fob_id} on controller {controller_url}: {e}")
 
             # Allow recovery_delay (5s) between batches so the controller hardware recovers
-            if batch_idx < len(fob_batches):
+            if batch_idx < len(fob_batches) and not limit_reached:
                 log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {recovery_delay} seconds for board recovery...")
                 time.sleep(recovery_delay)
-        log_info(f"Synchronization complete for controller: {controller_url}. Total changes made: {changes_made}")
-        for fob_id, owner_name in fobs_to_add:
-            try:
-                add_fob_result = data_manager.add_fob(fob_id, owner_name[:30])
-                time.sleep(recovery_delay)
-                if add_fob_result:
-                    if add_fob_result[1]:
+
+        # Process follow-on missing fob additions after existing fob ACL sync completes
+        if fobs_to_add and not limit_reached:
+            log_info(f"Main sync complete. Processing {len(fobs_to_add)} missing fob(s) in follow-on pass for controller {controller_url}...")
+            time.sleep(recovery_delay)
+
+            for fob_id, owner_name in fobs_to_add:
+                if limit_changes is not None and changes_made >= limit_changes:
+                    log_info(f"Change limit of {limit_changes} reached. Skipping remaining missing fob additions on {controller_url}.")
+                    break
+
+                try:
+                    log_info(f"Follow-on pass: Adding Fob {fob_id} ({owner_name}) to controller {controller_url}...")
+                    add_fob_result = data_manager.add_fob(fob_id, owner_name)
+                    time.sleep(recovery_delay)
+
+                    if add_fob_result and add_fob_result[1]:
                         rec_id = add_fob_result[1]
                         log_info(f"Fob:{fob_id} owned by: {owner_name} was added as record: {rec_id} to controller: {controller_url}")
                         
@@ -250,14 +273,13 @@ class AccessSynchronizer(ControllerScheduler):
                         changes_made += 1
                         time.sleep(recovery_delay)
                     else:
-                        log_error(f"Fob: {fob_id} not added;")
-                else:
-                    log_error(f"Fob: {fob_id} addition failed;")
-            except Exception as e:
-                log_error(f"Failed to add Fob {fob_id} to controller {controller_url}. Error: {e}")
-        log_info(f"Total changes made after adding missing fobs: {changes_made}")
-                
-        log_info(f"Finished synchronization for controller: {controller_url}")
+                        log_error(f"Fob {fob_id} addition returned no record ID on controller {controller_url}.")
+                except ExternalSystemError as e:
+                    log_error(f"ExternalSystemError adding Fob {fob_id} on {controller_url}: Status {e.status_code}")
+                except Exception as e:
+                    log_error(f"Error adding Fob {fob_id} in follow-on pass on controller {controller_url}: {e}")
+
+        log_info(f"Finished synchronization for controller: {controller_url}. Total changes made: {changes_made}")
         return True
 
 def main(argv=None):
