@@ -227,18 +227,18 @@ class door_controller:
                     time.sleep(self.timeout/3)
                     pass
 
-    def navigate(self):
-        # obj_ACL = AccessControlList(self.username, self.password, self.url)
-        try:
-            response = self.connect()
-            if response and response.status_code == 200:
-                try:
-                    response = self.users_page()
-                    return response
-                except Exception as e:
-                    raise e
-        except Exception as e:
-            raise e
+    # def navigate(self):
+    #     # obj_ACL = AccessControlList(self.username, self.password, self.url)
+    #     try:
+    #         response = self.connect()
+    #         if response and response.status_code == 200:
+    #             try:
+    #                 response = self.users_page()
+    #                 return response
+    #             except Exception as e:
+    #                 raise e
+    #     except Exception as e:
+    #         raise e
 
     def unlock_door(self, door_desc, door_no):
         self.connect()
