@@ -29,7 +29,7 @@ def log_error(message, exc_info=False):
     logging.error(message, exc_info=exc_info)
 
 
-def load_config(config_filename="config.yaml"):
+def load_config(config_filename = 'config.yaml'):
     """
     Loads a YAML configuration file.
     Searches in candidate directories (APP_CONFIG_DIR, /app/config, /etc/door_controller,
@@ -42,7 +42,7 @@ def load_config(config_filename="config.yaml"):
         import pkgutil
 
         # 1. Determine list of candidate directories to search
-        if config_filename == "config.yaml": #We haven't passed a paramter, so we can use the default config.yaml and APP_CONFIG_DIR environment variable
+        if config_filename == 'config.yaml': #We haven't passed a paramter, so we can use the default config.yaml and APP_CONFIG_DIR environment variable
             candidate_dirs = []
             env_dir = os.getenv('APP_CONFIG_DIR')
             if env_dir:
@@ -55,13 +55,13 @@ def load_config(config_filename="config.yaml"):
                     './config'
                 ])
 
-                # 2. Search for the file in the candidate directories
-                config_path = None
-                for directory in candidate_dirs:
-                    possible_path = os.path.join(directory, config_filename)
-                    if os.path.exists(possible_path):
-                        config_path = possible_path
-                        break
+            # 2. Search for the file in the candidate directories
+            config_path = None
+            for directory in candidate_dirs:
+                possible_path = os.path.join(directory, config_filename)
+                if os.path.exists(possible_path):
+                    config_path = possible_path
+                    break
         else:
             # If a specific config file path is provided, use it directly
             config_path = config_filename if os.path.exists(config_filename) else None
