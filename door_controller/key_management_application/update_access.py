@@ -26,17 +26,15 @@ class AccessSynchronizer(ControllerScheduler):
         Update the permissions for the fobs on a door controller based on the database schedule rules
         Add any missing fobs to the controller and set permissions. 
     """
-    def __init__(self, username, password, db_mgr_or_config):  
-        if hasattr(db_mgr_or_config, '_get_connection') or hasattr(db_mgr_or_config, 'list_fobs'):
-            db_mgr = db_mgr_or_config
-        else:
-            db_mgr = FobDatabaseManager(db_mgr_or_config)
-            
+    def __init__(self, username, password, config):  
+        db_mgr = FobDatabaseManager(config.get('settings', {}).get('postgres_connect_string'))
         super().__init__(db_mgr, use_runtime_schedule=True)
         self.username = username
         self.password = password
-        self.db_config = db_mgr.conn_str
         self.db_mgr = db_mgr
+        self.config = config
+        self.recovery_delay = config.get('settings', {}).get('recovery_delay')
+        self.max_retries = config.get('settings', {}).get('retry_attempts')
         if hasattr(self.db_mgr, 'ensure_db_functions'):
             self.db_mgr.ensure_db_functions()
 
@@ -49,24 +47,24 @@ class AccessSynchronizer(ControllerScheduler):
         # Section 1: Pre-check
         log_info(f"Section 1/3: Executing pre-synchronization data quality collection for controller: {controller_url}")
         try:
-            collect_metrics_stats(sync_phase='pre_sync', target_controller_url=controller_url)
+            collect_metrics_stats(sync_phase='pre_sync', target_controller_url=controller_url, config=self.config)
         except Exception as e:
             log_error(f"Pre-sync metrics collection error for {controller_url}: {e}")
 
-        log_info("Section 1 Complete. Pausing 5 seconds for controller board recovery...")
-        time.sleep(5)
+        log_info(f"Section 1 Complete. Pausing {self.recovery_delay} seconds for controller board recovery...")
+        time.sleep(self.recovery_delay)
 
         # Section 2: Sync (4 batches with 5s recovery delays)
         log_info(f"Section 2/3: Executing 4-batch permissions synchronization for controller: {controller_url}")
-        result = self.synchronize_access(controller_url, limit_changes=limit_changes, num_batches=4, recovery_delay=5)
+        result = self.synchronize_access(controller_url, limit_changes=limit_changes, num_batches=4, max_batch_size=10, throttle_delay=0.15)
 
         log_info("Section 2 Complete. Pausing 5 seconds for controller board recovery...")
-        time.sleep(5)
+        time.sleep(self.recovery_delay)
 
         # Section 3: Post-check
         log_info(f"Section 3/3: Executing post-synchronization data quality collection for controller: {controller_url}")
         try:
-            collect_metrics_stats(sync_phase='post_sync', target_controller_url=controller_url)
+            collect_metrics_stats(sync_phase='post_sync', target_controller_url=controller_url, config=self.config)
         except Exception as e:
             log_error(f"Post-sync metrics collection error for {controller_url}: {e}")
 
@@ -98,7 +96,6 @@ class AccessSynchronizer(ControllerScheduler):
         controller_url, 
         limit_changes=None, 
         num_batches=None, 
-        recovery_delay=5, 
         max_batch_size=10, 
         throttle_delay=0.15
     ):
@@ -139,7 +136,12 @@ class AccessSynchronizer(ControllerScheduler):
         log_info(f"Postgres database fobs count: {total_fobs}")
         
         # Instantiate DataManager
-        data_manager = DataManager(controller_url, self.username, self.password)
+        # *** TO DO **: Pass retry_sleep from config if available, else default to 1 second
+        if hasattr(self.db_mgr, 'get_retry_sleep'):
+            retry_sleep = self.db_mgr.get_retry_sleep()
+        else:
+            retry_sleep = self.recovery_delay
+        data_manager = DataManager(controller_url, self.username, self.password, retry_sleep)
 
         if total_fobs == 0:
             log_info(f"No fobs to synchronize for controller: {controller_url}")
@@ -244,13 +246,13 @@ class AccessSynchronizer(ControllerScheduler):
 
             # Allow recovery_delay (5s) between batches so the controller hardware recovers
             if batch_idx < len(fob_batches) and not limit_reached:
-                log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {recovery_delay} seconds for board recovery...")
-                time.sleep(recovery_delay)
+                log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {self.recovery_delay} seconds for board recovery...")
+                time.sleep(self.recovery_delay)
 
         # Process follow-on missing fob additions after existing fob ACL sync completes
         if fobs_to_add and not limit_reached:
             log_info(f"Main sync complete. Processing {len(fobs_to_add)} missing fob(s) in follow-on pass for controller {controller_url}...")
-            time.sleep(recovery_delay)
+            time.sleep(self.recovery_delay)
 
             for fob_id, owner_name in fobs_to_add:
                 if limit_changes is not None and changes_made >= limit_changes:
@@ -260,7 +262,7 @@ class AccessSynchronizer(ControllerScheduler):
                 try:
                     log_info(f"Follow-on pass: Adding Fob {fob_id} ({owner_name}) to controller {controller_url}...")
                     add_fob_result = data_manager.add_fob(fob_id, owner_name)
-                    time.sleep(recovery_delay)
+                    time.sleep(self.recovery_delay)
 
                     if add_fob_result and add_fob_result[1]:
                         rec_id = add_fob_result[1]
@@ -271,7 +273,7 @@ class AccessSynchronizer(ControllerScheduler):
                         target_perms_new = [(door_no, expected_perms.get(door_no, False)) for door_no in (1, 2, 3, 4)]
                         response = data_manager.set_permissions(target_perms_new, rec_id)
                         changes_made += 1
-                        time.sleep(recovery_delay)
+                        time.sleep(self.recovery_delay)
                     else:
                         log_error(f"Fob {fob_id} addition returned no record ID on controller {controller_url}.")
                 except ExternalSystemError as e:
@@ -295,10 +297,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
     parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
     parser.add_argument("-l", "--limit-changes", type=int, default=None, help="Limit the number of mutating changes applied per controller.")
+    parser.add_argument("-c", "--config", type=str, default=None, help="Path to configuration file (optional).")
+
     args = parser.parse_args(argv)
 
     log_info("Starting global door controller synchronization routine.")
-    config = load_config()
+    if args.config:
+        config = load_config(args.config)
+    else:
+        config = load_config()  
     if not config:
         log_error("Failed to load configuration.")
         return
@@ -324,7 +331,8 @@ def main(argv=None):
         log_info(f"Applying synchronization change limit: {limit_changes} changes per controller.")
 
     # Instantiate the AccessSynchronizer once
-    synchronizer = AccessSynchronizer(username, password, connect_string)
+    # TO DO: Consider passing max_retries and retry_sleep from config if available, else default to 1 second
+    synchronizer = AccessSynchronizer(username, password, config)
 
     if args.daemon:
         log_info("Running in daemon/scheduler mode with multi-threading.")

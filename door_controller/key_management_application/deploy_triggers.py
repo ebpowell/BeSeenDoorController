@@ -1,7 +1,7 @@
 import os
 import sys
 import psycopg2
-from door_controller.common_lib.utils import load_config, log_info
+from door_controller.common_lib.utils import load_config, log_info, log_error
 
 def find_init_dir():
     """
@@ -51,24 +51,14 @@ def get_sql_files(init_dir):
     sql_files.sort()
     return [os.path.join(init_dir, f) for f in sql_files]
 
-def deploy(mode=0):
+def deploy(conn_str, mode=0):
     """
     Reads all SQL scripts in the 'init' folder sequentially and deploys them to the database configured in config.yaml.
     """
     print("Database Trigger & Observability Deployment Tool")
     print("================================================")
     
-    # 1. Load config
-    try:
-        config = load_config()
-        conn_str = config.get('settings', {}).get('postgres_connect_string')
-        if not conn_str:
-            print("Error: 'postgres_connect_string' not found in config/config.yaml.", file=sys.stderr)
-            sys.exit(1)
-    except Exception as e:
-        print(f"Error loading configuration: {e}", file=sys.stderr)
-        sys.exit(1)
-        
+  
     # 2. Locate SQL script files in the init directory
     init_dir = find_init_dir()
     if not init_dir:
@@ -124,7 +114,42 @@ def deploy(mode=0):
             conn.close()
 
 def main():
-    deploy()
+    import sys
+    import argparse
+    
+    if argv is None:
+        if any('unittest' in arg or 'pytest' in arg for arg in sys.argv) or (len(sys.argv) > 1 and sys.argv[1] == 'discover'):
+            argv = []
+        else:
+            argv = sys.argv[1:]
+            
+    parser = argparse.ArgumentParser(description="Synchronize door controllers with database fobs and ACLs.")
+    parser.add_argument("-d", "--daemon", action="store_true", help="Run as a daemon scheduling periodic updates.")
+    parser.add_argument("-l", "--limit-changes", type=int, default=None, help="Limit the number of mutating changes applied per controller.")
+    parser.add_argument("-c", "--config", type=str, default=None, help="Path to configuration file (optional).")
+
+    args = parser.parse_args(argv)
+
+    log_info("Starting global door controller synchronization routine.")
+    if args.config:
+        config = load_config(args.config)
+    else:
+        config = load_config()  
+    if not config:
+        log_error("Failed to load configuration.")
+        return
+    # 1. Load config
+    try:
+        config = load_config()
+        conn_str = config.get('settings', {}).get('postgres_connect_string')
+        if not conn_str:
+            print("Error: 'postgres_connect_string' not found in config/config.yaml.", file=sys.stderr)
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error loading configuration: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    deploy(conn_str, mode=0)
 
 if __name__ == "__main__":
     main()

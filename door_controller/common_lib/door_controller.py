@@ -38,6 +38,12 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
     :return: The raw HTML text if valid.
     :raises: ExternalSystemError if redirection, session expiry, or missing markers are detected.
     """
+
+    # TO DO: IF request is AddCard AND response contains: 
+    # "Add Successfully" and is_addcard_fallback = True, then return OK, not error
+    # "user is deleted"
+    # "edited successfully"
+
     text = response.text or ""
     
     # 1. Detect Redirection to the homepage / AddCard Menu (indicates session expired)
@@ -46,7 +52,7 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
         ("Manual Input" in text or "AutoAddBySwiping" in text)
     )
     
-    if is_addcard_fallback:
+    if is_addcard_fallback and expected_marker != 'Added Successfully': #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
         logger.warning(
             f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
         )
@@ -114,7 +120,7 @@ class door_controller:
         self._login_response = None
 
 
-    def get_httpresponse(self, url, data):
+    def get_httpresponse(self, url, data, expected_marker= None):
         for x in range (0, self.max_retries):
             try:
                 response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
@@ -124,7 +130,7 @@ class door_controller:
                 # Check for successful response
                 if response.status_code == 200:
                     # Mitigate Bug B: Enforce validation before proceeding
-                    text = validate_and_parse_controller_html(response, expected_marker="<table")  # Adjust marker as needed for your use case
+                    text = validate_and_parse_controller_html(response, expected_marker=expected_marker)  # Adjust marker as needed for your use case
         
                     # Continue with normal processing on structured JSON
                     return response

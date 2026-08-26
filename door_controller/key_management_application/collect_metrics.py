@@ -173,7 +173,7 @@ def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="sta
 
             try:
                 dm = DataManager(url, username, password)
-                nav = dm.navigate()
+                nav = dm.connect()
                 if not nav or nav.status_code != 200:
                     raise Exception("Failed to navigate to controller dashboard.")
 

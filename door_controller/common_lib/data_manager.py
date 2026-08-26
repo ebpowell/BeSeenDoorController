@@ -4,22 +4,13 @@ from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.door_controller import ExternalSystemError
 
 class DataManager(key_fobs):
-    def __init__(self, url, username, password, retries=3, retry_sleep=None):
+    def __init__(self, url, username, password, retries=3, retry_sleep=1):
         super().__init__(url, username, password)
         self.max_retries = retries
-        if retry_sleep is None:
-            try:
-                from door_controller.common_lib.utils import load_config
-                config = load_config()
-                self.retry_sleep = config.get('settings', {}).get('retry_sleep_seconds', 1)
-            except Exception:
-                self.retry_sleep = 1
-        else:
-            self.retry_sleep = retry_sleep
+        self.retry_sleep = retry_sleep
 
     def add_fob(self, fob_id, name):
-        # response = self.navigate()
-        response = self.users_page()
+        response = self.connect()
         if response and response.status_code == 200:
             url = self.url + '/ACT_ID_21'
             data = {'s1': 'AddCard'}
@@ -34,7 +25,7 @@ class DataManager(key_fobs):
                             ('25', 'Add')]
                 self.session.headers['Referer'] = self.url + '/ACT_ID_21'
                 for i in range(self.max_retries):
-                    the_code = self.get_httpresponse(url_add, add_data)
+                    the_code = self.get_httpresponse(url_add, add_data, 'Added Successfully')
                     if the_code:
                         if the_code.status_code == 200:
                             # Print warnings for developer debugging
@@ -109,7 +100,7 @@ class DataManager(key_fobs):
                     save_key = f"S{rec_id - 1}"
                     save_data.append((save_key, 'Save'))
                     self.session.headers['Referer'] = self.url + '/ACT_ID_324'
-                    response = self.get_httpresponse(url, save_data)
+                    response = self.get_httpresponse(url, save_data, "edited successfully")
                 return response
         return None
 
@@ -133,7 +124,7 @@ class DataManager(key_fobs):
                         if the_code.status_code == 200:
                             ok_key = f"X{the_number}"
                             ok_data = {ok_key: 'OK'}
-                            the_code = self.get_httpresponse(url, ok_data)
+                            the_code = self.get_httpresponse(url, ok_data, "user is deleted")
                         return the_code.status_code
                     else: # Null response from server
                         sleep(self.retry_sleep)

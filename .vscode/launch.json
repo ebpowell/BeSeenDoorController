@@ -18,11 +18,13 @@
             "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
             "logToFile": true,
             "args": [
-                "--daemon"
+                "--daemon",
+                "-c", "${workspaceFolder}/config/config.yaml"
             ],
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}",
+                "-c": "${workspaceFolder}/config"
             }
         },
         {

@@ -22,7 +22,7 @@ class FobDatabaseManager:
             return
         else:
             import door_controller.key_management_application.deploy_triggers as deploy_triggers
-            deploy_triggers.deploy(1)
+            deploy_triggers.deploy(self.conn_str, mode=1)  # mode=1 for function-only deployment
             FobDatabaseManager._functions_ensured = True
             return
 
