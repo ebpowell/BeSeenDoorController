@@ -66,7 +66,7 @@ class DataManager(key_fobs):
         self.session.headers['Referer'] = self.url + '/ACT_ID_21'
         # USX106=0&24=1&25=1&26=1&27=1&S106=Save
         for i in range(self.max_retries):
-            response = self.get_httpresponse(url, edit_data, "edited successfully")
+            response = self.get_httpresponse(url, edit_data)
             if not response:
                 sleep(self.retry_sleep)
                 if i < self.max_retries - 1:
