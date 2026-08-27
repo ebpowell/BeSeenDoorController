@@ -20,12 +20,12 @@
             "logToFile": true,
             "args": [
                 "--daemon",
-                // "-c", "${workspaceFolder}/config/config.yaml"
+                "-c", "${workspaceFolder}/config/config.yaml"
             ],
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
-                "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
+                // "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {

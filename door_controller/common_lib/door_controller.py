@@ -45,14 +45,16 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
     # "edited successfully"
 
     text = response.text or ""
+    is_addcard_fallback = None
     
     # 1. Detect Redirection to the homepage / AddCard Menu (indicates session expired)
-    is_addcard_fallback = (
-        "<title>Web Controller</title>" in text and 
-        ("Manual Input" in text or "AutoAddBySwiping" in text)
-    )
+    if expected_marker:
+        is_addcard_fallback = (
+            "<title>Web Controller</title>" in text and 
+            ("Manual Input" in text or "AutoAddBySwiping" in text)
+        )
     
-    if is_addcard_fallback and expected_marker != 'Added Successfully': #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
+    if is_addcard_fallback and expected_marker: #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
         logger.warning(
             f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
         )
