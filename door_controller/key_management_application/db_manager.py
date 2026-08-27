@@ -1244,7 +1244,7 @@ class FobDatabaseManager:
                             FROM door_controller.door 
                             ORDER BY door_id ASC;"""
 
-        log_info("Database: Fetching door details.")
+        # log_info("Database: Fetching door details.")
         with self._get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 if cidr is not None:

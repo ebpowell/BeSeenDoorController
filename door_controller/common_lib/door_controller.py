@@ -54,7 +54,7 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
             ("Manual Input" in text or "AutoAddBySwiping" in text)
         )
     
-    if is_addcard_fallback and expected_marker: #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
+    if is_addcard_fallback and expected_marker and not expected_marker in text: #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
         logger.warning(
             f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
         )

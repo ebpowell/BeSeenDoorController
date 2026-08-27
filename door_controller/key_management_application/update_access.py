@@ -185,7 +185,9 @@ class AccessSynchronizer(ControllerScheduler):
                 try:
                     current_perms_rows = data_manager.get_permissions_record(rec_id)
                     if current_perms_rows is None:
-                        log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}")
+                        log_error(f"Could not retrieve permissions for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url}, purging")
+                        # DELETE FOB
+                        data_manager.del_fob(fob_id)
                         continue
 
                     current_perms = {}
@@ -234,8 +236,8 @@ class AccessSynchronizer(ControllerScheduler):
                                     f"Updated ACL rules for Fob {fob_id} (Record ID {rec_id}) on controller {controller_url} to {target_perms}"
                                 )
                             conn.commit()
-                    else:
-                        log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
+                    # else:
+                    #     log_info(f"ACL rules for Fob {fob_id} on {controller_url} are up-to-date.")
 
                 except ExternalSystemError as e:
                     print(f"Error updating permissions: {e} (Status: {e.status_code})")
