@@ -2,9 +2,6 @@ requests
 #requests.auth
 requests.html
 psycopg2-binary
-#sqlite3
-#datetime
-#time
 PyYaml
 web-browser
 Flask
@@ -12,3 +9,8 @@ pyOpenSSL
 cryptography
 google-api-python-client
 google-auth
+cv2
+numpy
+pypdf
+pdf2image
+stripe
