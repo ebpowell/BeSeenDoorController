@@ -8,7 +8,8 @@
             "program": "${workspaceFolder}/tests/test_AccessSynchronizer.py",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}",
+                "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {
@@ -18,11 +19,13 @@
             "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
             "logToFile": true,
             "args": [
-                "--daemon"
+                "--daemon",
+                "-c", "${workspaceFolder}/config/config.yaml"
             ],
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}",
+                // "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {
@@ -36,7 +39,8 @@
             ],
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}",
+                "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {

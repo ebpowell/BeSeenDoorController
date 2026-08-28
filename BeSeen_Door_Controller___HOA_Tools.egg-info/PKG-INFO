@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: BeSeen-Door-Controller---HOA-Tools
+Version: 0.2
+Summary: Simplified, HOA Focused toolset for managing door acccess using the BeSeen Door Controller board.
+Home-page: https://github.com/ebpowell/BeSeenDoorController
+Author: ebpowell
+Author-email: ebpowell.chip@gmail.com
+License: GPL-v2
+Requires-Python: >=3.8
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary

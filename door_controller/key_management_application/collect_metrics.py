@@ -63,41 +63,48 @@ def record_metric(cur, controller_ip, name, value, metadata=None):
         VALUES (%s, %s, %s, %s);
     """, (controller_ip, name, value, Json(metadata) if metadata else None))
 
-def main():
-    parser = argparse.ArgumentParser(description="Door Controller Observability Metrics Collector")
-    parser.add_argument("--sample-size", type=int, default=None, help="Minimum number of fobs to audit")
-    parser.add_argument("--sample-percent", type=float, default=None, help="Percentage of total fobs to audit")
-    args = parser.parse_args()
+def collect_metrics_stats(sample_size=None, sample_percent=None, sync_phase="standalone", config=None, target_controller_url=None):
+    """
+    Collects door controller system metrics and runs statistical audits.
+    Writes results to door_controller.controller_metrics table for Grafana visualization.
+    
+    :param sample_size: Minimum number of fobs to audit.
+    :param sample_percent: Percentage of total fobs to audit.
+    :param sync_phase: Label describing sync phase (e.g. 'pre_sync', 'post_sync', 'standalone').
+    :param config: Optional configuration dictionary.
+    :param target_controller_url: Optional URL or IP of specific controller to target.
+    """
+    log_info(f"Starting door controller metrics collection (phase='{sync_phase}', target='{target_controller_url or 'all'}')...")
 
-    log_info("Starting door controller metrics collection...")
-
-    config = load_config()
+    if config is None:
+        config = load_config() or {}
     settings = config.get('settings', {})
     conn_str = settings.get('postgres_connect_string')
     username = settings.get('username')
     password = settings.get('password')
     urls = settings.get('urls', [])
 
-    # Resolve sample parameters: CLI parameter takes highest priority, then config settings, then default fallback values
-    cli_sample_size = args.sample_size
-    cli_sample_percent = args.sample_percent
+    target_ip_filter = None
+    if target_controller_url:
+        parsed_target = urllib.parse.urlparse(target_controller_url)
+        target_ip_filter = parsed_target.hostname if parsed_target.hostname else target_controller_url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
 
     config_sample_size = settings.get('metrics_sample_size')
     config_sample_percent = settings.get('metrics_sample_percent')
 
-    sample_size = cli_sample_size if cli_sample_size is not None else (config_sample_size if config_sample_size is not None else 20)
-    sample_percent = cli_sample_percent if cli_sample_percent is not None else (config_sample_percent if config_sample_percent is not None else 5.0)
+    final_sample_size = sample_size if sample_size is not None else (config_sample_size if config_sample_size is not None else 20)
+    final_sample_percent = sample_percent if sample_percent is not None else (config_sample_percent if config_sample_percent is not None else 5.0)
 
     if not conn_str:
-        log_error("postgres_connect_string not found in configuration. Exiting.")
-        sys.exit(1)
+        log_error("postgres_connect_string not found in configuration. Exiting metrics collection.")
+        return False
 
     try:
         conn = psycopg2.connect(conn_str)
         cur = conn.cursor()
     except Exception as e:
         log_error(f"Failed to connect to PostgreSQL database: {e}")
-        sys.exit(1)
+        return False
 
     try:
         ensure_metrics_table_exists(cur)
@@ -107,7 +114,6 @@ def main():
         active_fobs = get_active_fobs(cur)
 
         # 1. Record Database-Only Views Metrics
-        # Missing Assigned Fobs View Metrics
         cur.execute("""
             SELECT controller_ip, count(*) 
             FROM door_controller.vext_system_missing_assigned_fobs 
@@ -115,7 +121,6 @@ def main():
         """)
         missing_counts = {row[0]: row[1] for row in cur.fetchall()}
 
-        # Unassigned Fobs View Metrics
         cur.execute("""
             SELECT controller_ip, count(*) 
             FROM door_controller.vext_system_unassigned_fobs 
@@ -124,16 +129,19 @@ def main():
         unassigned_counts = {row[0]: row[1] for row in cur.fetchall()}
 
         # Record DB-only metrics for each active controller
+        db_meta = {'sync_phase': sync_phase} if sync_phase else None
         for controller_ip in active_controllers:
-            ip_str = str(controller_ip)
+            ip_str = str(controller_ip).replace("/32", "")
+            if target_ip_filter and ip_str != target_ip_filter:
+                continue
             m_count = missing_counts.get(controller_ip, 0)
             u_count = unassigned_counts.get(controller_ip, 0)
-            record_metric(cur, ip_str, 'missing_assigned_fobs_count', m_count)
-            record_metric(cur, ip_str, 'unassigned_fobs_count', u_count)
+            record_metric(cur, ip_str, 'missing_assigned_fobs_count', m_count, metadata=db_meta)
+            record_metric(cur, ip_str, 'unassigned_fobs_count', u_count, metadata=db_meta)
 
         # 2. Select statistical sample of active fobs to audit
         total_fobs = len(active_fobs)
-        sample_count = max(sample_size, int(total_fobs * (sample_percent / 100.0)))
+        sample_count = max(final_sample_size, int(total_fobs * (final_sample_percent / 100.0)))
         sample_count = min(sample_count, total_fobs)
 
         if sample_count > 0:
@@ -148,10 +156,12 @@ def main():
             parsed = urllib.parse.urlparse(url)
             controller_ip = parsed.hostname
             if not controller_ip:
-                # Fallback if no schema is parsed
                 controller_ip = url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
 
-            log_info(f"Auditing controller {url} (IP: {controller_ip})")
+            if target_ip_filter and controller_ip != target_ip_filter:
+                continue
+
+            log_info(f"Auditing controller {url} (IP: {controller_ip}) [Phase: {sync_phase}]")
 
             audited_fobs_count = 0
             mismatched_permissions_count = 0
@@ -163,8 +173,7 @@ def main():
 
             try:
                 dm = DataManager(url, username, password)
-                # Test connectivity
-                nav = dm.navigate()
+                nav = dm.connect()
                 if not nav or nav.status_code != 200:
                     raise Exception("Failed to navigate to controller dashboard.")
 
@@ -178,7 +187,6 @@ def main():
                             missing_fob_ids.append(fob_id)
                             continue
 
-                        # Fetch actual permissions from controller
                         actual_rows = dm.get_permissions_record(record_id)
                         actual_perms = {}
                         if actual_rows:
@@ -190,10 +198,8 @@ def main():
                                 if door_no is not None:
                                     actual_perms[door_no] = allow
 
-                        # Fetch expected permissions from Postgres
                         expected_perms = get_expected_permissions(cur, fob_id, controller_ip)
 
-                        # Compare permissions across all 4 doors
                         mismatch = False
                         for door_no in (1, 2, 3, 4):
                             act = actual_perms.get(door_no, False)
@@ -222,31 +228,51 @@ def main():
                 mismatch_rate = 0.0
             integrity_score = 1.0 - mismatch_rate
 
-            # Record controller metrics
-            record_metric(cur, controller_ip, 'controller_online', controller_online)
+            # Record controller metrics with sync_phase metadata
+            phase_metadata = {
+                'sync_phase': sync_phase,
+                'audited_fob_ids': audited_sample,
+                'mismatched_fob_ids': mismatched_fob_ids,
+                'missing_fob_ids': missing_fob_ids
+            }
+            record_metric(cur, controller_ip, 'controller_online', controller_online, metadata={'sync_phase': sync_phase})
             
             if controller_online == 1:
-                metadata = {
-                    'audited_fob_ids': audited_sample,
-                    'mismatched_fob_ids': mismatched_fob_ids,
-                    'missing_fob_ids': missing_fob_ids
-                }
-                record_metric(cur, controller_ip, 'audited_fobs_count', audited_fobs_count)
-                record_metric(cur, controller_ip, 'mismatched_permissions_count', mismatched_permissions_count)
-                record_metric(cur, controller_ip, 'missing_fobs_count', missing_fobs_count)
-                record_metric(cur, controller_ip, 'mismatch_rate', mismatch_rate, metadata)
-                record_metric(cur, controller_ip, 'integrity_score', integrity_score, metadata)
+                record_metric(cur, controller_ip, 'audited_fobs_count', audited_fobs_count, metadata=phase_metadata)
+                record_metric(cur, controller_ip, 'mismatched_permissions_count', mismatched_permissions_count, metadata=phase_metadata)
+                record_metric(cur, controller_ip, 'missing_fobs_count', missing_fobs_count, metadata=phase_metadata)
+                record_metric(cur, controller_ip, 'mismatch_rate', mismatch_rate, metadata=phase_metadata)
+                record_metric(cur, controller_ip, 'integrity_score', integrity_score, metadata=phase_metadata)
 
         conn.commit()
-        log_info("Metrics collection successfully completed and recorded.")
+        log_info(f"Metrics collection successfully completed for phase='{sync_phase}'.")
+        return True
 
     except Exception as e:
         conn.rollback()
-        log_error(f"Failed to collect and record metrics: {e}")
-        sys.exit(1)
+        log_error(f"Failed to collect and record metrics (phase='{sync_phase}'): {e}")
+        return False
     finally:
         cur.close()
         conn.close()
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+
+    parser = argparse.ArgumentParser(description="Door Controller Observability Metrics Collector")
+    parser.add_argument("--sample-size", type=int, default=None, help="Minimum number of fobs to audit")
+    parser.add_argument("--sample-percent", type=float, default=None, help="Percentage of total fobs to audit")
+    parser.add_argument("--sync-phase", type=str, default="standalone", help="Sync phase label (e.g. pre_sync, post_sync, standalone)")
+    args = parser.parse_args(argv)
+
+    success = collect_metrics_stats(
+        sample_size=args.sample_size,
+        sample_percent=args.sample_percent,
+        sync_phase=args.sync_phase
+    )
+    if not success:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

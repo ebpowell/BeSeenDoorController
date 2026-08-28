@@ -3,7 +3,6 @@ import re
 import time
 import datetime
 from urllib import response
-
 from door_controller.common_lib.door_controller import door_controller
 from door_controller.common_lib.utils import log_info, log_error
 
@@ -154,7 +153,7 @@ class key_fobs(door_controller):
         return [door, perm]
 
     def get_record_id(self, fob_id):
-        self.navigate()
+        self.users_page()
         url = self.url + '/ACT_ID_323'
         try:
             self.session.headers['Referer'] = self.url + '/ACT_ID_21'

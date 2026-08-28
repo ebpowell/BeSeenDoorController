@@ -1,11 +1,84 @@
 import re
+import json
+import logging
 import requests
+from requests import Response
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 import time
 from door_controller.common_lib.utils import log_error, log_info
+
+# Configure logging to align with the door_controller logger
+logger = logging.getLogger("door_controller")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+class ExternalSystemError(Exception):
+    """Raised when the door controller system returns an unexpected or invalid response."""
+    def __init__(self, status_code, response_body=None, message=None):
+        self.status_code = status_code
+        self.response_body = response_body
+        super().__init__(message or f"Request failed with status code: {status_code}")
+
+
+def validate_and_parse_controller_html(response: Response, expected_marker: str = None) -> str:
+    """
+    Validates HTML responses from the embedded BeSeen Door Controller.
+    
+    Since successful API calls return HTML for scraping, we inspect the page 
+    content to detect if we've been redirected to the login/AddCard fallback page.
+    
+    :param response: The requests.Response object.
+    :param expected_marker: An optional string expected in a successful scrape (e.g., table columns).
+    :return: The raw HTML text if valid.
+    :raises: ExternalSystemError if redirection, session expiry, or missing markers are detected.
+    """
+
+    # TO DO: IF request is AddCard AND response contains: 
+    # "Add Successfully" and is_addcard_fallback = True, then return OK, not error
+    # "user is deleted"
+    # "edited successfully"
+
+    text = response.text or ""
+    is_addcard_fallback = None
+    
+    # 1. Detect Redirection to the homepage / AddCard Menu (indicates session expired)
+    if expected_marker:
+        is_addcard_fallback = (
+            "<title>Web Controller</title>" in text and 
+            ("Manual Input" in text or "AutoAddBySwiping" in text)
+        )
+    
+    if is_addcard_fallback and expected_marker and not expected_marker in text: #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
+        logger.warning(
+            f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
+        )
+        # Log a clean, truncated snippet instead of the full raw markup
+        truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
+        raise ExternalSystemError(
+            status_code=response.status_code,
+            response_body=truncated_body,
+            message="Door controller redirected to AddCard homepage (session expired)."
+        )
+
+    # 2. Check for expected payload elements (fail-safe for empty/broken HTML)
+    if expected_marker and expected_marker not in text:
+        logger.error(
+            f"HTML response received from {response.url} but missing expected data marker: '{expected_marker}'"
+        )
+        truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
+        raise ExternalSystemError(
+            status_code=response.status_code,
+            response_body=truncated_body,
+            message=f"HTML content mismatch: Missing expected marker '{expected_marker}'."
+        )
+
+    return text
 
 class door_controller:
     def __init__(self, url, username, password):
@@ -49,7 +122,7 @@ class door_controller:
         self._login_response = None
 
 
-    def get_httpresponse(self, url, data):
+    def get_httpresponse(self, url, data, expected_marker= None):
         for x in range (0, self.max_retries):
             try:
                 response = self.session.post(url, headers=self.session.headers, data=data, auth=self.auth, timeout=self.timeout)
@@ -58,7 +131,12 @@ class door_controller:
                 # print(raw_sent_string)
                 # Check for successful response
                 if response.status_code == 200:
+                    # Mitigate Bug B: Enforce validation before proceeding
+                    text = validate_and_parse_controller_html(response, expected_marker=expected_marker)  # Adjust marker as needed for your use case
+        
+                    # Continue with normal processing on structured JSON
                     return response
+                    #return text  # Return the validated HTML text for further processing
                 else:
                     log_error(f"door_controller.get_httpresponse: Request failed with status code: {response.status_code}")
                     if response.text:
@@ -157,18 +235,18 @@ class door_controller:
                     time.sleep(self.timeout/3)
                     pass
 
-    def navigate(self):
-        # obj_ACL = AccessControlList(self.username, self.password, self.url)
-        try:
-            response = self.connect()
-            if response and response.status_code == 200:
-                try:
-                    response = self.users_page()
-                    return response
-                except Exception as e:
-                    raise e
-        except Exception as e:
-            raise e
+    # def navigate(self):
+    #     # obj_ACL = AccessControlList(self.username, self.password, self.url)
+    #     try:
+    #         response = self.connect()
+    #         if response and response.status_code == 200:
+    #             try:
+    #                 response = self.users_page()
+    #                 return response
+    #             except Exception as e:
+    #                 raise e
+    #     except Exception as e:
+    #         raise e
 
     def unlock_door(self, door_desc, door_no):
         self.connect()
