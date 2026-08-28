@@ -1,5 +1,5 @@
 -- get the permission change schedule for a given date 
-drop function key_fobs.f_get_group_for_runtime(CIDR);
+drop function if exists key_fobs.f_get_group_for_runtime(CIDR);
 create or replace function key_fobs.f_get_group_for_runtime(p_controller_ip CIDR DEFAULT NULL)
 returns table (group_id INT,
 				controller_ip CIDR)

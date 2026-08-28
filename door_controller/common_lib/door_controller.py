@@ -39,10 +39,10 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
     :raises: ExternalSystemError if redirection, session expiry, or missing markers are detected.
     """
 
-    # TO DO: IF request is AddCard AND response contains: 
+    # IF response contains: 
     # "Add Successfully" and is_addcard_fallback = True, then return OK, not error
-    # "user is deleted"
-    # "edited successfully"
+    # "user is deleted" and is_addcard_fallback = False, then return OK, not error
+    # "edited successfully" and is_addcard_fallback = False, then return OK, not error
 
     text = response.text or ""
     is_addcard_fallback = None
