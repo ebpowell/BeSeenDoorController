@@ -35,6 +35,9 @@ class AccessSynchronizer(ControllerScheduler):
         self.config = config
         self.recovery_delay = config.get('settings', {}).get('recovery_delay')
         self.max_retries = config.get('settings', {}).get('retry_attempts')
+        self.throttle_delay = config.get('settings', {}).get('throttle_delay')
+        self.max_batch_size = config.get('settings', {}).get('max_batch_size')
+        self.num_batches = config.get('settings', {}).get('num_batches')
         if hasattr(self.db_mgr, 'ensure_db_functions'):
             self.db_mgr.ensure_db_functions()
 
@@ -44,30 +47,22 @@ class AccessSynchronizer(ControllerScheduler):
         Allows 5 seconds between sections and batches for the controller board hardware to recover.
         Targeted specifically to controller_url so telemetry collection aligns cleanly with controller sync.
         """
-        # Section 1: Pre-check
-        log_info(f"Section 1/3: Executing pre-synchronization data quality collection for controller: {controller_url}")
-        try:
-            collect_metrics_stats(sync_phase='pre_sync', target_controller_url=controller_url, config=self.config)
-        except Exception as e:
-            log_error(f"Pre-sync metrics collection error for {controller_url}: {e}")
+        # Section 1: Sync (4 batches with 5s recovery delays)
+        log_info(f"Section 1/2: Executing 4-batch permissions synchronization for controller: {controller_url}")
+        result = self.synchronize_access(controller_url, limit_changes=limit_changes, num_batches=self.num_batches,
+                                          max_batch_size=self.max_batch_size, 
+                                          throttle_delay=self.throttle_delay)
 
         log_info(f"Section 1 Complete. Pausing {self.recovery_delay} seconds for controller board recovery...")
         time.sleep(self.recovery_delay)
 
-        # Section 2: Sync (4 batches with 5s recovery delays)
-        log_info(f"Section 2/3: Executing 4-batch permissions synchronization for controller: {controller_url}")
-        result = self.synchronize_access(controller_url, limit_changes=limit_changes, num_batches=4, max_batch_size=10, throttle_delay=0.15)
-
-        log_info("Section 2 Complete. Pausing 5 seconds for controller board recovery...")
-        time.sleep(self.recovery_delay)
-
-        # Section 3: Post-check
-        log_info(f"Section 3/3: Executing post-synchronization data quality collection for controller: {controller_url}")
+        # Section 2: Post-check
+        log_info(f"Section 2/2: Executing post-synchronization data quality collection for controller: {controller_url}")
         try:
             collect_metrics_stats(sync_phase='post_sync', target_controller_url=controller_url, config=self.config)
         except Exception as e:
             log_error(f"Post-sync metrics collection error for {controller_url}: {e}")
-
+        log_info(f"Section 2 Complete for controller{controller_url}")
         return result
 
     def extract_cidr(self, url):
