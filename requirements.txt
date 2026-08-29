@@ -13,4 +13,4 @@ google-auth
 # numpy
 # pypdf
 # pdf2image
-# stripe
+stripe

@@ -719,6 +719,70 @@ def toggle_payment(reservation_id):
 
     return redirect(url_for('reservations'))
 
+@app.route('/reservations/create_payment_intent', methods=['POST'])
+@login_required
+def create_reservation_payment_intent_route():
+    try:
+        data = request.get_json() if request.is_json else request.form
+        reservation_id_str = data.get('reservation_id', '')
+        amount_str = data.get('amount')
+        owner_name = data.get('owner_name', '')
+
+        reservation_id = int(reservation_id_str) if reservation_id_str else None
+
+        if reservation_id and not owner_name:
+            res_list = get_db_mgr().list_reservations()
+            res = next((r for r in res_list if r.get('reservation_id') == reservation_id), None)
+            if res:
+                owner_name = res.get('owner_name', 'Resident')
+                if amount_str is None:
+                    amount_str = res.get('fee', 15.00)
+
+        amount = float(amount_str) if amount_str is not None else 15.00
+
+        from PaymentProcessing import create_swipe_payment_intent
+        result = create_swipe_payment_intent(
+            amount_dollars=amount,
+            owner_name=owner_name,
+            reservation_id=reservation_id
+        )
+
+        return jsonify(result), (200 if result.get('success') else 400)
+    except Exception as e:
+        log_info(f"Web UI Payment Error: Failed to create payment intent. {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/reservations/confirm_payment', methods=['POST'])
+@login_required
+def confirm_reservation_payment_route():
+    try:
+        data = request.get_json() if request.is_json else request.form
+        reservation_id_str = data.get('reservation_id')
+        payment_intent_id = data.get('payment_intent_id', '')
+
+        if not reservation_id_str:
+            return jsonify({'success': False, 'error': 'Reservation ID is required.'}), 400
+
+        reservation_id = int(reservation_id_str)
+        username = session.get('username', 'system')
+
+        # Update clubhouse_reservations table setting payment_made = True
+        get_db_mgr().update_reservation_status(reservation_id, 'payment_made', True, username=username)
+        get_db_mgr().sync_clubhouse_reservation_permissions()
+        trigger_gcal_sync(reservation_id, 'sync')
+
+        flash(f"Payment transaction {payment_intent_id} processed successfully!", "success")
+        return jsonify({
+            'success': True,
+            'reservation_id': reservation_id,
+            'payment_made': True,
+            'message': 'Payment successfully processed and recorded.'
+        }), 200
+    except Exception as e:
+        log_info(f"Web UI Payment Error: Failed to confirm payment. {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/reservations/toggle_deposit/<int:reservation_id>', methods=['POST'])
 @login_required
 def toggle_deposit(reservation_id):

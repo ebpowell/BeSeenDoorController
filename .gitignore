@@ -57,4 +57,5 @@ my_venv/
 service_account.json
 **/service_account.json
 config/service_account.json
-
+# Uploads
+uploads/

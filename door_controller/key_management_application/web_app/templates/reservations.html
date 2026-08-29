@@ -373,16 +373,25 @@
                                         {% endif %}
                                     </td>
                                     <td data-label="Payment Status">
-                                        <form action="/reservations/toggle_payment/{{ res.reservation_id }}" method="POST" class="toggle-form">
-                                            <input type="hidden" name="current_value" value="{{ 'true' if res.payment_made else 'false' }}">
-                                            <button type="submit" class="badge-btn">
-                                                {% if res.payment_made %}
-                                                    <span class="badge-success">Paid</span>
-                                                {% else %}
-                                                    <span class="badge-danger">Unpaid</span>
-                                                {% endif %}
-                                            </button>
-                                        </form>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <form action="/reservations/toggle_payment/{{ res.reservation_id }}" method="POST" class="toggle-form" style="display: inline-block;">
+                                                <input type="hidden" name="current_value" value="{{ 'true' if res.payment_made else 'false' }}">
+                                                <button type="submit" class="badge-btn">
+                                                    {% if res.payment_made %}
+                                                        <span class="badge-success">Paid</span>
+                                                    {% else %}
+                                                        <span class="badge-danger">Unpaid</span>
+                                                    {% endif %}
+                                                </button>
+                                            </form>
+                                            {% if not res.payment_made %}
+                                                <button type="button" class="btn-swipe-pay" onclick="openSwipePaymentModal('{{ res.reservation_id }}', '{{ res.fee if res.fee is defined and res.fee is not none else 15.0 }}', '{{ res.owner_name or '' }}')" title="Swipe Card / Process Payment" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #34d399; border-radius: 6px; padding: 0.25rem 0.45rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; transition: all 0.2s ease;">
+                                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                                    </svg>
+                                                </button>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                     <td data-label="Deposit Status">
                                         <form action="/reservations/toggle_deposit/{{ res.reservation_id }}" method="POST" class="toggle-form">
@@ -426,10 +435,138 @@
         </div>
     </div>
 </div>
+<!-- Swipe Payment Processor Modal -->
+<div id="swipePaymentModal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div class="glass-card" style="width: 90%; max-width: 520px; position:relative; padding:2rem; background:rgba(15, 17, 26, 0.98); border:1px solid var(--card-border); border-radius:12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:0.5rem; color:var(--text-primary); font-size: 1.25rem;">
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                Swipe Card Payment Processor
+            </h3>
+            <button type="button" onclick="closeSwipePaymentModal()" style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                <span style="color:var(--text-secondary); font-size:0.85rem;">Item Description:</span>
+                <strong id="swipeItemNameDisplay" style="color: #a5b4fc; font-size:0.9rem;">Clubhouse Reservation - Resident</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <span style="color:var(--text-secondary); font-size:0.85rem;">Total Calculated Amount:</span>
+                <strong id="swipeAmountDisplay" style="color: #34d399; font-size:1.2rem;">$15.00</strong>
+            </div>
+        </div>
+
+        <!-- Animated Card Reader Interface -->
+        <div id="swipeReaderArea" style="background: rgba(0,0,0,0.3); border: 2px dashed rgba(255,255,255,0.15); border-radius: 10px; padding: 1.5rem; text-align: center; margin-bottom: 1.5rem; transition: all 0.3s ease;">
+            <div id="swipeIconAnimation" style="margin-bottom: 0.75rem;">
+                <svg width="48" height="48" fill="none" stroke="#818cf8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <p id="swipeStatusText" style="margin: 0; font-weight: 500; color: var(--text-primary); font-size: 0.95rem;">Ready to swipe or process card transaction...</p>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 0.25rem;">Stripe Terminal & Card Reader Ready</span>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeSwipePaymentModal()" style="padding: 0.5rem 1rem;">Cancel</button>
+            <button type="button" id="btnProcessSwipe" class="btn btn-primary" onclick="processSwipePayment()" style="padding: 0.5rem 1.25rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; display:flex; align-items:center; gap:0.4rem;">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Swipe & Pay Now
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    let currentSwipeResId = null;
+    let currentSwipeAmount = 15.00;
+    let currentSwipeOwnerName = 'Resident';
+
+    function openSwipePaymentModal(resId, fee, ownerName) {
+        currentSwipeResId = resId;
+        currentSwipeAmount = parseFloat(fee || 15.00);
+        currentSwipeOwnerName = ownerName || 'Resident';
+
+        const modal = document.getElementById('swipePaymentModal');
+        const itemNameDisplay = document.getElementById('swipeItemNameDisplay');
+        const amountDisplay = document.getElementById('swipeAmountDisplay');
+        const statusText = document.getElementById('swipeStatusText');
+        const btn = document.getElementById('btnProcessSwipe');
+
+        const parts = currentSwipeOwnerName.trim().split(/\s+/);
+        const lastName = (parts.length > 0 && parts[parts.length - 1]) ? parts[parts.length - 1] : 'Resident';
+        const itemName = 'Clubhouse Reservation - ' + lastName;
+
+        if (itemNameDisplay) itemNameDisplay.textContent = itemName;
+        if (amountDisplay) amountDisplay.textContent = '$' + currentSwipeAmount.toFixed(2);
+        if (statusText) statusText.textContent = 'Ready to swipe or process card transaction...';
+        if (btn) btn.disabled = false;
+
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeSwipePaymentModal() {
+        const modal = document.getElementById('swipePaymentModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function processSwipePayment() {
+        const statusText = document.getElementById('swipeStatusText');
+        const btn = document.getElementById('btnProcessSwipe');
+
+        if (statusText) statusText.textContent = 'Processing Card Swipe with Stripe...';
+        if (btn) btn.disabled = true;
+
+        fetch('/reservations/create_payment_intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reservation_id: currentSwipeResId,
+                amount: currentSwipeAmount,
+                owner_name: currentSwipeOwnerName
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Payment Error: ' + (data.error || 'Failed to create payment intent.'));
+                if (statusText) statusText.textContent = 'Transaction Failed. Please try again.';
+                if (btn) btn.disabled = false;
+                return;
+            }
+
+            const intentId = data.payment_intent_id;
+            if (statusText) statusText.textContent = 'Payment Approved! Updating database status...';
+
+            return fetch('/reservations/confirm_payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reservation_id: currentSwipeResId,
+                    payment_intent_id: intentId
+                })
+            });
+        })
+        .then(res => res ? res.json() : null)
+        .then(confirmData => {
+            if (confirmData && confirmData.success) {
+                closeSwipePaymentModal();
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            console.error('Payment processing error:', err);
+            alert('Payment Error: ' + err.message);
+            if (btn) btn.disabled = false;
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const lookupInput = document.getElementById('addressLookup');
         const hiddenIdInput = document.getElementById('property_id');
