@@ -397,16 +397,24 @@
                                         </form>
                                     </td>
                                     <td data-label="Agreement Status">
-                                        <form action="/reservations/toggle_agreement/{{ res.reservation_id }}" method="POST" class="toggle-form">
-                                            <input type="hidden" name="current_value" value="{{ 'true' if res.agreement_received else 'false' }}">
-                                            <button type="submit" class="badge-btn">
-                                                {% if res.agreement_received %}
-                                                    <span class="badge-success">Received</span>
-                                                {% else %}
-                                                    <span class="badge-danger">Pending</span>
-                                                {% endif %}
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            {% if res.agreement_received %}
+                                                <span class="badge-success">Received</span>
+                                                <a href="/reservations/view_agreement/{{ res.reservation_id }}" target="_blank" title="View Stored Agreement" style="color: #93c5fd; display: inline-flex; align-items: center;">
+                                                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                    </svg>
+                                                </a>
+                                            {% else %}
+                                                <span class="badge-danger">Pending</span>
+                                            {% endif %}
+                                            <button type="button" class="btn-upload-icon" onclick="openUploadModal('{{ res.reservation_id }}')" title="Upload Signed Agreement" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); color: #818cf8; border-radius: 6px; padding: 0.25rem 0.45rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                                                </svg>
                                             </button>
-                                        </form>
+                                        </div>
                                     </td>
                                     <td data-label="Actions" style="text-align: right;">
                                         <form action="/reservations/delete/{{ res.reservation_id }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
@@ -426,10 +434,58 @@
         </div>
     </div>
 </div>
+<!-- Upload Agreement Modal -->
+<div id="uploadAgreementModal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div class="glass-card" style="width: 90%; max-width: 500px; position:relative; padding:2rem; background:rgba(15, 17, 26, 0.98); border:1px solid var(--card-border); border-radius:12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:0.5rem; color:var(--text-primary); font-size: 1.25rem;">
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Upload Signed Agreement
+            </h3>
+            <button type="button" onclick="closeUploadModal()" style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <form id="uploadAgreementForm" method="POST" enctype="multipart/form-data">
+            <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:1.25rem; line-height: 1.4;">
+                Upload a completed & signed rental agreement PDF file to scan and verify for Reservation <strong id="modalReservationIdDisplay" style="color: var(--primary);">#</strong>.
+            </p>
+            <div style="margin-bottom:1.5rem;">
+                <label for="agreement_file" style="display:block; margin-bottom:0.5rem; font-weight:500; font-size: 0.9rem; color: var(--text-primary);">Signed PDF Agreement (.pdf)</label>
+                <input type="file" id="agreement_file" name="agreement_file" accept=".pdf" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px solid var(--card-border); border-radius:8px; color:var(--text-primary); font-size: 0.9rem;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeUploadModal()" style="padding: 0.5rem 1rem;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.25rem; display:flex; align-items:center; gap:0.4rem;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Scan & Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function openUploadModal(resId) {
+        const modal = document.getElementById('uploadAgreementModal');
+        const form = document.getElementById('uploadAgreementForm');
+        const display = document.getElementById('modalReservationIdDisplay');
+        if (modal && form) {
+            form.action = '/reservations/upload_agreement/' + resId;
+            if (display) display.textContent = '#' + resId;
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeUploadModal() {
+        const modal = document.getElementById('uploadAgreementModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const lookupInput = document.getElementById('addressLookup');
         const hiddenIdInput = document.getElementById('property_id');

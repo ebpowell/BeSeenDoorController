@@ -753,6 +753,62 @@ def toggle_agreement(reservation_id):
 
     return redirect(url_for('reservations'))
 
+@app.route('/reservations/upload_agreement/<int:reservation_id>', methods=['POST'])
+@login_required
+def upload_agreement(reservation_id):
+    if 'agreement_file' not in request.files:
+        flash("No file provided for upload.", "warning")
+        return redirect(url_for('reservations'))
+
+    file = request.files['agreement_file']
+    if not file or file.filename.strip() == '':
+        flash("No file selected for upload.", "warning")
+        return redirect(url_for('reservations'))
+
+    if not file.filename.lower().endswith('.pdf'):
+        flash("Invalid file type. Only PDF documents (.pdf) are allowed.", "danger")
+        return redirect(url_for('reservations'))
+
+    upload_dir = os.path.join(os.getcwd(), 'uploads', 'agreements')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filename = f"agreement_res_{reservation_id}_{int(datetime.datetime.now().timestamp())}.pdf"
+    file_path = os.path.join(upload_dir, filename)
+    file.save(file_path)
+
+    # Scan and verify the uploaded PDF agreement using DocumentProcessing
+    try:
+        from DocumentProcessing import verify_signed_agreement
+        is_valid, msg, details = verify_signed_agreement(file_path)
+    except Exception as e:
+        is_valid = False
+        msg = f"Error scanning PDF agreement: {e}"
+
+    if is_valid:
+        username = session.get('username', 'system')
+        get_db_mgr().update_reservation_status(reservation_id, 'agreement_received', True, username=username)
+        get_db_mgr().sync_clubhouse_reservation_permissions()
+        trigger_gcal_sync(reservation_id, 'sync')
+        flash(f"Signed PDF agreement successfully uploaded, scanned, and stored! ({msg})", "success")
+    else:
+        # Keep agreement_received False if scan failed
+        flash(f"Agreement verification failed: {msg}", "danger")
+
+    return redirect(url_for('reservations'))
+
+@app.route('/reservations/view_agreement/<int:reservation_id>')
+@login_required
+def view_agreement(reservation_id):
+    upload_dir = os.path.join(os.getcwd(), 'uploads', 'agreements')
+    if os.path.exists(upload_dir):
+        files = sorted([f for f in os.listdir(upload_dir) if f.startswith(f"agreement_res_{reservation_id}_")], reverse=True)
+        if files:
+            from flask import send_from_directory
+            return send_from_directory(upload_dir, files[0])
+    flash("No stored agreement file found for this reservation.", "warning")
+    return redirect(url_for('reservations'))
+
+
 @app.route('/deposits', methods=['GET', 'POST'])
 @login_required
 def deposits():

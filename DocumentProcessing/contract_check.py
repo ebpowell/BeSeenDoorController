@@ -107,5 +107,93 @@ def process_pdf_comparison(base_pdf_path, comparison_pdf_path, output_dir="outpu
             cv2.rectangle(comp_img, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.imwrite(f"{output_dir}/page_{page_num}_signature.png", comp_img)
 
+def verify_signed_agreement(pdf_path, baseline_pdf_path=None):
+    """
+    Scans an uploaded PDF agreement to verify it has been properly filled out / signed.
+    Returns:
+        (is_valid: bool, message: str, details: dict)
+    """
+    if not os.path.exists(pdf_path):
+        return False, "File does not exist.", {}
+        
+    try:
+        reader = PdfReader(pdf_path)
+        if len(reader.pages) == 0:
+            return False, "PDF document contains no pages.", {}
+    except Exception as e:
+        return False, f"Failed to parse PDF document: {e}", {}
+
+    details = {
+        "annotations": [],
+        "fields": {},
+        "signature_detected": False,
+        "visual_changes": False,
+        "page_count": len(reader.pages),
+        "text_found": False
+    }
+
+    # 1. Programmatic Annotations Check
+    try:
+        annots = extract_annotations(pdf_path)
+        details["annotations"] = annots
+    except Exception:
+        annots = []
+
+    # 2. Form Fields Check
+    try:
+        fields = reader.get_fields()
+        if fields:
+            details["fields"] = {k: str(v.get("/V", "")) for k, v in fields.items() if v}
+    except Exception:
+        pass
+
+    # 3. Text & Signature keyword inspection
+    full_text = ""
+    for page in reader.pages:
+        try:
+            txt = page.extract_text() or ""
+            full_text += txt + "\n"
+        except Exception:
+            pass
+
+    if full_text.strip():
+        details["text_found"] = True
+
+    # Check for electronic signature markings in text or annotations
+    has_sig_annotation = any(a.get("type") == "/Sig" or "signature" in str(a.get("contents", "")).lower() for a in annots)
+    has_sig_text = any(kw in full_text.lower() for kw in ["signed by:", "signature:", "digitally signed", "electronically signed", "/sig"])
+
+    # 4. Visual Signature Detection via image conversion
+    has_visual_sig = False
+    try:
+        comp_pages = convert_from_path(pdf_path)
+        base_pages = convert_from_path(baseline_pdf_path) if (baseline_pdf_path and os.path.exists(baseline_pdf_path)) else []
+
+        for i, comp_page in enumerate(comp_pages):
+            comp_img = cv2.cvtColor(np.array(comp_page), cv2.COLOR_RGB2BGR)
+            
+            sig_found, bbox = look_for_signature(comp_img)
+            if sig_found:
+                has_visual_sig = True
+                details["signature_detected"] = True
+                break
+
+            if i < len(base_pages):
+                base_img = cv2.cvtColor(np.array(base_pages[i]), cv2.COLOR_RGB2BGR)
+                diff_mask = detect_visual_changes(base_img, comp_img)
+                if np.sum(diff_mask == 255) > 100:
+                    details["visual_changes"] = True
+    except Exception as img_err:
+        # Fallback if pdf2image / poppler is not available or rasterization fails
+        pass
+
+    is_valid = (has_visual_sig or has_sig_annotation or len(annots) > 0 or len(details["fields"]) > 0 or has_sig_text or details["visual_changes"])
+
+    if is_valid:
+        return True, "Signed agreement successfully verified.", details
+    else:
+        return False, "Uploaded PDF does not appear to be signed or filled out (no signature, annotations, or form inputs detected).", details
+
 # Example Usage:
 # process_pdf_comparison("baseline.pdf", "signed_and_edited.pdf")
+

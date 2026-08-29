@@ -9,8 +9,8 @@ pyOpenSSL
 cryptography
 google-api-python-client
 google-auth
-# cv2
-# numpy
-# pypdf
-# pdf2image
+opencv-python-headless
+numpy
+pypdf
+pdf2image
 # stripe
