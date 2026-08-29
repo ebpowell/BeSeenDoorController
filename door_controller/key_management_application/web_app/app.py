@@ -944,6 +944,79 @@ def api_search_properties():
         log_info(f"API Error: Failed to search properties. {e}")
         return jsonify([]), 500
 
+@app.route('/ledger', methods=['GET', 'POST'])
+@login_required
+def ledger_view():
+    if request.method == 'POST':
+        tx_date = request.form.get('tx_date', '').strip()
+        payee = request.form.get('payee', '').strip()
+        notes = request.form.get('notes', '').strip()
+        
+        dr_account = request.form.get('dr_account', '').strip()
+        dr_amount_str = request.form.get('dr_amount', '').strip()
+        cr_account = request.form.get('cr_account', '').strip()
+
+        if not payee or not dr_account or not cr_account or not dr_amount_str:
+            flash("Payee, Debit Account, Credit Account, and Amount are required.", "warning")
+            return redirect(url_for('ledger_view'))
+
+        try:
+            amount = float(dr_amount_str)
+            if amount <= 0:
+                flash("Transaction amount must be positive.", "warning")
+                return redirect(url_for('ledger_view'))
+
+            postings = [
+                {'account_name': dr_account, 'amount': amount, 'commodity': 'USD'},
+                {'account_name': cr_account, 'amount': -amount, 'commodity': 'USD'}
+            ]
+
+            username = session.get('username', 'system')
+            tx_id = get_db_mgr().add_ledger_transaction(
+                date_str=tx_date if tx_date else None,
+                payee=payee,
+                postings=postings,
+                notes=notes,
+                username=username
+            )
+            flash(f"Double-entry ledger transaction #{tx_id} ('{payee}') recorded successfully!", "success")
+        except ValueError as ve:
+            flash(f"Transaction error: {ve}", "danger")
+        except Exception as e:
+            log_info(f"Web UI Error: Failed to add ledger transaction. {e}")
+            flash(f"Database error recording transaction: {e}", "danger")
+
+        return redirect(url_for('ledger_view'))
+
+    # GET request
+    try:
+        account_filter = request.args.get('account', '').strip()
+        tx_list = get_db_mgr().list_ledger_transactions(account_filter=account_filter)
+        summary = get_db_mgr().get_ledger_financial_summary()
+        from door_controller.key_management_application.ledger_manager import DEFAULT_ACCOUNTS
+        return render_template(
+            'ledger.html',
+            transactions=tx_list,
+            summary=summary,
+            default_accounts=DEFAULT_ACCOUNTS,
+            account_filter=account_filter
+        )
+    except Exception as e:
+        log_info(f"Web UI Error: Failed to load ledger page. {e}")
+        flash(f"Error loading financial ledger: {e}", "danger")
+        return render_template('ledger.html', transactions=[], summary={}, default_accounts=[], account_filter='')
+
+@app.route('/api/ledger/summary', methods=['GET'])
+@login_required
+def api_ledger_summary():
+    try:
+        summary = get_db_mgr().get_ledger_financial_summary()
+        return jsonify(summary)
+    except Exception as e:
+        log_info(f"API Error: Failed to fetch ledger summary. {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/access_rules', methods=['GET', 'POST'])
 @secretary_or_sysadmin_required
 def access_rules():

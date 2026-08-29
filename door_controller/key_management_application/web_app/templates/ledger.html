@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 1.25rem;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+
+    .stat-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+        margin-top: 0.4rem;
+    }
+
+    .badge-checking { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-investment { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-escrow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-income { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-expenses { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .posting-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.3rem 0;
+        font-size: 0.88rem;
+    }
+
+    .posting-dr {
+        color: #60a5fa;
+        font-weight: 600;
+    }
+
+    .posting-cr {
+        color: #f87171;
+        font-weight: 600;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div style="margin-bottom: 2rem; animation: fadeInDown 0.8s ease-out;">
+    <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">
+        📊 Financial Ledger & Accounting
+    </h2>
+    <p style="color: var(--text-secondary); margin: 0; font-size: 0.95rem;">
+        Double-entry bookkeeping journal tracking multiple accounts, ongoing escrow (clubhouse security deposits), checking, investments, and expenses.
+    </p>
+</div>
+
+<!-- Financial Summary Grid -->
+<div class="summary-grid" style="animation: fadeInUp 0.8s ease-out;">
+    <div class="stat-card">
+        <div class="stat-label">Checking Account</div>
+        <div class="stat-value">${{ "%.2f"|format(summary.checking_balance|default(0.0)) }}</div>
+        <span class="stat-badge badge-checking">Assets:Checking</span>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Investment Account</div>
+        <div class="stat-value">${{ "%.2f"|format(summary.investment_balance|default(0.0)) }}</div>
+        <span class="stat-badge badge-investment">Assets:Investment</span>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Ongoing Escrow</div>
+        <div class="stat-value">${{ "%.2f"|format(summary.escrow_balance|default(0.0)) }}</div>
+        <span class="stat-badge badge-escrow">Security Deposits</span>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total HOA Income</div>
+        <div class="stat-value">${{ "%.2f"|format(summary.total_income|default(0.0)) }}</div>
+        <span class="stat-badge badge-income">Income:*</span>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Expenses</div>
+        <div class="stat-value">${{ "%.2f"|format(summary.total_expenses|default(0.0)) }}</div>
+        <span class="stat-badge badge-expenses">Expenses:*</span>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Net Operating Assets</div>
+        <div class="stat-value" style="color: #34d399;">${{ "%.2f"|format(summary.net_assets|default(0.0)) }}</div>
+        <span class="stat-badge badge-income">Assets - Liabilities</span>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Left Column: Add Transaction Form -->
+    <div class="glass-card">
+        <h2>
+            <span>➕ Record Transaction</span>
+        </h2>
+        <form action="/ledger" method="POST">
+            <div class="form-group">
+                <label for="tx_date">Transaction Date</label>
+                <input type="date" id="tx_date" name="tx_date" required>
+            </div>
+
+            <div class="form-group">
+                <label for="payee">Payee / Description</label>
+                <input type="text" id="payee" name="payee" placeholder="e.g. Clubhouse Security Deposit Deposit" required>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="dr_account">Debit Account (+)</label>
+                    <select id="dr_account" name="dr_account" required>
+                        <option value="" disabled selected>Select Debit Account...</option>
+                        <optgroup label="Assets">
+                            <option value="Assets:Checking">Assets:Checking (Checking Account)</option>
+                            <option value="Assets:Investment">Assets:Investment (Investment Account)</option>
+                        </optgroup>
+                        <optgroup label="Liabilities & Escrow">
+                            <option value="Liabilities:Escrow:ClubhouseSecurityDeposits">Liabilities:Escrow:ClubhouseSecurityDeposits</option>
+                        </optgroup>
+                        <optgroup label="Expenses">
+                            <option value="Expenses:Maintenance">Expenses:Maintenance</option>
+                            <option value="Expenses:Utilities">Expenses:Utilities</option>
+                            <option value="Expenses:Operations">Expenses:Operations</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cr_account">Credit Account (-)</label>
+                    <select id="cr_account" name="cr_account" required>
+                        <option value="" disabled selected>Select Credit Account...</option>
+                        <optgroup label="Assets">
+                            <option value="Assets:Checking">Assets:Checking (Checking Account)</option>
+                            <option value="Assets:Investment">Assets:Investment (Investment Account)</option>
+                        </optgroup>
+                        <optgroup label="Liabilities & Escrow">
+                            <option value="Liabilities:Escrow:ClubhouseSecurityDeposits">Liabilities:Escrow:ClubhouseSecurityDeposits</option>
+                        </optgroup>
+                        <optgroup label="Income">
+                            <option value="Income:ClubhouseRentalFees">Income:ClubhouseRentalFees</option>
+                            <option value="Income:HOADues">Income:HOADues</option>
+                            <option value="Income:InvestmentReturns">Income:InvestmentReturns</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="dr_amount">Amount ($)</label>
+                <input type="number" id="dr_amount" name="dr_amount" step="0.01" min="0.01" placeholder="150.00" required>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes / Reference No. (Optional)</label>
+                <input type="text" id="notes" name="notes" placeholder="Check #1042 or Ref code">
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                💾 Record Double-Entry Transaction
+            </button>
+        </form>
+    </div>
+
+    <!-- Right Column: Ledger Journal History -->
+    <div class="glass-card">
+        <h2>
+            <span>📖 Ledger Journal & Postings</span>
+        </h2>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="ledgerSearch" class="search-input" placeholder="Search transactions by payee, notes, or account..." onkeyup="filterLedger()">
+        </div>
+
+        <div class="table-responsive mobile-cards">
+            <table id="ledgerTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee / Description</th>
+                        <th>Postings & Accounts</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if transactions %}
+                        {% for tx in transactions %}
+                            <tr class="ledger-row">
+                                <td data-label="Date" style="white-space: nowrap;">
+                                    <span class="timestamp">{{ tx.date }}</span>
+                                </td>
+                                <td data-label="Payee" class="owner-name">
+                                    <strong>{{ tx.payee }}</strong>
+                                </td>
+                                <td data-label="Postings">
+                                    {% for p in tx.postings %}
+                                        <div class="posting-row">
+                                            <span style="font-family: monospace; font-size: 0.85rem;">{{ p.account_name }}</span>
+                                            <span class="{% if p.amount > 0 %}posting-dr{% else %}posting-cr{% endif %}">
+                                                {% if p.amount > 0 %}+${{ "%.2f"|format(p.amount) }}{% else %}-${{ "%.2f"|format(-p.amount) }}{% endif %}
+                                            </span>
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                                <td data-label="Notes">
+                                    <span style="color: var(--text-secondary); font-size: 0.85rem;">{{ tx.notes or '-' }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="no-data">
+                                No ledger transactions recorded yet. Use the form to record your first entry.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set default date picker to today
+        const dateInput = document.getElementById('tx_date');
+        if (dateInput && !dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+    });
+
+    function filterLedger() {
+        const input = document.getElementById('ledgerSearch');
+        const filter = input.value.toLowerCase();
+        const rows = document.querySelectorAll('.ledger-row');
+
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            if (text.includes(filter)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+</script>
+{% endblock %}

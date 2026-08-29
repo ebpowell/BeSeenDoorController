@@ -1627,5 +1627,155 @@ class FobDatabaseManager:
                 )
             conn.commit()
 
+    # -------------------------------------------------------------------------
+    # Double-Entry Ledger Management
+    # -------------------------------------------------------------------------
+    def _create_reservation_tables(self):
+        """
+        Ensures reservation, deposit, and ledger tables exist in key_fobs schema.
+        """
+        self._create_ledger_tables()
+
+    def _create_ledger_tables(self):
+
+        """
+        Creates key_fobs.ledger_transactions and key_fobs.ledger_postings if missing.
+        """
+        query = """
+            CREATE TABLE IF NOT EXISTS key_fobs.ledger_transactions (
+                tx_id SERIAL PRIMARY KEY,
+                tx_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                payee VARCHAR(255) NOT NULL,
+                notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS key_fobs.ledger_postings (
+                posting_id SERIAL PRIMARY KEY,
+                tx_id INT REFERENCES key_fobs.ledger_transactions(tx_id) ON DELETE CASCADE,
+                account_name VARCHAR(255) NOT NULL,
+                amount NUMERIC(12, 2) NOT NULL,
+                commodity VARCHAR(10) DEFAULT 'USD'
+            );
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query)
+                conn.commit()
+        except Exception as e:
+            log_info(f"Database Notice: Failed to ensure ledger tables: {e}")
+
+    def list_ledger_transactions(self, account_filter=None):
+        """
+        List all double-entry ledger transactions with their postings.
+        """
+        self._create_ledger_tables()
+        query = """
+            SELECT 
+                t.tx_id, t.tx_date, t.payee, t.notes, t.created_at,
+                p.posting_id, p.account_name, p.amount, p.commodity
+            FROM key_fobs.ledger_transactions t
+            JOIN key_fobs.ledger_postings p ON t.tx_id = p.tx_id
+            ORDER BY t.tx_date DESC, t.tx_id DESC, p.posting_id ASC;
+        """
+        transactions_dict = {}
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(query)
+                    rows = cur.fetchall()
+                    for r in rows:
+                        tx_id = r['tx_id']
+                        if tx_id not in transactions_dict:
+                            transactions_dict[tx_id] = {
+                                'tx_id': tx_id,
+                                'date': r['tx_date'].strftime('%Y-%m-%d') if hasattr(r['tx_date'], 'strftime') else str(r['tx_date']),
+                                'payee': r['payee'],
+                                'notes': r['notes'] or '',
+                                'postings': []
+                            }
+                        transactions_dict[tx_id]['postings'].append({
+                            'posting_id': r['posting_id'],
+                            'account_name': r['account_name'],
+                            'amount': float(r['amount']),
+                            'commodity': r['commodity']
+                        })
+        except Exception as e:
+            log_info(f"Database Error listing ledger transactions: {e}")
+            return []
+
+        result = list(transactions_dict.values())
+
+        if account_filter:
+            acc_lower = account_filter.lower()
+            filtered = []
+            for tx in result:
+                if any(acc_lower in p['account_name'].lower() for p in tx['postings']) or acc_lower in tx['payee'].lower():
+                    filtered.append(tx)
+            return filtered
+
+        return result
+
+    def add_ledger_transaction(self, date_str, payee, postings, notes=None, username='system'):
+        """
+        Adds a balanced double-entry ledger transaction.
+        """
+        from door_controller.key_management_application.ledger_manager import Transaction, Posting
+        
+        self._create_ledger_tables()
+        tx = Transaction(payee=payee, postings=postings, date=date_str, notes=notes)
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO key_fobs.ledger_transactions (tx_date, payee, notes)
+                    VALUES (%s, %s, %s)
+                    RETURNING tx_id;
+                """, (tx.date, tx.payee, tx.notes))
+                tx_id = cur.fetchone()[0]
+
+                for p in tx.postings:
+                    cur.execute("""
+                        INSERT INTO key_fobs.ledger_postings (tx_id, account_name, amount, commodity)
+                        VALUES (%s, %s, %s, %s);
+                    """, (tx_id, p.account_name, p.amount, p.commodity))
+
+                self.log_audit_action(
+                    cur, username, "Add Ledger Transaction",
+                    f"Recorded balanced transaction #{tx_id} '{tx.payee}' with {len(tx.postings)} postings"
+                )
+            conn.commit()
+
+        return tx_id
+
+    def get_ledger_engine(self):
+        """
+        Instantiates LedgerEngine populated with all transactions from DB.
+        """
+        from door_controller.key_management_application.ledger_manager import LedgerEngine, Transaction
+        engine = LedgerEngine()
+        tx_list = self.list_ledger_transactions()
+        for t in tx_list:
+            try:
+                engine.add_transaction(Transaction(
+                    payee=t['payee'],
+                    postings=t['postings'],
+                    date=t['date'],
+                    notes=t['notes'],
+                    tx_id=t['tx_id']
+                ))
+            except Exception as e:
+                log_info(f"Notice parsing ledger transaction {t.get('tx_id')}: {e}")
+        return engine
+
+    def get_ledger_financial_summary(self):
+        """
+        Returns calculated financial balances and summary dict.
+        """
+        engine = self.get_ledger_engine()
+        return engine.get_financial_summary()
+
+
 
 

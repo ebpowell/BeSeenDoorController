@@ -880,6 +880,9 @@
             <a href="{{ url_for('deposits') }}" class="nav-tab {% if request.path == url_for('deposits') %}active{% endif %}">
                 Clubhouse Deposits
             </a>
+            <a href="{{ url_for('ledger_view') }}" class="nav-tab {% if request.path == url_for('ledger_view') %}active{% endif %}">
+                Financial Ledger
+            </a>
             <a href="{{ url_for('calendar_view') }}" class="nav-tab {% if request.path == url_for('calendar_view') %}active{% endif %}">
                 Calendar View
             </a>
