@@ -1,6 +1,6 @@
 -- get the permission change schedule for a given date 
 drop function if exists key_fobs.f_get_group_for_runtime(CIDR);
-create or replace function key_fobs.f_get_group_for_runtime(p_controller_ip CIDR DEFAULT NULL)
+create or replace function key_fobs.f_get_group_for_runtime(p_controller_ip CIDR DEFAULT NULL, p_lookback_interval TEXT Default '5 MINUTES')
 returns table (group_id INT,
 				controller_ip CIDR)
 language plpgsql
@@ -25,11 +25,15 @@ BEGIN
         WHERE start_date <= current_date
           AND end_date >= current_date
           and start_time <= current_time
+<<<<<<< HEAD
           and end_time >= current_time - INTERVAL '5 minutes'
+=======
+          and end_time >= current_time - INTERVAL p_loopback_interval
+>>>>>>> 4c7d503eb306882af85da6d645cefc6112fbb8f7
           AND (p_controller_ip IS NULL OR vad.controller_ip = p_controller_ip)
     )
     SELECT DISTINCT rt.group_id, rt.controller_ip FROM runtime rt;
 END;
 $$;
 
-SELECT * FROM key_fobs.f_get_group_for_runtime('69.21.119.148/32');
+SELECT * FROM key_fobs.f_get_group_for_runtime('69.21.119.148/32', '5 MINUTES');
