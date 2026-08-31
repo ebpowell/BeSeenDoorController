@@ -224,18 +224,18 @@ class FobDatabaseManager:
                 cur.execute(query, params)
                 return cur.fetchall()
 
-    def get_groups_for_controller(self, cidr):
+    def get_groups_for_controller(self, cidr, lookback='5 Minutes'):
         """
         Get all group IDs associated with a specific controller CIDR.
         Returns a list of group IDs.
         """
         log_info(f"Database: Fetching groups for controller CIDR {cidr}")
         query = """
-            select * from key_fobs.f_get_group_for_runtime(%s);
+            select * from key_fobs.f_get_group_for_runtime(%s, %s);
         """
         with self._get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (cidr,))
+                cur.execute(query, (cidr,lookback,))
                 rows = cur.fetchall()
                 return [row[0] for row in rows]
 
