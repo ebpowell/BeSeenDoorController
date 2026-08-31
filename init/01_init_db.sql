@@ -27,7 +27,6 @@ DROP TABLE IF EXISTS key_fobs.audit_logs CASCADE;
 DROP TABLE IF EXISTS key_fobs.fob_replacements CASCADE;
 DROP TABLE IF EXISTS key_fobs.keyfobs CASCADE;
 DROP TABLE IF EXISTS key_fobs.owners CASCADE;
-DROP TABLE IF EXISTS key_fobs.property_owners CASCADE;
 DROP TABLE IF EXISTS key_fobs.properties CASCADE;
 DROP TABLE IF EXISTS door_controller.door CASCADE;
 DROP TABLE IF EXISTS door_controller.system_fobs CASCADE;
@@ -457,3 +456,6 @@ ON CONFLICT (group_id) DO NOTHING;
 INSERT INTO key_fobs.property_group_permissions (property_id, group_id) VALUES
 (10001, 1)
 ON CONFLICT DO NOTHING;
+
+ CREATE UNIQUE INDEX property_group_permissions_propgroupid
+                ON key_fobs.property_group_permissions (property_id, group_id);

@@ -46,3 +46,5 @@
 
                 ALTER TABLE key_fobs.clubhouse_deposits ADD COLUMN IF NOT EXISTS date_added DATE DEFAULT CURRENT_DATE;
                 ALTER TABLE key_fobs.clubhouse_reservations ADD COLUMN IF NOT EXISTS deposit_added_date DATE;
+
+               

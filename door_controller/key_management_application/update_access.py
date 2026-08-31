@@ -13,12 +13,12 @@ from door_controller.common_lib.controller_scheduler import ControllerScheduler
 from door_controller.key_management_application.collect_metrics import collect_metrics_stats
 from door_controller.common_lib.door_controller import ExternalSystemError
 
-class ExternalSystemError(Exception):
-    """Raised when the door controller system returns a non-200 status code."""
-    def __init__(self, status_code, response_body=None):
-        self.status_code = status_code
-        self.response_body = response_body
-        super().__init__(f"Request failed with status code: {status_code}")
+# class ExternalSystemError(Exception):
+#     """Raised when the door controller system returns a non-200 status code."""
+#     def __init__(self, status_code, response_body=None):
+#         self.status_code = status_code
+#         self.response_body = response_body
+#         super().__init__(f"Request failed with status code: {status_code}")
 
 
 class AccessSynchronizer(ControllerScheduler):
@@ -243,7 +243,7 @@ class AccessSynchronizer(ControllerScheduler):
 
             # Allow recovery_delay (5s) between batches so the controller hardware recovers
             if batch_idx < len(fob_batches) and not limit_reached:
-                log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {self.recovery_delay} seconds for board recovery...")
+                log_info(f"Batch {batch_idx}/{len(fob_batches)} complete for {controller_url}. Pausing {self.recovery_delay} seconds for board recovery. Total permissions Changes Made {changes_made}")
                 time.sleep(self.recovery_delay)
 
         # Process follow-on missing fob additions after existing fob ACL sync completes
