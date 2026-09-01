@@ -100,7 +100,7 @@ class DataManager(key_fobs):
                     save_key = f"S{rec_id - 1}"
                     save_data.append((save_key, 'Save'))
                     self.session.headers['Referer'] = self.url + '/ACT_ID_324'
-                    response = self.get_httpresponse(url, save_data, "edited successfully")
+                    response = self.get_httpresponse(url, save_data, "user is edited successfully")
                 return response
         return None
 

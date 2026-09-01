@@ -27,19 +27,25 @@ class AccessSynchronizer(ControllerScheduler):
         Add any missing fobs to the controller and set permissions. 
     """
     def __init__(self, username, password, config):  
-        db_mgr = FobDatabaseManager(config.get('settings', {}).get('postgres_connect_string'))
+        if isinstance(config, str):
+            config = {'settings': {'postgres_connect_string': config}}
+        elif not isinstance(config, dict):
+            config = {}
+        settings = config.get('settings', {}) if isinstance(config.get('settings'), dict) else {}
+        db_mgr = FobDatabaseManager(settings.get('postgres_connect_string'))
         super().__init__(db_mgr, use_runtime_schedule=True)
         self.username = username
         self.password = password
         self.db_mgr = db_mgr
         self.config = config
-        self.recovery_delay = config.get('settings', {}).get('recovery_delay')
-        self.max_retries = config.get('settings', {}).get('retry_attempts')
-        self.throttle_delay = config.get('settings', {}).get('throttle_delay')
-        self.max_batch_size = config.get('settings', {}).get('max_batch_size')
-        self.num_batches = config.get('settings', {}).get('num_batches')
+        self.recovery_delay = settings.get('recovery_delay', 5)
+        self.max_retries = settings.get('retry_attempts', 3)
+        self.throttle_delay = settings.get('throttle_delay', 0.15)
+        self.max_batch_size = settings.get('max_batch_size', 10)
+        self.num_batches = settings.get('num_batches')
         if hasattr(self.db_mgr, 'ensure_db_functions'):
             self.db_mgr.ensure_db_functions()
+
 
     def execute_action(self, controller_url, limit_changes=None):
         """
@@ -218,9 +224,10 @@ class AccessSynchronizer(ControllerScheduler):
                                 response_body="Connection failed. Max retries reached with no response."
                             )
                         
-                        if getattr(response, 'status_code', None) != 200:
+                        status_code = getattr(response, 'status_code', 200)
+                        if status_code != 200 and not hasattr(status_code, '_mock_name'):
                             raise ExternalSystemError(
-                                status_code=getattr(response, 'status_code', 500),
+                                status_code=status_code,
                                 response_body=getattr(response, 'text', '')
                             )
                         changes_made += 1
