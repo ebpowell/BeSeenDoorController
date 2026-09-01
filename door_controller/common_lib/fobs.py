@@ -110,46 +110,56 @@ class key_fobs(door_controller):
 
 
     def get_permissions_record(self, record_id):
-        data = {f"E{record_id - 1}": 'Edit'}
-        self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-        url = self.url + '/ACT_ID_324'
+        if record_id is None:
+            return None
         try:
+            record_num = int(record_id)
+            data = {f"E{record_num - 1}": 'Edit'}
+            self.session.headers['Referer'] = self.url + '/ACT_ID_21'
+            url = self.url + '/ACT_ID_324'
             response = self.get_httpresponse(url, data)
+            if not response or not getattr(response, 'text', None):
+                return None
             return self.parse_permissions(response.text)
-        except:
-            raise
+        except Exception as e:
+            log_info(f"get_permissions_record: Exception retrieving record_id {record_id}: {e}")
+            return None
 
     def parse_permissions(self, markup):
-        markup = markup[markup.find('</th></tr>') + 10:markup.find('</p></form></body><HEAD>') - 8]
-        # Split into 5 columns
-        tpl_murow = self.parse_tr_data(markup, r'<tr align=(.*?)</tr>', 5)
-        # Now chop-up row 4 (3) by <br><br>,
+        if not markup or '</th></tr>' not in markup:
+            return None
         try:
+            head_idx = markup.find('</th></tr>')
+            tail_idx = markup.find('</p></form></body><HEAD>')
+            if head_idx == -1:
+                return None
+            sub_markup = markup[head_idx + 10:tail_idx - 8] if tail_idx != -1 else markup[head_idx + 10:]
+            
+            # Split into 5 columns
+            tpl_murow = self.parse_tr_data(sub_markup, r'<tr align=(.*?)</tr>', 5)
+            if not tpl_murow or len(tpl_murow[0]) < 4:
+                return None
+                
             lst_tags = tpl_murow[0][3].split('<br><br>')
-            # Iterate through the list of subfields and determine if they contain "selected", if yes : Allow, else, Forbid
             door_perms = [[tpl_murow[0][0], tpl_murow[0][1], self.parse_tag(perm)[0], self.parse_tag(perm)[1], self.url]
-                          for perm in lst_tags if perm.find('option') > 0]
+                          for perm in lst_tags if perm and perm.find('option') > 0]
             return door_perms
-        except IndexError:
-            log_error(markup)
-            pass
+        except (IndexError, TypeError):
+            log_info("parse_permissions: No permission record found for record_id (null result).")
+            return None
         except Exception as e:
-            raise e
+            log_error(f"parse_permissions error: {e}")
+            return None
 
     def parse_tag(self, permission_tag):
-
         door = permission_tag[0:7]
-        # print(permission_tag, door)
         if permission_tag.find('selected') > 0:
             selected_tag = permission_tag[permission_tag.find('selected') + 9:]
             perm = selected_tag[:selected_tag.find('<')]
-            # print(perm)
-            # perm = selected_tag
         elif permission_tag.find('Forbid') > 0:
             perm = 'Forbid'
         else:
             return
-        # print([door, perm])
         return [door, perm]
 
     def get_record_id(self, fob_id):
@@ -157,16 +167,21 @@ class key_fobs(door_controller):
         url = self.url + '/ACT_ID_323'
         try:
             self.session.headers['Referer'] = self.url + '/ACT_ID_21'
-            data = {'US21':f"{fob_id}",
+            data = {'US21': f"{fob_id}",
                     '22': '0',
                     '23': '',
                     '24': 'Search'}
-            response = self.get_httpresponse(url, data)
+            response = self.get_httpresponse(url, data, expected_marker='Search Finished')
+            if not response or not getattr(response, 'text', None):
+                return None
             return self.parse_user_id(response.text)
         except Exception as e:
-            raise e
+            log_error(f"get_record_id error for fob_id {fob_id}: {e}")
+            return None
         
     def parse_user_id(self, markup):
+        if not markup:
+            return None
         data_row_regex = r'<tr align=center>(.*?)</tr>'
         tpl_murow = self.parse_tr_data(markup, data_row_regex, tag_count=4)
         try:
@@ -177,13 +192,13 @@ class key_fobs(door_controller):
                 log_info(f"Failed to convert user_id to int: {user_id}")
                 return None
         except IndexError:
-            # Verify thet the markup contains the information "Found Users' Count: 0. Search Finished"
-            if "Found Users' Count: 0. Search Finished" in markup:
-                log_error("No users found for the given fob_id.")
+            # Verify that the markup contains the information "Found Users' Count: 0. Search Finished"
+            if "Found Users' Count: 0" in markup or "Search Finished" in markup:
+                log_info(f"No users found on controller for given search.")
                 return None
             else:
                 log_error(markup)
-            pass
+            return None
         except Exception as e:
             log_error(e.args)
-            raise e
+            return None

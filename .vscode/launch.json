@@ -3,18 +3,18 @@
     "configurations": [
         {
             "name": "Test AccessSynchronizer",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tests/test_AccessSynchronizer.py",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}",
+                "debugpyPATH": "${workspaceFolder}",
                 "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {
             "name": "Sync Controller (Daemon Mode)",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
             "logToFile": true,
@@ -24,13 +24,13 @@
             ],
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}",
+                "debugpyPATH": "${workspaceFolder}",
                 // "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {
             "name": "Sync Controller (Limit 1 Change)",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
             "args": [
@@ -39,42 +39,42 @@
             ],
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}",
+                "debugpyPATH": "${workspaceFolder}",
                 "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
             }
         },
         {
-            "name": "Python: Current File",
-            "type": "python",
+            "name": "debugpy: Current File",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "logToFile": true,
             "redirectOutput": true,
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "debugpyPATH": "${workspaceFolder}"
             }
         },
         {
-            "name": "Pulls Swipes from Controller",
-            "type": "python",
+            "name": "Pull Swipes from Controller",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
             "console": "integratedTerminal",
             "args": [""],
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "debugpyPATH": "${workspaceFolder}"
             }
         },
         {
             "name": "Pulls Fobs from Controller",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_foblist_from_controller.py",
             "console": "integratedTerminal",
             "args": [""],
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "debugpyPATH": "${workspaceFolder}"
             }
         },
 

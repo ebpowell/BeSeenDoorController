@@ -28,37 +28,48 @@ class ExternalSystemError(Exception):
 
 def validate_and_parse_controller_html(response: Response, expected_marker: str = None) -> str:
     """
-    Validates HTML responses from the embedded BeSeen Door Controller.
-    
-    Since successful API calls return HTML for scraping, we inspect the page 
-    content to detect if we've been redirected to the login/AddCard fallback page.
+    Validates HTML responses from the embedded BeSeen Door Controller for:
+    - Add Fob ("CardNO:<fob_id> Add Successfully")
+    - Update Permissions / Edit ("ID:<id> user is edited successfully")
+    - Delete Fob ("ID:<id> user is deleted")
+    - Search FobID ("Found Users' Count: <count>. Search Finished.")
+    - Redirection fallback to AddCard menu or session timeout.
     
     :param response: The requests.Response object.
-    :param expected_marker: An optional string expected in a successful scrape (e.g., table columns).
+    :param expected_marker: An optional string expected in a successful scrape or action.
     :return: The raw HTML text if valid.
-    :raises: ExternalSystemError if redirection, session expiry, or missing markers are detected.
+    :raises: ExternalSystemError if redirection without a success marker, session expiry, or missing markers are detected.
     """
-
-    # IF response contains: 
-    # "Add Successfully" and is_addcard_fallback = True, then return OK, not error
-    # "user is deleted" and is_addcard_fallback = False, then return OK, not error
-    # "edited successfully" and is_addcard_fallback = False, then return OK, not error
-
     text = response.text or ""
-    is_addcard_fallback = None
     
-    # 1. Detect Redirection to the homepage / AddCard Menu (indicates session expired)
-    if expected_marker:
-        is_addcard_fallback = (
-            "<title>Web Controller</title>" in text and 
-            ("Manual Input" in text or "AutoAddBySwiping" in text)
+    # 1. Check if the response contains expected_marker or any of the defined success tags
+    has_success_marker = False
+    if expected_marker and expected_marker in text:
+        has_success_marker = True
+    else:
+        has_success_marker = (
+            "Add Successfully" in text or
+            "user is edited successfully" in text or
+            "edited successfully" in text or
+            "user is deleted" in text or
+            "Search Finished" in text or
+            "Found Users' Count:" in text or
+            bool(re.search(r"CardNO:\s*\S+\s+Add Successfully", text, re.IGNORECASE)) or
+            bool(re.search(r"ID:\s*\d+\s+user is edited successfully", text, re.IGNORECASE)) or
+            bool(re.search(r"ID:\s*\d+\s+user is deleted", text, re.IGNORECASE)) or
+            bool(re.search(r"Found Users'\s*Count:\s*\d+", text, re.IGNORECASE))
         )
+
+    # 2. Detect Redirection to the homepage / AddCard Menu (indicates fallback or session expired)
+    is_addcard_fallback = (
+        "<title>Web Controller</title>" in text and 
+        ("Manual Input" in text or "AutoAddBySwiping" in text)
+    )
     
-    if is_addcard_fallback and expected_marker and not expected_marker in text: #In the case where a card is added, the proper response is to reload the addcard page with a Successful note
+    if is_addcard_fallback and not has_success_marker:
         logger.warning(
             f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
         )
-        # Log a clean, truncated snippet instead of the full raw markup
         truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
         raise ExternalSystemError(
             status_code=response.status_code,
@@ -66,8 +77,8 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
             message="Door controller redirected to AddCard homepage (session expired)."
         )
 
-    # 2. Check for expected payload elements (fail-safe for empty/broken HTML)
-    if expected_marker and expected_marker not in text:
+    # 3. Check for expected payload elements (fail-safe for empty/broken HTML)
+    if expected_marker and not has_success_marker:
         logger.error(
             f"HTML response received from {response.url} but missing expected data marker: '{expected_marker}'"
         )
@@ -79,6 +90,7 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
         )
 
     return text
+
 
 class door_controller:
     def __init__(self, url, username, password):
