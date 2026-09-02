@@ -10,6 +10,9 @@ app = Flask(__name__)
 # Secret key is required for session and flash messaging.
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'beseen_secret_key_123!_change_me')
 
+from door_controller.key_management_application.api import api_bp
+app.register_blueprint(api_bp)
+
 def get_ssl_config(cli_args=None):
     """
     Resolves SSL configuration options from CLI arguments, environment variables, or config.yaml.
