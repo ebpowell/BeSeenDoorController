@@ -20,7 +20,7 @@ settings:
   throttle_delay: 0.1
   urls:
     - http://69.21.119.147
-    - http://69.21.119.148
+    # - http://69.21.119.148
   gcal_service_account_file: config/service_account.json
   gcal_calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
   gcal_timezone: America/New_York
