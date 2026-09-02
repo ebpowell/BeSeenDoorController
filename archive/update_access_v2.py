@@ -1,5 +1,5 @@
 """
-BeSeenDoorController - Thread-Safe Access Synchronizer
+BeSeenDoorController - Thread-Safe Access Synchronizer (v2)
 
 This module provides a thread-safe implementation of AccessSynchronizer for
 synchronizing door controllers with database fobs and access rules.
