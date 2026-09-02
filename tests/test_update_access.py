@@ -131,6 +131,17 @@ class TestAccessSynchronizer(unittest.TestCase):
             self.assertTrue(t.daemon)
             self.assertIn(t.name, ["SyncThread-http://69.21.119.147", "SyncThread-http://69.21.119.148"])
 
+    @patch.object(AccessSynchronizer, 'run_controller_sync_loop')
+    def test_start_thread_safe_scheduler_function(self, mock_loop):
+        from door_controller.key_management_application.update_access import start_thread_safe_scheduler
+        urls = ['http://69.21.119.147', 'http://69.21.119.148']
+        threads = start_thread_safe_scheduler(urls, {'settings': {'postgres_connect_string': 'postgresql://db'}}, 'admin', 'password', limit_changes=5)
+        
+        self.assertEqual(len(threads), 2)
+        for t in threads:
+            self.assertTrue(t.daemon)
+            self.assertTrue(t.name.startswith("Sync-"))
+
     @patch('door_controller.key_management_application.update_access.time.sleep')
     @patch('door_controller.key_management_application.update_access.collect_metrics_stats')
     @patch('door_controller.key_management_application.update_access.load_config')
