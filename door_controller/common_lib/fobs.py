@@ -35,6 +35,7 @@ class key_fobs(door_controller):
         page_iteration = 1  # Track page step dynamically instead of using range()
 
         try:
+            self.verify_or_reauth()
             response = self.connect()
             # response = self.navigate()
         except Exception as e:
@@ -113,6 +114,7 @@ class key_fobs(door_controller):
         if record_id is None:
             return None
         try:
+            self.verify_or_reauth()
             record_num = int(record_id)
             data = {f"E{record_num - 1}": 'Edit'}
             self.session.headers['Referer'] = self.url + '/ACT_ID_21'
@@ -163,9 +165,10 @@ class key_fobs(door_controller):
         return [door, perm]
 
     def get_record_id(self, fob_id):
-        self.users_page()
-        url = self.url + '/ACT_ID_323'
         try:
+            self.verify_or_reauth()
+            self.users_page()
+            url = self.url + '/ACT_ID_323'
             self.session.headers['Referer'] = self.url + '/ACT_ID_21'
             data = {'US21': f"{fob_id}",
                     '22': '0',

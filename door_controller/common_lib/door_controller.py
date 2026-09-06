@@ -93,11 +93,13 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
 
 
 class door_controller:
-    def __init__(self, url, username, password):
+    def __init__(self, url, username, password, session_timeout_secs=180):
         self.auth = HTTPBasicAuth(username, password)
         self.url = url
         self.username = username
         self.password = password
+        self.session_timeout_secs = session_timeout_secs
+        self.last_login_time = 0.0
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -132,6 +134,33 @@ class door_controller:
         'logid': '20101222'}
         self._logged_in = False
         self._login_response = None
+
+    def is_session_viable(self) -> bool:
+        """
+        Dual-layer verification checking local time-elapsed limits and login state.
+        """
+        if not getattr(self, '_logged_in', False) or getattr(self, 'last_login_time', 0.0) == 0.0:
+            return False
+        elapsed = time.time() - self.last_login_time
+        if elapsed >= self.session_timeout_secs:
+            logger.warning(f"Session age ({elapsed:.1f}s) exceeds threshold ({self.session_timeout_secs}s).")
+            return False
+        return True
+
+    def verify_or_reauth(self) -> bool:
+        """Pre-emptively guarantees an active session before high-risk execution loops."""
+        if not self.is_session_viable():
+            logger.info(f"Session expired or invalid for {self.url}. Running pre-emptive re-authentication...")
+            self._logged_in = False
+            response = self.connect()
+            if not response or getattr(response, 'status_code', None) != 200:
+                raise ExternalSystemError(
+                    status_code=getattr(response, 'status_code', 500) if response else 500,
+                    message=f"Failed to pre-emptively re-authenticate session with controller at {self.url}."
+                )
+            return True
+        logger.info(f"Current session is verified as active and healthy for {self.url}.")
+        return True
 
 
     def get_httpresponse(self, url, data, expected_marker= None):
@@ -202,7 +231,10 @@ class door_controller:
 
     def connect(self):
         if getattr(self, '_logged_in', False) and getattr(self, '_login_response', None) is not None:
-            return self._login_response
+            if self.is_session_viable():
+                return self._login_response
+            else:
+                self._logged_in = False
         url = self.url+'/ACT_ID_1'
         for x in range(0, self.max_retries):
             try:
@@ -213,6 +245,7 @@ class door_controller:
                 if response and response.status_code == 200:
                     # print("door_controller.connect: Connected")
                     self._logged_in = True
+                    self.last_login_time = time.time()
                     self._login_response = response
                     return response
                 else:
