@@ -28,6 +28,12 @@ def log_error(message, exc_info=False):
     message = f"{get_current_timestamp()} - {message}"
     logging.error(message, exc_info=exc_info)
 
+def log_warning(message, exc_info=False):
+    """Logs a warning message, optionally with exception info."""
+    message = f"{get_current_timestamp()} - {message}"
+    logging.warning(message, exc_info=exc_info)
+
+
 
 def load_config(config_filename = 'config.yaml'):
     """

@@ -8,15 +8,15 @@ from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 import time
-from door_controller.common_lib.utils import log_error, log_info
+from door_controller.common_lib.utils import log_error, log_info, log_warning
 
-# Configure logging to align with the door_controller logger
-logger = logging.getLogger("door_controller")
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+# # Configure logging to align with the door_controller logger
+# logger = logging.getLogger("door_controller")
+# logger.setLevel(logging.INFO)
+# handler = logging.StreamHandler()
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# handler.setFormatter(formatter)
+# logger.addHandler(handler)
 
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns an unexpected or invalid response."""
@@ -67,7 +67,7 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
     )
     
     if is_addcard_fallback and not has_success_marker:
-        logger.warning(
+        log_warning(
             f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
         )
         truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
@@ -79,7 +79,7 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
 
     # 3. Check for expected payload elements (fail-safe for empty/broken HTML)
     if expected_marker and not has_success_marker:
-        logger.error(
+        log_error(
             f"HTML response received from {response.url} but missing expected data marker: '{expected_marker}'"
         )
         truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
@@ -143,14 +143,14 @@ class door_controller:
             return False
         elapsed = time.time() - self.last_login_time
         if elapsed >= self.session_timeout_secs:
-            logger.warning(f"Session age ({elapsed:.1f}s) exceeds threshold ({self.session_timeout_secs}s).")
+            log_warning(f"Session age ({elapsed:.1f}s) exceeds threshold ({self.session_timeout_secs}s).")
             return False
         return True
 
     def verify_or_reauth(self) -> bool:
         """Pre-emptively guarantees an active session before high-risk execution loops."""
         if not self.is_session_viable():
-            logger.info(f"Session expired or invalid for {self.url}. Running pre-emptive re-authentication...")
+            log_info(f"Session expired or invalid for {self.url}. Running pre-emptive re-authentication...")
             self._logged_in = False
             response = self.connect()
             if not response or getattr(response, 'status_code', None) != 200:
@@ -159,7 +159,7 @@ class door_controller:
                     message=f"Failed to pre-emptively re-authenticate session with controller at {self.url}."
                 )
             return True
-        logger.info(f"Current session is verified as active and healthy for {self.url}.")
+        # logger.info(f"Current session is verified as active and healthy for {self.url}.")
         return True
 
 
@@ -279,20 +279,7 @@ class door_controller:
                 except Exception:
                     time.sleep(self.timeout/3)
                     pass
-
-    # def navigate(self):
-    #     # obj_ACL = AccessControlList(self.username, self.password, self.url)
-    #     try:
-    #         response = self.connect()
-    #         if response and response.status_code == 200:
-    #             try:
-    #                 response = self.users_page()
-    #                 return response
-    #             except Exception as e:
-    #                 raise e
-    #     except Exception as e:
-    #         raise e
-
+   
     def unlock_door(self, door_desc, door_no):
         self.connect()
         log_info([door_desc, door_no])
