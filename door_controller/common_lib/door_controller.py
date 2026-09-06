@@ -10,13 +10,6 @@ from urllib3.util import Retry
 import time
 from door_controller.common_lib.utils import log_error, log_info, log_warning
 
-# # Configure logging to align with the door_controller logger
-# logger = logging.getLogger("door_controller")
-# logger.setLevel(logging.INFO)
-# handler = logging.StreamHandler()
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# handler.setFormatter(formatter)
-# logger.addHandler(handler)
 
 class ExternalSystemError(Exception):
     """Raised when the door controller system returns an unexpected or invalid response."""
@@ -60,33 +53,33 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
             bool(re.search(r"Found Users'\s*Count:\s*\d+", text, re.IGNORECASE))
         )
 
-    # 2. Detect Redirection to the homepage / AddCard Menu (indicates fallback or session expired)
-    is_addcard_fallback = (
-        "<title>Web Controller</title>" in text and 
-        ("Manual Input" in text or "AutoAddBySwiping" in text)
-    )
+    # 2. Look for Failure Markers:
+    # failure_marker = False
+    failure__marker = (
+                "CardNO invalid!" in text or
+                bool(re.search(r"CardNO:\s*\S+\s+already used!", text, re.IGNORECASE)))
     
-    if is_addcard_fallback and not has_success_marker:
+    if failure__marker and not has_success_marker:
         log_warning(
-            f"Redirected to fallback console on {response.url}. Session expired or unauthenticated."
+            f"Fob Add on {response.url}. Failed with {failure__marker} marker. "
         )
         truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
         raise ExternalSystemError(
             status_code=response.status_code,
             response_body=truncated_body,
-            message="Door controller redirected to AddCard homepage (session expired)."
+            message="Opeeration failed due to failure marker in response. Check for duplicate or invalid fob ID."
         )
 
     # 3. Check for expected payload elements (fail-safe for empty/broken HTML)
     if expected_marker and not has_success_marker:
         log_error(
-            f"HTML response received from {response.url} but missing expected data marker: '{expected_marker}'"
+            f"Controller process failed on {response.url}. {expected_marker} sucess marker not found in response. Response may be malformed or session expired."
         )
         truncated_body = text[:150].strip().replace("\n", " ") + "..." if len(text) > 150 else text
         raise ExternalSystemError(
             status_code=response.status_code,
             response_body=truncated_body,
-            message=f"HTML content mismatch: Missing expected marker '{expected_marker}'."
+            message=f"HTML content mismatch: Missing expected success marker '{expected_marker}'."
         )
 
     return text
@@ -257,8 +250,8 @@ class door_controller:
                 log_error(f"door_controller.connect: RequestException on attempt {x+1}: {e}")
                 time.sleep(self.timeout / 3)
             except Exception as e:
-                # raise e
-                pass
+                raise e
+                # pass
         print('Connection Failed')
         return None
 
@@ -278,7 +271,7 @@ class door_controller:
                     time.sleep(self.timeout/3)
                 except Exception:
                     time.sleep(self.timeout/3)
-                    pass
+                    raise e
    
     def unlock_door(self, door_desc, door_no):
         self.connect()
