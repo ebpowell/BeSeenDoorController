@@ -6,7 +6,7 @@ from flask import Flask
 try:
     from door_controller.key_management_application.api import api_bp, parse_period_to_timedelta
 except ModuleNotFoundError:
-    from archive.key_management_application.api import api_bp, parse_period_to_timedelta
+    from door_controller.api import api_bp, parse_period_to_timedelta
 
 
 class TestDoorControllerRESTAPI(unittest.TestCase):
