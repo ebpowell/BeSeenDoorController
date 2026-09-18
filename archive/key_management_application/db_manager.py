@@ -21,7 +21,7 @@ class FobDatabaseManager:
         if FobDatabaseManager._functions_ensured:
             return
         else:
-            import door_controller.key_management_application.deploy_triggers as deploy_triggers
+            import archive.key_management_application.deploy_triggers as deploy_triggers
             deploy_triggers.deploy(self.conn_str, mode=1)  # mode=1 for function-only deployment
             FobDatabaseManager._functions_ensured = True
             return

@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from door_controller.key_management_application.web_app.app import app
+from archive.key_management_application.web_app.app import app
 
 class TestReservations(unittest.TestCase):
 
@@ -255,7 +255,7 @@ class TestReservations(unittest.TestCase):
 
     @patch('door_controller.key_management_application.db_manager.FobDatabaseManager._get_connection')
     def test_add_early_setup_previous_day_reservation(self, mock_get_conn):
-        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        from archive.key_management_application.db_manager import FobDatabaseManager
         db_mgr = FobDatabaseManager('postgresql://db')
         
         mock_conn = MagicMock()

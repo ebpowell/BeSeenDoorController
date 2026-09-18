@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 
-from door_controller.key_management_application.collect_metrics import main
+from archive.key_management_application.collect_metrics import main
 
 class TestCollectMetrics(unittest.TestCase):
 

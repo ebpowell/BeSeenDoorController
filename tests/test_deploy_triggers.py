@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch, mock_open
 import sys
 
-from door_controller.key_management_application.deploy_triggers import deploy, get_sql_files, find_init_dir
+from archive.key_management_application.deploy_triggers import deploy, get_sql_files, find_init_dir
 
 class TestDeployTriggers(unittest.TestCase):
 

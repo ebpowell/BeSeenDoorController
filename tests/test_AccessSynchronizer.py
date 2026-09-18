@@ -2,7 +2,7 @@
 
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.pg_database import postgres
-from door_controller.key_management_application.update_access import AccessSynchronizer
+from archive.key_management_application.update_access import AccessSynchronizer
 
 
 # Get the database connection parameters from the config file

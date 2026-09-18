@@ -227,7 +227,7 @@ class TestSynchronization(unittest.TestCase):
 
     @patch('door_controller.key_management_application.db_manager.psycopg2.connect')
     def test_get_runtimes_for_date(self, mock_connect):
-        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        from archive.key_management_application.db_manager import FobDatabaseManager
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
         mock_cur = MagicMock()

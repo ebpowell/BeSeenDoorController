@@ -403,7 +403,7 @@ class GoogleCalendarSync:
         Returns tuple of (created_count, updated_count, synced_events_list).
         """
         if not self.db_manager:
-            from door_controller.key_management_application.db_manager import FobDatabaseManager
+            from archive.key_management_application.db_manager import FobDatabaseManager
             self.db_manager = FobDatabaseManager()
 
         reservations = self.db_manager.list_reservations()

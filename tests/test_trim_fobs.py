@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 
-from door_controller.key_management_application.trim_fobs import (
+from archive.key_management_application.trim_fobs import (
     RemoveOrphanedFobs,
     main
 )

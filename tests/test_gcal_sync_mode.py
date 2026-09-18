@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+from archive.gcal_sync import GoogleCalendarSync
 
 class TestGCalSyncModeConfig(unittest.TestCase):
 

@@ -3,7 +3,7 @@ import calendar
 import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.utils import log_info, load_config
 
 app = Flask(__name__)
@@ -121,7 +121,7 @@ def trigger_gcal_sync(reservation_id, action='sync'):
     Supports action='sync' (insert/update) or action='delete'.
     """
     try:
-        from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+        from archive.gcal_sync import GoogleCalendarSync
         syncer = GoogleCalendarSync()
         if not syncer.is_application_sync_enabled():
             log_info(f"Web UI GCal Sync Notice: Application-level sync is disabled by configuration (sync_mode='{syncer.sync_mode}').")

@@ -27,9 +27,9 @@ from typing import List, Dict, Any
 from door_controller.common_lib.utils import log_info, log_error, load_config, extract_cidr, parse_door_name
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.controller_scheduler import ControllerScheduler
-from door_controller.key_management_application.collect_metrics import collect_metrics_stats
+from archive.key_management_application.collect_metrics import collect_metrics_stats
 from door_controller.common_lib.door_controller import ExternalSystemError
 
 

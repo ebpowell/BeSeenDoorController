@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import datetime
 
-from door_controller.common_lib.gcal_sync import GoogleCalendarSync
+from archive.gcal_sync import GoogleCalendarSync
 
 class TestGoogleCalendarSync(unittest.TestCase):
     def setUp(self):

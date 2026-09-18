@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from flask import Flask
 
-from door_controller.key_management_application.web_app.app import (
+from archive.key_management_application.web_app.app import (
     app,
     get_ssl_config,
     get_ssl_context,

@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 import datetime
 
-from door_controller.key_management_application.db_manager import FobDatabaseManager
-from door_controller.key_management_application.update_access import AccessSynchronizer
+from archive.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.update_access import AccessSynchronizer
 
 
 class DummyCursor:

@@ -1,9 +1,9 @@
 import os
 from functools import wraps
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.utils import log_info, log_error, load_config
 from door_controller.common_lib.door_controller import door_controller
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 
 config = load_config()
 controller_ip = config.get('settings', {}).get('urls', [])[0].split('//')[1]  # Extract the IP address from the URL

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 
 class TestClubhouseDeposits(unittest.TestCase):
 

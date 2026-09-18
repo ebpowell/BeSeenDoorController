@@ -12,8 +12,8 @@ import sys
 import json
 import argparse
 import logging
-from door_controller.common_lib.gcal_sync import GoogleCalendarSync, GOOGLE_API_AVAILABLE
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.gcal_sync import GoogleCalendarSync, GOOGLE_API_AVAILABLE
+from archive.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.utils import load_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

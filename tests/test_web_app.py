@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from door_controller.key_management_application.web_app.app import app
+from archive.key_management_application.web_app.app import app
 
 class TestWebApp(unittest.TestCase):
 

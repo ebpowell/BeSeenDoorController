@@ -9,7 +9,7 @@ from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.data_extractor import ww_data_extractor
 from door_controller.common_lib.pg_database import postgres
-from door_controller.key_management_application.db_manager import FobDatabaseManager
+from archive.key_management_application.db_manager import FobDatabaseManager
 
 
 def parse_door_name(door_name):

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, time as dt_time
 
-from door_controller.key_management_application.update_access import (
+from archive.key_management_application.update_access import (
     AccessSynchronizer,
     main
 )
@@ -33,7 +33,7 @@ class TestAccessSynchronizer(unittest.TestCase):
         self.assertEqual(self.sync.parse_door_name(None), None)
 
     def test_get_expected_permissions(self):
-        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        from archive.key_management_application.db_manager import FobDatabaseManager
         real_db_mgr = FobDatabaseManager('postgresql://db')
         mock_conn = MagicMock()
         mock_cur = MagicMock()
@@ -133,7 +133,7 @@ class TestAccessSynchronizer(unittest.TestCase):
 
     @patch.object(AccessSynchronizer, 'run_controller_sync_loop')
     def test_start_thread_safe_scheduler_function(self, mock_loop):
-        from door_controller.key_management_application.update_access import start_thread_safe_scheduler
+        from archive.key_management_application.update_access import start_thread_safe_scheduler
         urls = ['http://69.21.119.147', 'http://69.21.119.148']
         threads = start_thread_safe_scheduler(urls, {'settings': {'postgres_connect_string': 'postgresql://db'}}, 'admin', 'password', limit_changes=5)
         

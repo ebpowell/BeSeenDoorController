@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, time as dt_time
 
-from door_controller.key_management_application.update_access_v2 import (
+from archive.key_management_application.update_access_v2 import (
     AccessSynchronizer,
     main
 )
@@ -83,7 +83,7 @@ class TestAccessSynchronizerV2(unittest.TestCase):
 
     @patch.object(AccessSynchronizer, 'run_controller_sync_loop')
     def test_start_thread_safe_scheduler_function(self, mock_loop):
-        from door_controller.key_management_application.update_access_v2 import start_thread_safe_scheduler
+        from archive.key_management_application.update_access_v2 import start_thread_safe_scheduler
         urls = ['http://69.21.119.147', 'http://69.21.119.148']
         threads = start_thread_safe_scheduler(urls, {'settings': {'postgres_connect_string': 'postgresql://db'}}, 'admin', 'password', limit_changes=5)
         
