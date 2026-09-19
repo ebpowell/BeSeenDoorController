@@ -1,39 +1,4 @@
 services:
-  keymanagement:
-    #image: key-management-app:latest
-    image: ghcr.io/ebpowell/beseendoorcontroller/key-management-app:latest
-    container_name: keymanagement
-    restart: unless-stopped
-    volumes:
-      - /opt/data/door_controller/data:/app/data
-      - /opt/data/door_controller/config:/app/config
-      - /opt/data/door_controller/log:/app/log
-      - /opt/data/door_controller/certs:/app/certs
-      # Make sure container and host use the ame Timezone
-      - /etc/localtime:/etc/localtime:ro
- #     - /etc/timezone:/etc/timezone:ro
-
-    environment:
-      # Tell your app where to find config files
-      APP_CONFIG_DIR: /app/config
-      # APP_MODE: production
-      TZ: America/New_York
-      # SSL / HTTPS Configuration options:
-      # SSL_ENABLED: "true"
-      # SSL_CERT: /app/certs/server.crt
-      # SSL_KEY: /app/certs/server.key
-
-    # Set the user to run processes inside the container
-    user: doorcontroller
-
-    ports:
-      - "5000:5000"
-    command: ["BeSeen_web"]
-
-    depends_on:
-      - postgres
-
-  doorcontroller:
     #image: cli-synch-tools:latest
     image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
     container_name: cli-synch-tools
@@ -57,30 +22,6 @@ services:
 
     # Run synchronization daemon on startup
     command: ["sync_controller", "--daemon"]
-    depends_on:
-      - postgres
-
-  trimfobs:
-    image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
-    container_name: trimfobs
-    restart: unless-stopped
-    volumes:
-      - /opt/data/door_controller/data:/app/data
-      - /opt/data/door_controller/config:/app/config
-      - /opt/data/door_controller/log:/app/log
-      # Make sure container and host use the same Timezone
-      - /etc/localtime:/etc/localtime:ro
-
-    environment:
-      # Tell your app where to find config files
-      APP_CONFIG_DIR: /app/config
-      TZ: America/New_York
-
-    # Set the user to run processes inside the container
-    user: doorcontroller
-
-    # Run trim fobs daemon on startup
-    command: ["trim_fobs", "--daemon"]
     depends_on:
       - postgres
 
@@ -110,17 +51,3 @@ services:
       - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
 
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300 # Checks for new images every 300 seconds (5 minutes)
-    command:
-      - doorcontroller
-      - trimfobs
-      - keymanagement
-      - postgres
