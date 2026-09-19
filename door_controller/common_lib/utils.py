@@ -133,3 +133,85 @@ def parse_door_name(door_name):
     if digits:
         return int(digits)
     return None
+
+
+def get_ssl_config(cli_args=None):
+    """
+    Resolves SSL configuration options from CLI arguments, environment variables, or config.yaml.
+    """
+    cfg = {
+        'enabled': False,
+        'cert': None,
+        'key': None
+    }
+    
+    try:
+        config_data = load_config()
+        ssl_section = config_data.get('ssl', {}) if isinstance(config_data, dict) else {}
+        cfg['enabled'] = bool(ssl_section.get('enabled', False))
+        cfg['cert'] = ssl_section.get('cert_file') or ssl_section.get('cert')
+        cfg['key'] = ssl_section.get('key_file') or ssl_section.get('key')
+    except Exception as e:
+        log_info(f"Notice: Unable to parse ssl section from config file: {e}")
+
+    env_ssl = os.environ.get('SSL_ENABLED', '').strip().lower()
+    if env_ssl in ('true', '1', 'yes', 'on'):
+        cfg['enabled'] = True
+    elif env_ssl in ('false', '0', 'no', 'off'):
+        cfg['enabled'] = False
+
+    env_cert = os.environ.get('SSL_CERT') or os.environ.get('SSL_CERT_PATH') or os.environ.get('SSL_CERT_FILE')
+    if env_cert:
+        cfg['cert'] = env_cert
+
+    env_key = os.environ.get('SSL_KEY') or os.environ.get('SSL_KEY_PATH') or os.environ.get('SSL_KEY_FILE')
+    if env_key:
+        cfg['key'] = env_key
+
+    if cli_args:
+        if getattr(cli_args, 'ssl', False):
+            cfg['enabled'] = True
+        if getattr(cli_args, 'cert', None):
+            cfg['cert'] = getattr(cli_args, 'cert')
+        if getattr(cli_args, 'key', None):
+            cfg['key'] = getattr(cli_args, 'key')
+
+    return cfg
+
+
+def get_ssl_context(ssl_cfg):
+    """
+    Returns Flask/WSGI ssl_context based on resolved ssl_cfg.
+    - If enabled and cert/key exist: returns (cert_path, key_path).
+    - If enabled and no valid cert/key provided: returns 'adhoc'.
+    - If disabled: returns None.
+    """
+    if not ssl_cfg or not ssl_cfg.get('enabled'):
+        return None
+
+    cert = ssl_cfg.get('cert')
+    key = ssl_cfg.get('key')
+
+    if cert and key:
+        if os.path.exists(cert) and os.path.exists(key):
+            return (cert, key)
+        else:
+            log_info(f"SSL Warning: Certificate path ({cert}) or Key path ({key}) not found on disk. Falling back to adhoc SSL context.")
+            return 'adhoc'
+    else:
+        return 'adhoc'
+
+
+def configure_app_security(app_instance, ssl_enabled=False):
+    """
+    Configures session cookie security flags and security headers on the Flask app.
+    """
+    app_instance.config['SESSION_COOKIE_HTTPONLY'] = True
+    app_instance.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app_instance.config['SSL_ENABLED'] = ssl_enabled
+    
+    if ssl_enabled:
+        app_instance.config['SESSION_COOKIE_SECURE'] = True
+    else:
+        app_instance.config['SESSION_COOKIE_SECURE'] = False
+
