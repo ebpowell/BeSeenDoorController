@@ -1,38 +1,14 @@
 app_name: Door Controller
-environment: default
-version: 0.1.0
 settings:
-  api_key: some_default_key
   log_level: INFO
-  postgres_connect_string: host=192.168.1.250 dbname=wntworth_db user=wentworth_user password=ww_s3cret
-  username: abc
-  password: 654321
-  iterations: 25
-  batch_size: 20
-  num_batches: 4
-  retry_attempts: 3
-  recovery_delay: 1
-  # limit_changes: 30
-  retry_sleep_seconds: 1
-  recurrence: 3600
-  metrics_sample_size: 20
-  metrics_sample_percent: 5.0
-  throttle_delay: 0.1
   urls:
     - http://69.21.119.147
-    # - http://69.21.119.148
-  gcal_service_account_file: config/service_account.json
-  gcal_calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
-  gcal_timezone: America/New_York
-
-gcal:
-  sync_mode: application  # Options: application, database, both, disabled
-  service_account_file: config/service_account.json
-  calendar_id: fe1dd15ae5db62a39bf4b930895a9d52462e94dea1062870dfdfb93678caf379@group.calendar.google.com
-  timezone: America/New_York
+  username: abc
+  password: 654321
+  recovery_delay: 5
+  postgres_connect_string: postgresql://wentworth_user:password@localhost:5432/wntworth_db
 
 ssl:
   enabled: false
   cert_file: config/certs/server.crt
   key_file: config/certs/server.key
-
