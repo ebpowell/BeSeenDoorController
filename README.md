@@ -297,9 +297,9 @@ Both database permission functions (e.g. `f_get_runtimes`) and calendar sync too
 
 ---
 
-## Observability & Database Metrics (Grafana)
+## Observability & System Metrics
 
-A dedicated Grafana container (`http://localhost:3000`) is pre-configured with a PostgreSQL datasource pointing to `door_controller.controller_metrics`.
+Observability metrics are recorded to `door_controller.controller_metrics` and rendered natively in the HOA_OS Web Dashboard (`/metrics`).
 
 ### Observability Views
 - `door_controller.vint_system_assigned_fob_compare`
