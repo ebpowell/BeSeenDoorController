@@ -13,8 +13,7 @@ on:
 env:
   REGISTRY: ghcr.io
   CLI_TOOLS_IMAGE: ${{ github.repository }}/cli-synch-tools
-  KEY_MGMT_IMAGE: ${{ github.repository }}/key-management-app
-  POSTGRES_IMAGE: ${{ github.repository }}/postgres
+#  POSTGRES_IMAGE: ${{ github.repository }}/postgres
 
 jobs:
   build-and-push:
@@ -31,16 +30,11 @@ jobs:
             dockerfile:  Dockerfile.cli-tools
             image_name: cli-synch-tools
             context: .
-          - name: Key Management Application
-            # dockerfile: door_controller/key_management_application/Dockerfile
-            dockerfile: Dockerfile.key-mgmt-app
-            image_name: key-management-app
-            context: .
-          - name: POstgres backend
-            # dockerfile: door_controller/key_management_application/Dockerfile
-            dockerfile: Dockerfile.postgres
-            image_name: postgres
-            context: .
+#          - name: POstgres backend
+#            # dockerfile: door_controller/key_management_application/Dockerfile
+#            dockerfile: Dockerfile.postgres
+#            image_name: postgres
+#            context: .
             
 
     steps:
