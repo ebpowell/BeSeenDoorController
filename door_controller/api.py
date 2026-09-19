@@ -19,10 +19,6 @@ from typing import Dict, Any, List
 from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
-try:
-    from door_controller.key_management_application.db_manager import FobDatabaseManager
-except ModuleNotFoundError:
-    from archive.key_management_application.db_manager import FobDatabaseManager
 from door_controller.common_lib.door_controller import ExternalSystemError
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -40,7 +36,15 @@ def get_db_mgr():
         return current_app.db_mgr
     config = get_config()
     connect_string = config.get('settings', {}).get('postgres_connect_string', 'postgresql://wentworth_user:password@localhost:5432/wentworth_db')
-    return FobDatabaseManager(connect_string)
+    try:
+        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        return FobDatabaseManager(connect_string)
+    except ModuleNotFoundError:
+        try:
+            from HOA_OS_Application.db_manager import FobDatabaseManager
+            return FobDatabaseManager(connect_string)
+        except ModuleNotFoundError:
+            raise RuntimeError("Database manager not configured on current_app and FobDatabaseManager not found in environment.")
 
 
 def get_data_manager(controller_url=None):

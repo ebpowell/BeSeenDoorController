@@ -31,6 +31,7 @@ class TestDoorControllerRetries(unittest.TestCase):
     def test_get_httpresponse_success_after_initial_retry(self, mock_post):
         mock_ok = MagicMock()
         mock_ok.status_code = 200
+        mock_ok.text = "OK"
         mock_post.side_effect = [requests.exceptions.RequestException("Transient error"), mock_ok]
 
         ctrl = door_controller("http://69.21.119.147", "user", "pass")

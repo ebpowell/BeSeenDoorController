@@ -3,10 +3,7 @@ from unittest.mock import MagicMock, patch
 from datetime import datetime
 from flask import Flask
 
-try:
-    from door_controller.key_management_application.api import api_bp, parse_period_to_timedelta
-except ModuleNotFoundError:
-    from door_controller.api import api_bp, parse_period_to_timedelta
+from door_controller.api import api_bp, parse_period_to_timedelta
 
 
 class TestDoorControllerRESTAPI(unittest.TestCase):
@@ -25,7 +22,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(parse_period_to_timedelta('1m').days, 30)
         self.assertEqual(parse_period_to_timedelta('invalid').total_seconds(), 86400)
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_get_fob_record_id_success(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_dm.get_record_id.return_value = 21
@@ -38,7 +35,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['fob_id'], 1001)
         self.assertEqual(data['record_id'], 21)
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_get_fob_record_id_not_found(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_dm.get_record_id.return_value = None
@@ -49,7 +46,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['status'], 'error')
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_add_fob_success(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_dm.add_fob.return_value = ['success_code', 22]
@@ -66,7 +63,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         res = self.client.post('/api/fob', json={'owner_name': 'Jane Doe'})
         self.assertEqual(res.status_code, 400)
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_delete_fob_success(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_get_dm.return_value = mock_dm
@@ -78,7 +75,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['fob_id'], 1001)
         self.assertTrue(data['deleted'])
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_update_fob_permissions_success(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_dm.set_permissions.return_value = MagicMock(status_code=200)
@@ -93,7 +90,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['record_id'], 21)
 
-    @patch('door_controller.key_management_application.api.get_db_mgr')
+    @patch('door_controller.api.get_db_mgr')
     def test_get_swipes_data_success(self, mock_get_db):
         mock_db = MagicMock()
         mock_conn = MagicMock()
@@ -113,7 +110,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['count'], 1)
         self.assertEqual(data['swipes'][0]['fob_id'], 1001)
 
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_data_manager')
     def test_get_controller_fobs_success(self, mock_get_dm):
         mock_dm = MagicMock()
         mock_dm.url = 'http://192.168.1.100'
@@ -129,8 +126,8 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['count'], 2)
 
-    @patch('door_controller.key_management_application.api.get_db_mgr')
-    @patch('door_controller.key_management_application.api.get_data_manager')
+    @patch('door_controller.api.get_db_mgr')
+    @patch('door_controller.api.get_data_manager')
     def test_get_controller_fob_permissions_success(self, mock_get_dm, mock_get_db):
         mock_dm = MagicMock()
         mock_dm.url = 'http://192.168.1.100'
