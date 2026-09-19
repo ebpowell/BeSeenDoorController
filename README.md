@@ -47,7 +47,29 @@ settings:
   recovery_delay: 5
   log_level: "INFO"
   postgres_connect_string: "postgresql://wentworth_user:password@localhost:5432/wntworth_db"
+---
+
+## Configuration Web GUI Tool (`BeSeen_config_gui`)
+
+The project includes a Flask-based Web GUI for remote management of `config.yaml`.
+
+### Launching the Configuration Web GUI
+
+Run the console script:
+```bash
+BeSeen_config_gui --port 5001
 ```
+Or directly with Python:
+```bash
+python3 -m door_controller.config_gui --port 5001
+```
+Access the interface in your browser at `http://localhost:5001`.
+
+### Web GUI Features
+- **Remote Configuration Editing**: Update controller URLs, credentials, recovery delays, log levels, and database connection strings.
+- **SSL Security Management**: Toggle SSL encryption and configure server certificate/key paths.
+- **Live Connection Testing**: Test real-time reachability of hardware door controller URLs and PostgreSQL connection strings.
+- **Hot Reloading & Saving**: Write updated settings back to `config.yaml` with safety validation.
 
 ---
 
@@ -100,6 +122,7 @@ Command-line utilities installed via `setup.py` entry points:
 | Tool Command | Description |
 | :--- | :--- |
 | `BeSeen_driver` | CLI tool to add, remove, or set permissions for a key fob. |
+| `BeSeen_config_gui` | Web GUI tool for remote management of `config.yaml`. |
 | `get_swipes` | Pull door swipe logs from hardware controllers into the database. |
 | `get_acl_from_controller` | Extract Access Control List (ACL) data from controllers. |
 | `get_foblist_from_controller` | Retrieve key fob list stored on hardware controllers. |

@@ -12,7 +12,8 @@ setup(
             'get_foblist_from_controller=door_controller.cli_synch_tools.get_foblist_from_controller:main',
             'list_fobs_simple=door_controller.cli_synch_tools.list_fobs_simple:main',
             'list_fobs=door_controller.cli_synch_tools.list_fobs_simple:main',
-            'BeSeen_driver=door_controller.cli_synch_tools.BeSeen_driver:main'
+            'BeSeen_driver=door_controller.cli_synch_tools.BeSeen_driver:main',
+            'BeSeen_config_gui=door_controller.config_gui:main'
         ]
     },
     include_package_data=True,
