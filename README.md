@@ -2,9 +2,38 @@
 
 Open-source API client layer, REST API module, and CLI toolset for interfacing with BeSeen Door Controller physical access hardware.
 
-## Overview
+## Architecture & System Overview
 
-`BeSeenDoorController` provides a Python API library, REST API endpoints, and command-line synchronization tools to manage physical key fobs, retrieve card swipe logs, query controller permissions, and maintain synchronization between hardware door controllers and a PostgreSQL backend database.
+`BeSeenDoorController` separates hardware interaction, API service delivery, database synchronization, and configuration management into decoupled services:
+
+```
++-------------------------------------------------------------+
+|                      Hardware Door Controllers               |
++-------------------------------------------------------------+
+                               ^
+                               | (HTTP / REST API)
+                               v
++-------------------------------------------------------------+
+|                  beseen-api (REST API Container)            |
+| - Controls hardware interactions via DataManager            |
+| - Independent of PostgreSQL database                        |
+| - Exposes RESTful endpoints on port 5000                    |
++-------------------------------------------------------------+
+           ^                                     ^
+           | (API Client)                        | (API Client)
++--------------------------+          +--------------------------+
+|  cli-synch-tools         |          |  config-gui              |
+|  (CLI & DB Sync Container)|          |  (Web GUI Config Tool)   |
+|  - Uses ApiClient        |          |  - Edits config.yaml     |
+|  - Associated w/ Postgres|          |  - Runs on port 5001     |
++--------------------------+          +--------------------------+
+           |
+           v
++--------------------------+
+|  postgres                |
+|  (PostgreSQL Database)   |
++--------------------------+
+```
 
 ---
 
@@ -23,30 +52,43 @@ pip install -r requirements.txt
 pip install .
 ```
 
-### Docker Setup
+### Docker Compose Topology
 
-Run the CLI tools or synchronization daemons via Docker Compose:
+Start all decoupled services:
 ```bash
-docker compose up -d doorcontroller
+docker compose up -d
 ```
+
+#### Services Defined in `docker-compose.yaml`:
+- **`beseen-api`**: Standalone REST API server for controlling door controller hardware (`port 5000`).
+- **`cli-synch-tools`**: CLI tools and background synchronization daemon connected to `postgres` and using `beseen-api`.
+- **`config-gui`**: Remote configuration Web GUI application (`port 5001`).
+- **`postgres`**: PostgreSQL database backend for access control logs and key fob records.
 
 ---
 
 ## Configuration
 
-Configuration is loaded from `config/config.yaml` or specified via environment variables (e.g., `APP_CONFIG_DIR`).
+Configuration is loaded from `config/config.yaml` or specified via environment variables (e.g., `APP_CONFIG_DIR`, `API_URL`).
 
 Example `config/config.yaml`:
 ```yaml
 app_name: "BeSeenDoorController"
 settings:
+  log_level: "INFO"
   urls:
     - "http://192.168.1.100"
   username: "admin"
   password: "your_password"
   recovery_delay: 5
-  log_level: "INFO"
   postgres_connect_string: "postgresql://wentworth_user:password@localhost:5432/wntworth_db"
+
+ssl:
+  enabled: false
+  cert_file: config/certs/server.crt
+  key_file: config/certs/server.key
+```
+
 ---
 
 ## Configuration Web GUI Tool (`BeSeen_config_gui`)
@@ -73,9 +115,13 @@ Access the interface in your browser at `http://localhost:5001`.
 
 ---
 
-## REST API Client (`door_controller.api`)
+## REST API Client Service (`door_controller.api` / `BeSeen_api`)
 
-The project provides a Flask Blueprint (`api_bp`) exposed under `/api` for RESTful operations on door controllers.
+The REST API container (`beseen-api`) runs as an independent service controlling calls to hardware door controllers:
+
+```bash
+BeSeen_api --host 0.0.0.0 --port 5000
+```
 
 ### API Endpoints
 
@@ -91,26 +137,27 @@ The project provides a Flask Blueprint (`api_bp`) exposed under `/api` for RESTf
 
 ---
 
-## Python API Library (`door_controller.common_lib`)
+## Unified Python API Client (`ApiClient`)
 
-### Hardware Data Manager (`DataManager`)
-
-Use `DataManager` for direct programmatic interaction with the hardware controller:
+The `ApiClient` class (`door_controller.common_lib.api_client`) routes hardware requests through the `beseen-api` service, falling back to direct `DataManager` execution if the HTTP REST API is unreachable:
 
 ```python
-from door_controller.common_lib.data_manager import DataManager
+from door_controller.common_lib.api_client import ApiClient
 
-# Initialize client
-dm = DataManager(controller_url="http://192.168.1.100", username="admin", password="password")
+# Initialize client (uses API_URL env var or defaults to http://beseen-api:5000)
+client = ApiClient()
 
-# Get hardware record ID for a fob ID
-record_id = dm.get_record_id(fob_id=12345)
+# Get hardware record ID
+record_id = client.get_fob_record_id(12345)
 
-# Add a key fob
-dm.add_fob(fob_id=12345, user_name="Jane Doe")
+# Add key fob via API module
+client.add_fob(fob_id=12345, owner_name="Jane Doe")
 
-# Retrieve key fobs list from controller
-fobs = dm.get_keyfobs()
+# Update permissions
+client.update_fob_permissions(record_id=10, permissions=[[1, True], [2, True]])
+
+# Retrieve controller key fobs
+fobs = client.get_controller_fobs()
 ```
 
 ---
@@ -121,11 +168,12 @@ Command-line utilities installed via `setup.py` entry points:
 
 | Tool Command | Description |
 | :--- | :--- |
-| `BeSeen_driver` | CLI tool to add, remove, or set permissions for a key fob. |
+| `BeSeen_api` | Standalone REST API server for hardware control. |
+| `BeSeen_driver` | CLI tool to add, remove, or set permissions for a key fob via API Client. |
 | `BeSeen_config_gui` | Web GUI tool for remote management of `config.yaml`. |
-| `get_swipes` | Pull door swipe logs from hardware controllers into the database. |
-| `get_acl_from_controller` | Extract Access Control List (ACL) data from controllers. |
-| `get_foblist_from_controller` | Retrieve key fob list stored on hardware controllers. |
+| `get_swipes` | Pull door swipe logs from hardware controllers into the database via API Client. |
+| `get_acl_from_controller` | Extract Access Control List (ACL) data from controllers via API Client. |
+| `get_foblist_from_controller` | Retrieve key fob list stored on hardware controllers via API Client. |
 | `list_fobs_simple` / `list_fobs` | Print simple key fob listing. |
 | `sync_controller` | Synchronization daemon process. |
 | `trim_fobs` | Trim orphaned key fobs from hardware memory. |
@@ -135,13 +183,13 @@ Command-line utilities installed via `setup.py` entry points:
 ### CLI Examples
 
 ```bash
-# Add a key fob
+# Add a key fob via driver
 BeSeen_driver add 12345 "John Doe"
 
 # Remove a key fob
 BeSeen_driver remove 12345
 
-# Fetch swipes from hardware
+# Fetch swipes from hardware into database
 get_swipes
 
 # Fetch fob list from controller
@@ -160,4 +208,5 @@ Or directly with `pytest`:
 ```bash
 pytest
 ```
+
 
