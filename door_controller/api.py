@@ -8,7 +8,6 @@ Provides RESTful HTTP API endpoints for door controller operations:
 - update fob permissions
 - get swipes data for a specified time period
 - get fob list from controller
-- get fob permissions for a given time from controller
 """
 
 from flask import Blueprint, request, jsonify, current_app
