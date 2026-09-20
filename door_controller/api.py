@@ -35,16 +35,13 @@ def get_db_mgr():
     if hasattr(current_app, 'db_mgr') and current_app.db_mgr is not None:
         return current_app.db_mgr
     config = get_config()
-    connect_string = config.get('settings', {}).get('postgres_connect_string', 'postgresql://wentworth_user:password@localhost:5432/wentworth_db')
+    connect_string = config.get('settings', {}).get('postgres_connect_string', 'postgresql://wentworth_user:password@localhost:5432/wntworth_db')
     try:
-        from door_controller.key_management_application.db_manager import FobDatabaseManager
+        from door_controller.common_lib.pg_database import FobDatabaseManager
         return FobDatabaseManager(connect_string)
-    except ModuleNotFoundError:
-        try:
-            from HOA_OS_Application.db_manager import FobDatabaseManager
-            return FobDatabaseManager(connect_string)
-        except ModuleNotFoundError:
-            raise RuntimeError("Database manager not configured on current_app and FobDatabaseManager not found in environment.")
+    except Exception as e:
+        raise RuntimeError(f"Database manager initialization failed: {e}")
+
 
 
 def get_data_manager(controller_url=None):
@@ -247,3 +244,32 @@ def get_controller_fob_permissions(fob_id):
         }), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+def main():
+    import argparse
+    from flask import Flask
+    from door_controller.common_lib.utils import get_ssl_config, get_ssl_context, configure_app_security, log_info
+
+    parser = argparse.ArgumentParser(description="BeSeen Door Controller REST API Server")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=5000, help="Port to run REST API (default: 5000)")
+    parser.add_argument("--ssl", action="store_true", help="Enable SSL/HTTPS")
+    parser.add_argument("--cert", type=str, help="Path to SSL certificate file")
+    parser.add_argument("--key", type=str, help="Path to SSL private key file")
+    args = parser.parse_args()
+
+    app = Flask(__name__)
+    app.register_blueprint(api_bp)
+
+    ssl_cfg = get_ssl_config(args)
+    configure_app_security(app, ssl_enabled=ssl_cfg.get('enabled', False))
+    ssl_context = get_ssl_context(ssl_cfg)
+
+    log_info(f"Starting BeSeen Door Controller REST API on http://{args.host}:{args.port}")
+    app.run(host=args.host, port=args.port, ssl_context=ssl_context, debug=False)
+
+
+if __name__ == '__main__':
+    main()
+

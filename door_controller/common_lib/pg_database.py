@@ -196,3 +196,24 @@ class postgres:
         row = cur.fetchall()
         return row
 
+
+class FobDatabaseManager(postgres):
+    """Wrapper class providing context management and expected permissions lookup."""
+
+    def _get_connection(self):
+        import contextlib
+        @contextlib.contextmanager
+        def _conn_context():
+            yield self.db_con
+        return _conn_context()
+
+    def get_expected_permissions(self, fob_id, cidr):
+        try:
+            clean_cidr = cidr.rstrip('/32')
+            rows = self.get_permissions_record(fob_id, clean_cidr)
+            expected = {}
+            for r in rows:
+                expected[str(r[0])] = (str(r[1]).lower() in ('allow', 'true', '1'))
+            return expected
+        except Exception:
+            return {}

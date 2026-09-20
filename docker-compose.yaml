@@ -1,27 +1,49 @@
 services:
-    #image: cli-synch-tools:latest
-    image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
-    container_name: cli-synch-tools
+  beseen-api:
+    image: cli-synch-tools:latest
+    #image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    container_name: beseen-api
     restart: unless-stopped
     volumes:
       - /opt/data/door_controller/data:/app/data
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
-      # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
- #     - /etc/timezone:/etc/timezone:ro
 
     environment:
-      # Tell your app where to find config files
       APP_CONFIG_DIR: /app/config
-      # APP_MODE: production
       TZ: America/New_York
 
-    # Set the user to run processes inside the container
     user: doorcontroller
+    ports:
+      - "5000:5000"
 
-    # Run synchronization daemon on startup
-    command: ["sync_controller", "--daemon"]
+    # Run REST API client in daemon mode on port 5000
+    command: ["BeSeen_api", "--host", "0.0.0.0", "--port", "5000"]
+    depends_on:
+      - postgres
+
+  config-gui:
+    image: cli-synch-tools:latest
+    #image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    container_name: config-gui
+    restart: unless-stopped
+    volumes:
+      - /opt/data/door_controller/data:/app/data
+      - /opt/data/door_controller/config:/app/config
+      - /opt/data/door_controller/log:/app/log
+      - /etc/localtime:/etc/localtime:ro
+
+    environment:
+      APP_CONFIG_DIR: /app/config
+      TZ: America/New_York
+
+    user: doorcontroller
+    ports:
+      - "5001:5001"
+
+    # Run Web GUI configuration tool in daemon mode on port 5001
+    command: ["BeSeen_config_gui", "--host", "0.0.0.0", "--port", "5001"]
     depends_on:
       - postgres
 
@@ -33,14 +55,11 @@ services:
     container_name: postgres
     restart: always
     ports:
-      - 5432:5432
+      - "5432:5432"
     volumes:
       - /mnt/sda1/postgresql:/var/lib/postgresql/data
-#      - /opt/postgresql:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d/
-      # Make sure container and host use the ame Timezone
       - /etc/localtime:/etc/localtime:ro
-#      - /etc/timezone:/etc/timezone:ro
       - /opt/data/door_controller/config:/app/config
 
     environment:
@@ -50,4 +69,3 @@ services:
       - POSTGRES_PASSWORD=ww_s3cret
       - POSTGRES_USER=wentworth_user
       - POSTGRES_DB=wntworth_db
-
