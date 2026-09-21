@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import requests
 from requests.adapters import HTTPAdapter
-from door_controller.common_lib.door_controller import door_controller
+from HOA_OS_Application.lib.door_controller import door_controller
 
 class TestDoorControllerRetries(unittest.TestCase):
 

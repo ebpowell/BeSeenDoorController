@@ -3,9 +3,6 @@ import datetime
 import requests
 import time
 
-from door_controller.common_lib.database import cls_sqlite
-from door_controller.common_lib.door_controller import door_controller
-from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.fobs import key_fobs
 
 

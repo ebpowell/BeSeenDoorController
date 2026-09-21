@@ -26,7 +26,7 @@ from door_controller.common_lib.utils import log_info, log_error, load_config, e
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
 from archive.key_management_application.db_manager import FobDatabaseManager
-from door_controller.common_lib.controller_scheduler import ControllerScheduler
+from HOA_OS_Application.lib.controller_scheduler import ControllerScheduler
 from archive.key_management_application.collect_metrics import collect_metrics_stats
 from door_controller.common_lib.door_controller import ExternalSystemError
 

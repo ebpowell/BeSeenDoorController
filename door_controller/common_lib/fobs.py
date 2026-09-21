@@ -3,7 +3,7 @@ import re
 import time
 import datetime
 from urllib import response
-from door_controller.common_lib.door_controller import door_controller
+from HOA_OS_Application.lib.door_controller import door_controller
 from door_controller.common_lib.utils import log_info, log_error
 
 

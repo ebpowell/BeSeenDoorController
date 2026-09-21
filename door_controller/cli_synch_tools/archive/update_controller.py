@@ -1,5 +1,5 @@
 import sys
-from door_controller.common_lib.door_controller import door_controller
+from HOA_OS_Application.lib.door_controller import door_controller
 from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.utils import log_info, get_current_timestamp, load_config
 from door_controller import __version__ # Access package version

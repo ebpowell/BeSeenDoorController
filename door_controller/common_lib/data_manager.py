@@ -1,7 +1,7 @@
 import os
 from time import sleep
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.common_lib.door_controller import ExternalSystemError
+from HOA_OS_Application.lib.door_controller import ExternalSystemError
 
 class DataManager(key_fobs):
     def __init__(self, url, username, password, retries=3, retry_sleep=1):

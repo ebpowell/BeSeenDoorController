@@ -1,6 +1,6 @@
 import time
 
-from door_controller.common_lib.door_controller import door_controller
+from HOA_OS_Application.lib.door_controller import door_controller
 
 
 class fob_swipes(door_controller):

@@ -18,7 +18,7 @@ from typing import Dict, Any, List
 from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.common_lib.door_controller import ExternalSystemError
+from HOA_OS_Application.lib.door_controller import ExternalSystemError
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
