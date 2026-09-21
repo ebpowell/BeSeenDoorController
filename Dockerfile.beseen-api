@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.10-slim-buster AS builder
+FROM python:3.12-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -17,10 +17,11 @@ COPY init /app/init
 RUN pip install --no-cache-dir .
 
 # Stage 2: Production Runtime
-FROM python:3.10-slim-buster
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    APP_CONFIG_DIR=/app/config
 
 WORKDIR /app
 
@@ -31,9 +32,12 @@ RUN adduser --system --group doorcontroller && \
 
 USER doorcontroller
 
-# Copy database init scripts, python site-packages, and CLI entry points from builder
+# Copy database init scripts, python site-packages, and entry points from builder
 COPY --chown=doorcontroller:doorcontroller --from=builder /app/init /app/init
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-CMD ["echo", "Ready. Run CLI tools: BeSeen_api, get_swipes, get_acl_from_controller, get_foblist_from_controller, DoorController_Driver_API, BeSeen_driver, BeSeen_config_gui"]
+EXPOSE 5000
+
+# Standalone REST API server entrypoint controlling hardware controller calls
+CMD ["BeSeen_api", "--host", "0.0.0.0", "--port", "5000"]

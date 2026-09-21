@@ -59,10 +59,14 @@ Start all decoupled services:
 docker compose up -d
 ```
 
+#### Docker Build Specifications:
+- **`Dockerfile.beseen-api`**: Multi-stage build for the BeSeen REST API server container (`beseen-api`), listening on port 5000.
+- **`Dockerfile.beseen-cli`**: Multi-stage build for the BeSeen CLI tools container (`beseen-cli`), pre-configured with `API_URL=http://beseen-api:5000` to call the REST API server.
+
 #### Services Defined in `docker-compose.yaml`:
-- **`beseen-api`**: Standalone REST API server for controlling door controller hardware (`port 5000`).
-- **`cli-synch-tools`**: CLI tools and background synchronization daemon connected to `postgres` and using `beseen-api`.
-- **`config-gui`**: Remote configuration Web GUI application (`port 5001`).
+- **`beseen-api`**: Standalone REST API server for controlling door controller hardware (`port 5000`, built via `Dockerfile.beseen-api`).
+- **`cli-synch-tools`**: CLI tools and background synchronization container connected to `postgres` and routing requests to `beseen-api` (built via `Dockerfile.beseen-cli`).
+- **`config-gui`**: Remote configuration Web GUI application (`port 5001`, built via `Dockerfile.beseen-api`).
 - **`postgres`**: PostgreSQL database backend for access control logs and key fob records.
 
 ---

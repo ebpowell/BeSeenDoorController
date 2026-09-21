@@ -1,7 +1,10 @@
 services:
   beseen-api:
-    image: cli-synch-tools:latest
-    #image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.beseen-api
+    image: beseen-api:latest
+    #image: ghcr.io/ebpowell/beseendoorcontroller/beseen-api:latest
     container_name: beseen-api
     restart: unless-stopped
     volumes:
@@ -22,8 +25,11 @@ services:
     command: ["BeSeen_api", "--host", "0.0.0.0", "--port", "5000"]
 
   config-gui:
-    image: cli-synch-tools:latest
-    #image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.beseen-api
+    image: beseen-api:latest
+    #image: ghcr.io/ebpowell/beseendoorcontroller/beseen-api:latest
     container_name: config-gui
     restart: unless-stopped
     volumes:
@@ -47,8 +53,11 @@ services:
       - beseen-api
 
   cli-synch-tools:
-    image: cli-synch-tools:latest
-    #image: ghcr.io/ebpowell/beseendoorcontroller/cli-synch-tools:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.beseen-cli
+    image: beseen-cli:latest
+    #image: ghcr.io/ebpowell/beseendoorcontroller/beseen-cli:latest
     container_name: cli-synch-tools
     restart: unless-stopped
     volumes:
@@ -65,7 +74,7 @@ services:
     user: doorcontroller
 
     # Database synchronization tools daemon (associated with Postgres and dependent on API container)
-    command: ["sync_controller", "--daemon"]
+    command: ["get_swipes"]
     depends_on:
       - beseen-api
       - postgres
