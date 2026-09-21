@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import time
 
-from HOA_OS_Application.lib.door_controller import door_controller, ExternalSystemError
+from door_controller.common_lib.door_controller import door_controller, ExternalSystemError
 from door_controller.common_lib.fobs import key_fobs
 
 

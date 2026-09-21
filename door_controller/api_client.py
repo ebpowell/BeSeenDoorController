@@ -8,7 +8,7 @@ If the remote REST API HTTP service is unreachable, automatically falls back to 
 
 import os
 import requests
-from HOA_OS_Application.archive.door_controller.common_lib.utils import load_config, log_info, log_error
+from door_controller.common_lib.utils import load_config, log_info, log_error
 from door_controller.common_lib.data_manager import DataManager
 
 

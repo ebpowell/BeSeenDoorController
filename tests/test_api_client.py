@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from door_controller.common_lib.api_client import ApiClient
+from door_controller.api_client import ApiClient
 from door_controller.cli_synch_tools.common import init_cli_tool
 
 
@@ -19,7 +19,7 @@ class TestApiClient(unittest.TestCase):
         record_id = self.client.get_fob_record_id(1001)
         self.assertEqual(record_id, 42)
 
-    @patch('door_controller.common_lib.api_client.ApiClient._get_data_manager')
+    @patch('door_controller.api_client.ApiClient._get_data_manager')
     @patch('requests.get')
     def test_get_fob_record_id_fallback(self, mock_get, mock_get_dm):
         mock_get.side_effect = Exception("API down")

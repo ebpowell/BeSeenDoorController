@@ -5,7 +5,7 @@ Eliminates code duplication across CLI tool scripts.
 
 from door_controller.common_lib.utils import load_config, log_info, get_current_timestamp
 from door_controller.common_lib.pg_database import postgres
-from door_controller.common_lib.api_client import ApiClient
+from door_controller.api_client import ApiClient
 from door_controller import __version__
 
 
