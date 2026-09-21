@@ -18,7 +18,7 @@ class TestConfigGUI(unittest.TestCase):
     def test_index_route(self):
         res = self.client.get('/')
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b'BeSeen Door Controller', res.data)
+        self.assertIn(b'DoorController_Driver_API', res.data)
         self.assertIn(b'Remote Configuration Manager', res.data)
 
     @patch('door_controller.config_gui.load_config')

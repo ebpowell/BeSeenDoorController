@@ -58,3 +58,13 @@ service_account.json
 **/service_account.json
 config/service_account.json
 
+# Logs & Build artifacts
+*.log
+logs/*.log
+*.egg-info/
+dist/
+build/
+*.tmp
+temp.html
+test_output.txt
+

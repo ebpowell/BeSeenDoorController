@@ -1,10 +1,10 @@
-# BeSeen Door Controller - Hardware API & Client
+# DoorController_Driver_API - Hardware API & Client
 
-Open-source API client layer, REST API module, and CLI toolset for interfacing with BeSeen Door Controller physical access hardware.
+Open-source API client layer, REST API module, and CLI toolset for interfacing with DoorController_Driver_API physical access hardware.
 
 ## Architecture & System Overview
 
-`BeSeenDoorController` separates hardware interaction, API service delivery, database synchronization, and configuration management into decoupled services:
+`DoorController_Driver_API` separates hardware interaction, API service delivery, database synchronization, and configuration management into decoupled services:
 
 ```
 +-------------------------------------------------------------+
@@ -73,7 +73,7 @@ Configuration is loaded from `config/config.yaml` or specified via environment v
 
 Example `config/config.yaml`:
 ```yaml
-app_name: "BeSeenDoorController"
+app_name: "DoorController_Driver_API"
 settings:
   log_level: "INFO"
   urls:
@@ -168,26 +168,22 @@ Command-line utilities installed via `setup.py` entry points:
 
 | Tool Command | Description |
 | :--- | :--- |
+| `DoorController_Driver_API` | Primary CLI driver tool to add, remove, or set permissions for a key fob via API Client. |
+| `BeSeen_driver` | Backwards-compatible alias for `DoorController_Driver_API`. |
 | `BeSeen_api` | Standalone REST API server for hardware control. |
-| `BeSeen_driver` | CLI tool to add, remove, or set permissions for a key fob via API Client. |
 | `BeSeen_config_gui` | Web GUI tool for remote management of `config.yaml`. |
 | `get_swipes` | Pull door swipe logs from hardware controllers into the database via API Client. |
 | `get_acl_from_controller` | Extract Access Control List (ACL) data from controllers via API Client. |
 | `get_foblist_from_controller` | Retrieve key fob list stored on hardware controllers via API Client. |
-| `list_fobs_simple` / `list_fobs` | Print simple key fob listing. |
-| `sync_controller` | Synchronization daemon process. |
-| `trim_fobs` | Trim orphaned key fobs from hardware memory. |
-| `update_access` | Sync database access permissions to hardware controllers. |
-| `collect_metrics` | Record system and controller performance metrics. |
 
 ### CLI Examples
 
 ```bash
-# Add a key fob via driver
-BeSeen_driver add 12345 "John Doe"
+# Add a key fob via DoorController_Driver_API
+DoorController_Driver_API add 12345 "John Doe"
 
 # Remove a key fob
-BeSeen_driver remove 12345
+DoorController_Driver_API remove 12345
 
 # Fetch swipes from hardware into database
 get_swipes

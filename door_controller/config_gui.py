@@ -1,5 +1,5 @@
 """
-BeSeenDoorController - Configuration Web GUI Tool
+DoorController_Driver_API - Configuration Web GUI Tool
 
 Provides a web interface for remote management of config.yaml:
 - View and edit controller URLs, credentials, log levels, recovery delays.
@@ -59,7 +59,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BeSeen Door Controller - Remote Configuration</title>
+    <title>DoorController_Driver_API - Remote Configuration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -487,7 +487,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="brand">
                 <div class="brand-icon">🔑</div>
                 <div class="brand-text">
-                    <h1>BeSeen Door Controller</h1>
+                    <h1>DoorController_Driver_API</h1>
                     <span>Remote Configuration Manager</span>
                 </div>
             </div>

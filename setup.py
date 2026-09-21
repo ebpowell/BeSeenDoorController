@@ -2,7 +2,7 @@ import os
 from setuptools import setup, find_packages
 
 setup(
-    name='BeSeen Door Controller Hardware API',
+    name='DoorController_Driver_API',
     version='0.2',
     packages=find_packages(),
     entry_points={
@@ -10,9 +10,8 @@ setup(
             'get_swipes=door_controller.cli_synch_tools.get_swipes:main',
             'get_acl_from_controller=door_controller.cli_synch_tools.get_acl_from_controller:main',
             'get_foblist_from_controller=door_controller.cli_synch_tools.get_foblist_from_controller:main',
-            'list_fobs_simple=door_controller.cli_synch_tools.list_fobs_simple:main',
-            'list_fobs=door_controller.cli_synch_tools.list_fobs_simple:main',
-            'BeSeen_driver=door_controller.cli_synch_tools.BeSeen_driver:main',
+            'DoorController_Driver_API=door_controller.cli_synch_tools.DoorController_Driver_API:main',
+            'BeSeen_driver=door_controller.cli_synch_tools.DoorController_Driver_API:main',
             'BeSeen_config_gui=door_controller.config_gui:main',
             'BeSeen_api=door_controller.api:main'
         ]
@@ -23,5 +22,5 @@ setup(
     license='GPL-v2',
     author='ebpowell',
     author_email='ebpowell.chip@gmail.com',
-    description='OpenSource API layer and driver toolset for managing physical door access using the BeSeen Door Controller hardware.'
+    description='OpenSource API layer and driver toolset for managing physical door access using the DoorController_Driver_API hardware.'
 )

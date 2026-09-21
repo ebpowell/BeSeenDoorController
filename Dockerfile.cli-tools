@@ -36,4 +36,4 @@ COPY --chown=doorcontroller:doorcontroller --from=builder /app/init /app/init
 COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-CMD ["echo", "Ready. Run CLI tools: BeSeen_api, get_swipes, get_acl_from_controller, get_foblist_from_controller, list_fobs, list_fobs_simple, BeSeen_driver, BeSeen_config_gui, sync_controller, trim_fobs, update_access, deploy_triggers, or collect_metrics"]
+CMD ["echo", "Ready. Run CLI tools: BeSeen_api, get_swipes, get_acl_from_controller, get_foblist_from_controller, DoorController_Driver_API, BeSeen_driver, BeSeen_config_gui"]
