@@ -1,8 +1,8 @@
 
 import time
-from door_controller.common_lib import swipes
+from door_controller.common_lib.deprecated import swipes
 from door_controller.common_lib.fobs import key_fobs
-from door_controller.common_lib.swipes import fob_swipes
+from door_controller.common_lib.deprecated.swipes import fob_swipes
 from door_controller.common_lib.utils import log_info, log_error
 
 
