@@ -147,10 +147,13 @@ class ApiClient:
         dm = data_manager or self._get_data_manager(controller_url)
         return dm.get_keyfobs() or []
 
-    def get_swipes(self, period='24h'):
+    def get_swipes(self, controller_url=None, start_record_id=0):
         """Retrieves card swipe activity via REST API."""
         try:
-            resp = requests.get(f"{self.api_url}/api/swipes", params={'period': period}, timeout=10)
+            resp = requests.get(f"{self.api_url}/api/swipes",
+                                 params={'controller_url': controller_url,
+                                         'start_record_id': start_record_id}, 
+                                         timeout=10)
             if resp.status_code == 200:
                 return resp.json().get('swipes', [])
         except Exception as e:
