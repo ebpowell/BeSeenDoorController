@@ -1,12 +1,16 @@
-app_name: Door Controller
+app_name: Door_Controller
 settings:
   log_level: INFO
   urls:
     - http://69.21.119.147
+    - http://69.21.119.148
   username: abc
   password: 654321
   recovery_delay: 5
-  postgres_connect_string: postgresql://wentworth_user:password@localhost:5432/wntworth_db
+  postgres_connect_string: postgresql://wentworth_user:ww_s3cret@bigdata:5432/wntworth_db
+  api_server:
+    host: bigdata
+    port: 5000
 
 ssl:
   enabled: false

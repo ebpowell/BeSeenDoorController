@@ -17,6 +17,7 @@ from typing import Dict, Any, List
 
 from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name
 from door_controller.common_lib.data_manager import DataManager
+from door_controller.common_lib.data_extractor import ww_data_extractor as DataExtractor
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.door_controller import ExternalSystemError
 
@@ -41,6 +42,14 @@ def get_db_mgr():
     except Exception as e:
         raise RuntimeError(f"Database manager initialization failed: {e}")
 
+
+def get_data_extractor(controller_url=None):
+    config = get_config()
+    settings = config.get('settings', {})
+    if not controller_url:
+        urls = settings.get('urls', [])
+        controller_url = urls[0] if urls else 'http://192.168.1.100'
+    return DataExtractor(config.get('username'), config.get('password'), controller_url, iterations=settings.get('iterations', 10))    
 
 
 def get_data_manager(controller_url=None):
@@ -156,41 +165,24 @@ def update_fob_permissions():
 # 5. get swipes data for the last <time period>
 @api_bp.route('/swipes', methods=['GET'])
 def get_swipes_data():
-    period_str = request.args.get('period', '24h')
-    td = parse_period_to_timedelta(period_str)
-    cutoff_time = datetime.now() - td
+    start_rec = request.args.get('start_record_id', 0)
+    controller_url = request.args.get('controller_url')
 
     db_mgr = get_db_mgr()
     swipes = []
+    # Get the Data Extractor and fetch recent fob swipes to ensure the database is up-to-date
+    de = get_data_extractor(controller_url)
     try:
-        with db_mgr._get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT record_id, fob_id, status, door, swipe_timestamp, door_controller_ip
-                    FROM door_controller.t_keyswipes
-                    WHERE swipe_timestamp >= %s
-                    ORDER BY swipe_timestamp DESC
-                """, (cutoff_time,))
-                rows = cur.fetchall()
-                for r in rows:
-                    swipes.append({
-                        'record_id': r[0],
-                        'fob_id': r[1],
-                        'status': r[2],
-                        'door': r[3],
-                        'swipe_timestamp': r[4].isoformat() if hasattr(r[4], 'isoformat') else str(r[4]),
-                        'door_controller_ip': r[5]
-                    })
+        swipes = de.get_swipe_range(start_rec)
         return jsonify({
-            'status': 'success',
-            'period': period_str,
-            'since': cutoff_time.isoformat(),
-            'count': len(swipes),
-            'swipes': swipes
-        }), 200
+                'status': 'success',
+                'controller_url': controller_url,
+                'count': len(swipes) if swipes else 0,
+                'swipes': swipes or []
+            }), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+ 
 
 # 6. get fob list from controller
 @api_bp.route('/controller/fobs', methods=['GET'])

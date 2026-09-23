@@ -34,7 +34,6 @@ def init_cli_tool(tool_name):
             db = postgres(db_connect_str)
         except Exception as e:
             log_info(f"Notice: PostgreSQL connection deferred or failed: {e}")
-
-    api_client = ApiClient()
-
+    api_url = f"http://{config.get('settings', {}).get('api_server', {}).get('host',{})}:{config.get('settings', {}).get('api_server', {}).get('port',{})}"
+    api_client = ApiClient(api_url)
     return config, db, api_client

@@ -16,10 +16,12 @@ def main():
 
     is_all_mode = len(sys.argv) > 1 and sys.argv[1] == 'All'
     period = '30d' if is_all_mode else '24h'
-
-    swipes = api_client.get_swipes(period=period)
+    # Ge the start swipe record ID from the database to fetch swipes since that record
+    start_record_id = db.get_last_swipe_record_id() if db else 0
+    log_info(f"Fetching swipes since record ID: {start_record_id} for period: {period}")
+    swipes = api_client.get_swipes(controller_url=config.get('controller_url'), start_record_id=start_record_id, period=period)
     log_info(f"Retrieved {len(swipes)} swipe entries via API Client.")
-
+    #obj_db.insert_swipe_record(lst_swipes)
     if db and swipes:
         db.insert_swipe_start_record()
         formatted_data = []
