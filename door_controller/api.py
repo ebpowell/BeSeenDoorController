@@ -10,6 +10,8 @@ Provides RESTful HTTP API endpoints for door controller operations:
 - get fob list from controller
 """
 
+import traceback
+
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import re
@@ -49,10 +51,21 @@ def get_data_extractor(controller_url=None):
     if not controller_url:
         urls = settings.get('urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.100'
-    return DataExtractor(config.get('settings', {}).get('username'),
-                        config.get('settings', {}).get('password'), 
-                        controller_url, 
-                        iterations=config.get('settings', {}).get('iterations', {}))    
+    try:
+        data_extractor = DataExtractor(settings.get('username'),
+                                    settings.get('password'),
+                                    controller_url,
+                                    iterations=settings.get('iterations', {}))
+        return data_extractor
+    except Exception as e:
+        print(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
+        traceback.print_exc()
+        return {"error": str(e), "traceback": traceback.format_exc()}, 500
+        # raise RuntimeError(f"DataExtractor initialization failed for controller {controller_url}: {e}")               
+    # return DataExtractor(config.get('settings', {}).get('username'),
+    #                     config.get('settings', {}).get('password'), 
+    #                     controller_url, 
+    #                     iterations=config.get('settings', {}).get('iterations', {}))    
 
 
 def get_data_manager(controller_url=None):
@@ -168,14 +181,15 @@ def update_fob_permissions():
 # 5. get swipes data for the last <time period>
 @api_bp.route('/swipes', methods=['GET'])
 def get_swipes_data():
+    print(">>> ENTERED /api/swipes ROUTE <<<", flush=True)
     start_rec = request.args.get('start_record_id', 0)
     controller_url = request.args.get('controller_url')
 
-    db_mgr = get_db_mgr()
+    # db_mgr = get_db_mgr()
     swipes = []
     # Get the Data Extractor and fetch recent fob swipes to ensure the database is up-to-date
-    de = get_data_extractor(controller_url)
     try:
+        de = get_data_extractor(controller_url)
         swipes = de.get_swipe_range(start_rec)
         return jsonify({
                 'status': 'success',
@@ -184,7 +198,8 @@ def get_swipes_data():
                 'swipes': swipes or []
             }), 200
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        raise RuntimeError(f"Failed to retrieve swipes data from controller {controller_url}: {e}")
+        # return jsonify({'status': 'error', 'message': str(e)}), 500
  
 
 # 6. get fob list from controller
@@ -261,7 +276,7 @@ def main():
     ssl_context = get_ssl_context(ssl_cfg)
 
     log_info(f"Starting BeSeen Door Controller REST API on http://{args.host}:{args.port}")
-    app.run(host=args.host, port=args.port, ssl_context=ssl_context, debug=False)
+    app.run(host=args.host, port=args.port, ssl_context=ssl_context, debug=False, threaded=True)
 
 
 if __name__ == '__main__':

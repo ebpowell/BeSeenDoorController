@@ -27,9 +27,9 @@ services:
 
     # REST API server controlling calls to hardware controller (independent of PostgreSQL), remote debug
     command: >
-      python -m debugpy --listen 0.0.0.0:5678 --wait-for-client
-      -m flask --app app:app run --host 0.0.0.0 --port 5000 --no-reload --no-debugger
-
+      python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678
+      -m flask --app door_controller.api:app run --host 0.0.0.0 --port 5000 --no-reload --no-debugger
+      
   config-gui:
     build:
       context: .

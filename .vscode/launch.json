@@ -12,40 +12,35 @@
         "PYTHONPATH": "${workspaceFolder}"
       }
     },
-    {
-      "name": "Python: Attach to Docker Flask",
+   {
+      "name": "API: Launch Flask Service",
       "type": "debugpy",
-      "request": "attach",
-      "connect": {
-        "host": "localhost",
-        "port": 5678
-      },
-      "pathMappings": [
-        {
-          "localRoot": "${workspaceFolder}",
-          "remoteRoot": "/app"
-        }
-      ],
-      "justMyCode": true
+      "request": "launch",
+      "program": "${workspaceFolder}/door_controller/api.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+      }
     },
     {
-      "name": "get_swipes Client: Launch Script",
+      "name": "Client: get_swipes",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
-        "PYTHONPATH": "${workspaceFolder}"
+        "PYTHONPATH": "${workspaceFolder}",
       }
     }
   ],
   "compounds": [
     {
-      "name": "Full Stack: Client + API",
+      "name": "Full Stack: Client + API (Local)",
       "configurations": [
-        "Python: Attach to Docker Flask",
-        "get_swipes Client: Launch Script"
+        "API: Launch Flask Service",
+        "Client: get_swipes"
       ],
       "stopAll": true
     }
