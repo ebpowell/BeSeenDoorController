@@ -10,20 +10,6 @@ from door_controller.cli_synch_tools.common import init_cli_tool
 from door_controller.common_lib.utils import log_info, load_config
 from door_controller.common_lib.pg_database import postgres
 
-
-# def load_config():
-#     """
-#     Load configuration settings from the default config file.
-#     Returns:
-#         dict: Configuration settings.
-#     """
-#     try:
-#         config = load_config()
-#         return config
-#     except Exception as e:
-#         log_info(f"Error loading configuration: {e}")
-#         return {}
-
 def main():
     config = load_config()
     db = postgres(config.get('settings', {}).get('postgres_connect_string')) if config.get('settings', {}).get('postgres_connect_string') else None
@@ -39,7 +25,11 @@ def main():
 
         start_record_id = db.get_maxid(query) if db else 0
         log_info(f"Fetching swipes since record ID: {start_record_id}")
-        swipes = api_client.get_swipes(controller_url=url, start_record_id=start_record_id)
+        try:
+            swipes = api_client.get_swipes(controller_url=url, start_record_id=start_record_id)
+        except Exception as e:
+            log_info(f"Error fetching swipes from {url}: {e}")
+            raise
         log_info(f"Retrieved {len(swipes)} swipe entries via API Client.")
         #obj_db.insert_swipe_record(lst_swipes)
         if db and swipes:

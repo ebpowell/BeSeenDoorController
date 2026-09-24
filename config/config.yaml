@@ -10,7 +10,7 @@ settings:
   iterations: 25
   postgres_connect_string: postgresql://wentworth_user:ww_s3cret@bigdata:5432/wntworth_db
   api_server:
-    host: bigdata
+    host: 192.168.1.250
     port: 5000
 
 ssl:
