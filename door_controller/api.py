@@ -49,7 +49,10 @@ def get_data_extractor(controller_url=None):
     if not controller_url:
         urls = settings.get('urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.100'
-    return DataExtractor(config.get('username'), config.get('password'), controller_url, iterations=settings.get('iterations', 10))    
+    return DataExtractor(config.get('settings', {}).get('username'),
+                        config.get('settings', {}).get('password'), 
+                        controller_url, 
+                        iterations=config.get('settings', {}).get('iterations', {}))    
 
 
 def get_data_manager(controller_url=None):
