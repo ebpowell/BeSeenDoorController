@@ -17,11 +17,12 @@ from datetime import datetime, timedelta
 import re
 from typing import Dict, Any, List
 
-from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name
+from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name, log_info, log_error    
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.data_extractor import ww_data_extractor as DataExtractor
 from door_controller.common_lib.fobs import key_fobs
 from door_controller.common_lib.door_controller import ExternalSystemError
+from door_controller.common_lib.swipes import fob_swipes as FobSwipes
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -48,17 +49,20 @@ def get_db_mgr():
 def get_data_extractor(controller_url=None):
     config = get_config()
     settings = config.get('settings', {})
+    username = settings.get('username', 'admin')
+    password = settings.get('password', 'admin')    
+    iterations = settings.get('iterations', 10)
     if not controller_url:
         urls = settings.get('urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.100'
     try:
-        data_extractor = DataExtractor(settings.get('username'),
-                                    settings.get('password'),
+        data_extractor = DataExtractor(username,
+                                    password,
                                     controller_url,
-                                    iterations=settings.get('iterations', {}))
+                                    iterations)
         return data_extractor
     except Exception as e:
-        print(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
+        log_error(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
         traceback.print_exc()
         return {"error": str(e), "traceback": traceback.format_exc()}, 500
         # raise RuntimeError(f"DataExtractor initialization failed for controller {controller_url}: {e}")               
@@ -67,6 +71,28 @@ def get_data_extractor(controller_url=None):
     #                     controller_url, 
     #                     iterations=config.get('settings', {}).get('iterations', {}))    
 
+def get_fob_swipes(username, password,controller_url=None):
+    config = get_config()
+    settings = config.get('settings', {})
+    # username = settings.get('username', 'admin')
+    # password = settings.get('password', 'admin')    
+    if not controller_url:
+        urls = settings.get('urls', [])
+        controller_url = urls[0] if urls else 'http://192.168.1.100'
+    try:
+        obj_swipes = FobSwipes(controller_url,
+                               username,
+                               password)
+        return obj_swipes
+    except Exception as e:
+        log_error(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
+        traceback.print_exc()
+        return {"error": str(e), "traceback": traceback.format_exc()}, 500
+        # raise RuntimeError(f"DataExtractor initialization failed for controller {controller_url}: {e}")               
+    # return DataExtractor(config.get('settings', {}).get('username'),
+    #                     config.get('settings', {}).get('password'), 
+    #                     controller_url, 
+    #                     iterations=config.get('settings', {}).get('iterations', {}))    
 
 def get_data_manager(controller_url=None):
     config = get_config()
@@ -182,6 +208,11 @@ def update_fob_permissions():
 @api_bp.route('/swipes', methods=['GET'])
 def get_swipes_data():
     print(">>> ENTERED /api/swipes ROUTE <<<", flush=True)
+    config = get_config()
+    settings = config.get('settings', {})
+    username = settings.get('username', 'admin')
+    password = settings.get('password', 'admin')    
+    iterations = settings.get('iterations', 10)
     start_rec = request.args.get('start_record_id', 0)
     controller_url = request.args.get('controller_url')
 
@@ -189,8 +220,9 @@ def get_swipes_data():
     swipes = []
     # Get the Data Extractor and fetch recent fob swipes to ensure the database is up-to-date
     try:
-        de = get_data_extractor(controller_url)
-        swipes = de.get_swipe_range(start_rec)
+        # de = get_data_extractor(controller_url)
+        obj_swipe = get_fob_swipes(username, password, controller_url)
+        swipes = obj_swipe.get_swipe_range(iterations, start_rec)
         return jsonify({
                 'status': 'success',
                 'controller_url': controller_url,
