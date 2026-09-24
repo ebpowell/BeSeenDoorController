@@ -1,82 +1,53 @@
 {
-    "version": "0.2.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "debugpy: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "logToFile": true,
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "Python: Attach to Docker Flask",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
         {
-            "name": "Test AccessSynchronizer",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tests/test_AccessSynchronizer.py",
-            "console": "integratedTerminal",
-            "env": {
-                "debugpyPATH": "${workspaceFolder}",
-                "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
-            }
-        },
-        {
-            "name": "Sync Controller (Daemon Mode)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/door_controller/key_management_application/update_access.py",
-            "logToFile": true,
-            "args": [
-                "--daemon",
-                "-c", "${workspaceFolder}/config/config.yaml"
-            ],
-            "console": "integratedTerminal",
-            "env": {
-                "debugpyPATH": "${workspaceFolder}",
-                // "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
-            }
-        },
-        {
-            "name": "Sync Controller (Limit 1 Change)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/door_controller/key_management_application/synchronization.py",
-            "args": [
-                "--limit-changes",
-                "1"
-            ],
-            "console": "integratedTerminal",
-            "env": {
-                "debugpyPATH": "${workspaceFolder}",
-                "APP_CONFIG_DIR": "${workspaceFolder}/BeSeenDoorController/config"
-            }
-        },
-        {
-            "name": "debugpy: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "logToFile": true,
-            "redirectOutput": true,
-            "console": "integratedTerminal",
-            "env": {
-                "debugpyPATH": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "Pull Swipes from Controller",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
-            "console": "integratedTerminal",
-            "args": [""],
-            "env": {
-                "debugpyPATH": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "Pulls Fobs from Controller",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_foblist_from_controller.py",
-            "console": "integratedTerminal",
-            "args": [""],
-            "env": {
-                "debugpyPATH": "${workspaceFolder}"
-            }
-        },
-
-    ]
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/app"
+        }
+      ],
+      "justMyCode": true
+    },
+    {
+      "name": "get_swipes Client: Launch Script",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: Client + API",
+      "configurations": [
+        "Python: Attach to Docker Flask",
+        "get_swipes Client: Launch Script"
+      ],
+      "stopAll": true
+    }
+  ]
 }

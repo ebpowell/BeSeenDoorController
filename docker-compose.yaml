@@ -19,10 +19,16 @@ services:
 
     user: doorcontroller
     ports:
-      - "5000:5000"
+      - "5000:5000" #API server port
+      - "5678:5678" # Debugger port
 
     # REST API server controlling calls to hardware controller (independent of PostgreSQL)
-    command: ["BeSeen_api", "--host", "0.0.0.0", "--port", "5000"]
+    #command: ["BeSeen_api", "--host", "0.0.0.0", "--port", "5000"]
+
+    # REST API server controlling calls to hardware controller (independent of PostgreSQL), remote debug
+    command: >
+      python -m debugpy --listen 0.0.0.0:5678 --wait-for-client
+      -m flask --app app:app run --host 0.0.0.0 --port 5000 --no-reload --no-debugger
 
   config-gui:
     build:
