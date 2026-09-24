@@ -153,7 +153,7 @@ class ApiClient:
             resp = requests.get(f"{self.api_url}/api/swipes",
                                  params={'controller_url': controller_url,
                                          'start_record_id': start_record_id}, 
-                                         timeout=10)
+                                         timeout=30)
             if resp.status_code == 200:
                 return resp.json().get('swipes', [])
         except Exception as e:
