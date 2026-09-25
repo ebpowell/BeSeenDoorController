@@ -3,6 +3,8 @@ Common setup and initialization helper for CLI & Database Synchronization tools.
 Eliminates code duplication across CLI tool scripts.
 """
 
+import os
+
 from door_controller.common_lib.utils import load_config, log_info, get_current_timestamp
 from door_controller.common_lib.pg_database import postgres
 from door_controller.api_client import ApiClient
@@ -26,7 +28,15 @@ def init_cli_tool(tool_name):
 
     log_info(f"Loaded config app_name: {config.get('app_name', 'N/A')}")
     log_info(f"Configured log_level: {config.get('settings', {}).get('log_level', 'N/A')}")
+    # Check environment variable first (docker container standard), fallback to config
+    env_api = os.getenv('API_URL') or os.getenv('BESEEN_API_URL')
+    if env_api:
+        api_url = env_api
+    else:
+        server_cfg = config.get('settings', {}).get('api_server', {})
+        host = server_cfg.get('host', '127.0.0.1')
+        port = server_cfg.get('port', 5000)
+        api_url = f"http://{host}:{port}"
 
-    api_url = f"http://{config.get('settings', {}).get('api_server', {}).get('host',{})}:{config.get('settings', {}).get('api_server', {}).get('port',{})}"
-    api_client = ApiClient(api_url)
+    api_client = ApiClient(api_url=api_url)
     return api_client

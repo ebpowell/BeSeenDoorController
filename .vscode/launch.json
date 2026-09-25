@@ -33,6 +33,34 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
       }
+    },
+    {
+      "name": "Attach to beseen-api (Port 5678)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/door_controller",
+          "remoteRoot": "/usr/local/lib/python3.12/site-packages/door_controller"
+        }
+      ],
+      "justMyCode": true
+    },
+    {
+      "name": "Client: get_swipes (Local)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/door_controller/cli_synch_tools/get_swipes.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "API_URL": "http://localhost:5000"
+      }
     }
   ],
   "compounds": [

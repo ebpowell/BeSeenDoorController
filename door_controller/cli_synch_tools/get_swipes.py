@@ -15,26 +15,34 @@ def sync_controller_swipes(api_client, db, url, start_record_id):
     cursor = None
     total_added = 0
     page_count = 0
-    max_pages = 50  # Circuit breaker (up to 1,000 records)
+    max_pages = 50
 
     log_info(f"Syncing swipes for {url} since record ID: {start_record_id}")
 
     while page_count < max_pages:
         try:
-            res = api_client.get_swipes(controller_url=url, cursor=cursor)
+            res = api_client.get_swipes(controller_url=url, start_record_id=start_record_id)
         except Exception as e:
-            log_error(f"Failed to retrieve swipe page at cursor {cursor} for {url}: {e}")
+            log_error(f"Failed to retrieve swipe page at cursor {cursor} from {url}: {e}")
+            break
+
+        # Defensive guard against None or unexpected response types
+        if not res or not isinstance(res, dict):
+            log_error(f"Invalid or empty response received from API for {url}: {res}")
+            break
+
+        if res.get('status') == 'error':
+            log_error(f"API returned error: {res.get('message', 'Unknown error')}")
             break
 
         swipes = res.get('swipes', [])
         if not swipes:
-            log_info("No further records returned by controller.")
+            log_info(f"No further records returned by controller {url}.")
             break
 
-        # Filter out records already seen (older than or equal to start_record_id)
+        # Filter out records already seen
         new_swipes = [s for s in swipes if int(s['record_id']) > start_record_id]
-        
-        if new_swipes:
+        if new_swipes and db:
             formatted_data = [
                 [
                     s['record_id'],
@@ -42,7 +50,7 @@ def sync_controller_swipes(api_client, db, url, start_record_id):
                     s.get('status', 'Allowed'),
                     s['door'],
                     s['swipe_timestamp'],
-                    s['door_controller_ip']
+                    s.get('door_controller_ip', url)
                 ]
                 for s in new_swipes
             ]
@@ -50,17 +58,14 @@ def sync_controller_swipes(api_client, db, url, start_record_id):
             db.add_new_swipess()
             total_added += len(new_swipes)
 
-        # Stop condition: we reached records we already had, or controller has no more
         if len(new_swipes) < len(swipes) or not res.get('has_more'):
             break
 
         cursor = res.get('next_cursor')
         page_count += 1
-        
-        # Pacing: Give embedded controller's web server breathing room between requests
         time.sleep(0.3)
 
-    log_info(f"Sync completed for {url}: Added {total_added} records across {page_count + 1} pages.")
+    log_info(f"Sync complete for {url}. Total added: {total_added}")
 
 def main():
     config = load_config()

@@ -12,11 +12,12 @@ Provides RESTful HTTP API endpoints for door controller operations:
 
 import traceback
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Flask
 from datetime import datetime, timedelta
 import re
+import threading
+from collections import defaultdict
 from typing import Dict, Any, List
-
 from door_controller.common_lib.utils import load_config, extract_cidr, parse_door_name, log_info, log_error    
 from door_controller.common_lib.data_manager import DataManager
 from door_controller.common_lib.data_extractor import ww_data_extractor as DataExtractor
@@ -26,6 +27,8 @@ from door_controller.common_lib.swipes import fob_swipes as FobSwipes
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+# Global mutex per controller URL to prevent overlapping scrapes
+controller_locks = defaultdict(threading.Lock)
 
 def get_config():
     if hasattr(current_app, 'config') and 'DOOR_CONFIG' in current_app.config:
@@ -205,107 +208,62 @@ def update_fob_permissions():
 
 
 # 5. get swipes data for the last <time period>
-# @api_bp.route('/swipes', methods=['GET'])
-# def get_swipes_data():
-#     print(">>> ENTERED /api/swipes ROUTE <<<", flush=True)
-#     config = get_config()
-#     settings = config.get('settings', {})
-#     username = settings.get('username', 'admin')
-#     password = settings.get('password', 'admin')    
-#     iterations = settings.get('iterations', 10)
-#     start_rec = request.args.get('start_record_id', 0)
-#     controller_url = request.args.get('controller_url')
-
-#     # db_mgr = get_db_mgr()
-#     swipes = []
-#     # Get the Data Extractor and fetch recent fob swipes to ensure the database is up-to-date
-#     try:
-#         # de = get_data_extractor(controller_url)
-#         obj_swipe = get_fob_swipes(username, password, controller_url)
-#         swipes = obj_swipe.get_swipe_range(iterations, start_rec)
-#         return jsonify({
-#                 'status': 'success',
-#                 'controller_url': controller_url,
-#                 'count': len(swipes) if swipes else 0,
-#                 'swipes': swipes or []
-#             }), 200
-#     except Exception as e:
-#         raise RuntimeError(f"Failed to retrieve swipes data from controller {controller_url}: {e}")
-#         # return jsonify({'status': 'error', 'message': str(e)}), 500
-# File: door_controller/api.py
-import threading
-from collections import defaultdict
-
-# Global mutex per controller URL to prevent overlapping scrapes
-controller_locks = defaultdict(threading.Lock)
-
-# File: door_controller/api.py
-
-@api_bp.route('/api/swipes', methods=['GET'])
+@api_bp.route('controller/swipes', methods=['GET'])
 def get_swipes_data():
-    config = get_config()
-    settings = config.get('settings', {})
+    config = load_config()
+    settings = config.get('settings', {}) if isinstance(config, dict) else {}
     username = settings.get('username', 'admin')
     password = settings.get('password', 'admin')
-    
+    iterations = int(request.args.get('iterations', settings.get('iterations', 10)))
+    start_rec = int(request.args.get('start_record_id', 0))
     controller_url = request.args.get('controller_url')
-    cursor = request.args.get('cursor', type=int)
 
     if not controller_url:
         urls = settings.get('urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.100'
 
     try:
-        obj_swipe = get_fob_swipes(username, password, controller_url)
-        batch, next_cursor, has_more = obj_swipe.get_swipe_page(cursor=cursor)
+        obj_swipe = FobSwipes(controller_url, username, password)
+        # Using the single-page method or range method
+        if hasattr(obj_swipe, 'get_swipe_page'):
+            batch, next_cursor, has_more = obj_swipe.get_swipe_page(cursor=start_rec)
+            swipes = batch
+        else:
+            swipes = obj_swipe.get_swipe_range(iterations, start_rec)
 
         formatted_swipes = []
-        for s in batch:
-            formatted_swipes.append({
-                'record_id': s[0],
-                'fob_id': s[1],
-                'door': s[2],
-                'door_num': s[3],
-                'swipe_timestamp': s[4],
-                'door_controller_ip': s[5]
-            })
+        for s in swipes:
+            if isinstance(s, dict):
+                formatted_swipes.append(s)
+            elif len(s) >= 6:
+                formatted_swipes.append({
+                    'record_id': s[0],
+                    'fob_id': s[1],
+                    'door': s[2],
+                    'door_num': s[3],
+                    'swipe_timestamp': s[4],
+                    'door_controller_ip': s[5]
+                })
 
         return jsonify({
             'status': 'success',
             'controller_url': controller_url,
             'count': len(formatted_swipes),
-            'next_cursor': next_cursor,
-            'has_more': has_more,
-            'swipes': formatted_swipes
+            'swipes': formatted_swipes,
+            'has_more': False
         }), 200
 
     except Exception as e:
-        log_error(f"Error fetching swipe page from {controller_url}: {e}", exc_info=True)
+        log_error(f"Error in /api/swipes on {controller_url}: {e}", exc_info=True)
         return jsonify({
             'status': 'error',
             'controller_url': controller_url,
-            'message': str(e)
+            'message': str(e),
+            'swipes': []
         }), 502
 
 
-# 6. get fob list from controller
-# @api_bp.route('/controller/fobs', methods=['GET'])
-# def get_controller_fobs():
-#     controller_url = request.args.get('controller_url')
-#     dm = get_data_manager(controller_url)
-#     try:
-#         kf_list = dm.get_keyfobs()
-#         return jsonify({
-#             'status': 'success',
-#             'controller_url': dm.url,
-#             'count': len(kf_list) if kf_list else 0,
-#             'fobs': kf_list or []
-#         }), 200
-#     except Exception as e:
-#         return jsonify({'status': 'error', 'message': str(e)}), 500
-# File: door_controller/api.py
-
-@api_bp.route('/api/controller/fobs', methods=['GET'])
+@api_bp.route('controller/fobs', methods=['GET'])
 def get_controller_fobs():
     controller_url = request.args.get('controller_url')
     cursor = request.args.get('cursor', type=int)
@@ -386,6 +344,13 @@ def get_controller_fob_permissions(fob_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# Module-level application factory / instance for Flask CLI and debugpy
+def create_app():
+    application = Flask(__name__)
+    application.register_blueprint(api_bp)
+    return application
+
+app = create_app()
 
 def main():
     import argparse

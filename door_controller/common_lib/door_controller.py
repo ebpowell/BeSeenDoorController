@@ -17,6 +17,17 @@ class ExternalSystemError(Exception):
         self.status_code = status_code
         self.response_body = response_body
         super().__init__(message or f"Request failed with status code: {status_code}")
+        # In door_controller.__init__:
+        self.timeout = 5       # Reduce individual request timeout from 10 to 5 seconds
+        self.max_retries = 3   # Reduce total retries from 6 to 3
+
+        retry_strategy = Retry(
+            total=self.max_retries,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            raise_on_status=False,
+            allowed_methods=["GET", "POST"]
+        )
 
 
 def validate_and_parse_controller_html(response: Response, expected_marker: str = None) -> str:
