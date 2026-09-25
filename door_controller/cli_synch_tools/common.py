@@ -27,13 +27,6 @@ def init_cli_tool(tool_name):
     log_info(f"Loaded config app_name: {config.get('app_name', 'N/A')}")
     log_info(f"Configured log_level: {config.get('settings', {}).get('log_level', 'N/A')}")
 
-    # db_connect_str = config.get('settings', {}).get('postgres_connect_string')
-    # db = None
-    # if db_connect_str:
-    #     try:
-    #         db = postgres(db_connect_str)
-    #     except Exception as e:
-    #         log_info(f"Notice: PostgreSQL connection deferred or failed: {e}")
     api_url = f"http://{config.get('settings', {}).get('api_server', {}).get('host',{})}:{config.get('settings', {}).get('api_server', {}).get('port',{})}"
     api_client = ApiClient(api_url)
     return api_client

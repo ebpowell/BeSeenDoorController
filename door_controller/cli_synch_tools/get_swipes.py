@@ -73,3 +73,6 @@ def main():
         query = f"SELECT COALESCE(max(record_id), 0) FROM dataload.t_keyswipes_slop WHERE door_controller_ip='{url}'"
         start_record_id = db.get_maxid(query) if db else 0
         sync_controller_swipes(api_client, db, url, start_record_id)
+
+if __name__ == "__main__":
+    main()
