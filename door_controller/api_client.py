@@ -134,30 +134,58 @@ class ApiClient:
         dm = data_manager or self._get_data_manager(controller_url)
         return dm.get_permissions_record(record_id)
 
-    def get_controller_fobs(self, controller_url=None, data_manager=None):
-        """Retrieves key fobs list stored on the hardware controller."""
-        try:
-            params = {'controller_url': controller_url} if controller_url else None
-            resp = requests.get(f"{self.api_url}/api/controller/fobs", params=params, timeout=15)
-            if resp.status_code == 200:
-                return resp.json().get('fobs', [])
-        except Exception as e:
-            log_info(f"ApiClient.get_controller_fobs fallback to DataManager: {e}")
+    # def get_controller_fobs(self, controller_url=None, data_manager=None):
+    #     """Retrieves key fobs list stored on the hardware controller."""
+    #     try:
+    #         params = {'controller_url': controller_url} if controller_url else None
+    #         resp = requests.get(f"{self.api_url}/api/controller/fobs", params=params, timeout=15)
+    #         if resp.status_code == 200:
+    #             return resp.json().get('fobs', [])
+    #     except Exception as e:
+    #         log_info(f"ApiClient.get_controller_fobs fallback to DataManager: {e}")
 
-        dm = data_manager or self._get_data_manager(controller_url)
-        return dm.get_keyfobs() or []
+    #     dm = data_manager or self._get_data_manager(controller_url)
+    #     return dm.get_keyfobs() or []
+    # File: door_controller/common_lib/api_client.py
 
-    def get_swipes(self, controller_url=None, start_record_id=0):
-        """Retrieves card swipe activity via REST API."""
-        try:
-            resp = requests.get(f"{self.api_url}/api/swipes",
-                                 params={'controller_url': controller_url,
-                                         'start_record_id': start_record_id}, 
-                                         timeout=30)
-            if resp.status_code == 200:
-                return resp.json().get('swipes', [])
-        except Exception as e:
-            raise RuntimeError(f"ApiClient.get_swipes failed for controller {controller_url}: {e}")
-            # log_info(f"ApiClient.get_swipes notice: {e}")
+    def get_controller_fobs(self, controller_url=None, cursor=None):
+        """Retrieves a single page of key fobs from the hardware controller via REST API."""
+        params = {}
+        if controller_url:
+            params['controller_url'] = controller_url
+        if cursor is not None:
+            params['cursor'] = cursor
 
-        return []
+        resp = requests.get(f"{self.api_url}/api/controller/fobs", params=params, timeout=15)
+        if resp.status_code == 200:
+            return resp.json()
+        raise RuntimeError(f"ApiClient.get_controller_fobs failed with status {resp.status_code}: {resp.text}")
+
+    # def get_swipes(self, controller_url=None, start_record_id=0):
+    #     """Retrieves card swipe activity via REST API."""
+    #     try:
+    #         resp = requests.get(f"{self.api_url}/api/swipes",
+    #                              params={'controller_url': controller_url,
+    #                                      'start_record_id': start_record_id}, 
+    #                                      timeout=30)
+    #         if resp.status_code == 200:
+    #             return resp.json().get('swipes', [])
+    #     except Exception as e:
+    #         raise RuntimeError(f"ApiClient.get_swipes failed for controller {controller_url}: {e}")
+    #         # log_info(f"ApiClient.get_swipes notice: {e}")
+
+    #     return []
+    # File: door_controller/common_lib/api_client.py
+
+    def get_swipes(self, controller_url=None, cursor=None):
+        """Retrieves a single 20-record page of card swipe activity via REST API."""
+        params = {}
+        if controller_url:
+            params['controller_url'] = controller_url
+        if cursor is not None:
+            params['cursor'] = cursor
+
+        resp = requests.get(f"{self.api_url}/api/swipes", params=params, timeout=15)
+        if resp.status_code == 200:
+            return resp.json()
+        raise RuntimeError(f"API call failed with status {resp.status_code}: {resp.text}")

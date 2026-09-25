@@ -5,67 +5,71 @@ Extracts card swipe activity from door controllers via the API client module
 and updates the PostgreSQL database.
 """
 
-import sys
-from door_controller.cli_synch_tools.common import init_cli_tool
-from door_controller.common_lib.utils import log_info, load_config
-from door_controller.common_lib.pg_database import postgres
-import requests
+# File: door_controller/cli_synch_tools/get_swipes.py
 import time
+from door_controller.common_lib.utils import load_config, log_info, log_error
+from door_controller.common_lib.pg_database import postgres
+from door_controller.cli_synch_tools.common import init_cli_tool
 
+def sync_controller_swipes(api_client, db, url, start_record_id):
+    cursor = None
+    total_added = 0
+    page_count = 0
+    max_pages = 50  # Circuit breaker (up to 1,000 records)
 
-def wait_for_api(url="http://127.0.0.1:5000", timeout=10):
-    start = time.time()
-    while time.time() - start < timeout:
+    log_info(f"Syncing swipes for {url} since record ID: {start_record_id}")
+
+    while page_count < max_pages:
         try:
-            requests.get(url, timeout=1)
-            return True
-        except requests.exceptions.ConnectionError:
-            time.sleep(0.5)
-    return False
-
-def main():
-    # Call this before making your actual API requests
-    # wait_for_api()
-
-    config = load_config()
-    
-    db = postgres(config.get('settings', {}).get('postgres_connect_string')) if config.get('settings', {}).get('postgres_connect_string') else None
-    api_client = init_cli_tool("get_swipes")
-    log_info("Extracting Recent Swipes via API Module")
-
-    is_all_mode = len(sys.argv) > 1 and sys.argv[1] == 'All'
-    # Ge the start swipe record ID from the database to fetch swipes since that record
-    urls = config.get('settings', {}).get('urls')
-    for url in urls:
-
-        query = F"""SELECT COALESCE(max(record_id), 0) FROM dataload.t_keyswipes_slop where door_controller_ip=('{url}')"""
-
-        start_record_id = db.get_maxid(query) if db else 0
-        log_info(f"Fetching swipes since record ID: {start_record_id}")
-        try:
-            swipes = api_client.get_swipes(controller_url=url, start_record_id=start_record_id)
+            res = api_client.get_swipes(controller_url=url, cursor=cursor)
         except Exception as e:
-            raise RuntimeError(f"Error fetching swipes from {url}: {e}")
-            # log_info(f"Error fetching swipes from {url}: {e}")
-            # raise
-        log_info(f"Retrieved {len(swipes)} swipe entries via API Client.")
-        #obj_db.insert_swipe_record(lst_swipes)
-        if db and swipes:
-            db.insert_swipe_start_record()
-            formatted_data = []
-            for s in swipes:
-                formatted_data.append([
-                    s.get('record_id'),
-                    s.get('fob_id'),
-                    s.get('status'),
-                    s.get('door'),
-                    s.get('swipe_timestamp'),
-                    s.get('door_controller_ip')
-                ])
+            log_error(f"Failed to retrieve swipe page at cursor {cursor} for {url}: {e}")
+            break
+
+        swipes = res.get('swipes', [])
+        if not swipes:
+            log_info("No further records returned by controller.")
+            break
+
+        # Filter out records already seen (older than or equal to start_record_id)
+        new_swipes = [s for s in swipes if int(s['record_id']) > start_record_id]
+        
+        if new_swipes:
+            formatted_data = [
+                [
+                    s['record_id'],
+                    s['fob_id'],
+                    s.get('status', 'Allowed'),
+                    s['door'],
+                    s['swipe_timestamp'],
+                    s['door_controller_ip']
+                ]
+                for s in new_swipes
+            ]
             db.insert_swipe_record(formatted_data)
             db.add_new_swipess()
+            total_added += len(new_swipes)
 
+        # Stop condition: we reached records we already had, or controller has no more
+        if len(new_swipes) < len(swipes) or not res.get('has_more'):
+            break
 
+        cursor = res.get('next_cursor')
+        page_count += 1
+        
+        # Pacing: Give embedded controller's web server breathing room between requests
+        time.sleep(0.3)
 
-if __name__ == '__main__':
-    main()
+    log_info(f"Sync completed for {url}: Added {total_added} records across {page_count + 1} pages.")
+
+def main():
+    config = load_config()
+    connect_str = config.get('settings', {}).get('postgres_connect_string')
+    db = postgres(connect_str) if connect_str else None
+    api_client = init_cli_tool("get_swipes")
+    
+    urls = config.get('settings', {}).get('urls', [])
+    for url in urls:
+        query = f"SELECT COALESCE(max(record_id), 0) FROM dataload.t_keyswipes_slop WHERE door_controller_ip='{url}'"
+        start_record_id = db.get_maxid(query) if db else 0
+        sync_controller_swipes(api_client, db, url, start_record_id)

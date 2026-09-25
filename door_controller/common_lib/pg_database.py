@@ -188,6 +188,25 @@ class postgres:
         cur.execute(query, params)
         row = cur.fetchall()
         return row
+    # File: door_controller/common_lib/pg_database.py
+
+    def insert_fobs_slop_records(self, data):
+        """
+        Inserts raw scraped fobs into dataload.fobs_slop.
+        Expected data: list of (record_id, fob_id, controller_ip)
+        """
+        dt_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        query = """
+            INSERT INTO dataload.fobs_slop 
+                (record_id, fob_id, controller_ip, record_time) 
+            VALUES (%s, %s, %s, %s);
+        """
+        prepared_data = [
+            (int(d[0]), int(d[1]), d[2], dt_now) for d in data
+        ]
+        cur = self.db_con.cursor()
+        cur.executemany(query, prepared_data)
+        self.db_con.commit()
 
 
 class FobDatabaseManager(postgres):
@@ -210,3 +229,4 @@ class FobDatabaseManager(postgres):
             return expected
         except Exception:
             return {}
+    

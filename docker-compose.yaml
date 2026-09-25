@@ -63,7 +63,6 @@ services:
       context: .
       dockerfile: Dockerfile.beseen-cli
     image: beseen-cli:latest
-    #image: ghcr.io/ebpowell/beseendoorcontroller/beseen-cli:latest
     container_name: cli-synch-tools
     restart: unless-stopped
     volumes:
@@ -71,16 +70,18 @@ services:
       - /opt/data/door_controller/config:/app/config
       - /opt/data/door_controller/log:/app/log
       - /etc/localtime:/etc/localtime:ro
-
     environment:
       APP_CONFIG_DIR: /app/config
       API_URL: http://beseen-api:5000
       TZ: America/New_York
-
     user: doorcontroller
-
-    # Database synchronization tools daemon (associated with Postgres and dependent on API container)
-    command: ["get_swipes"]
+    # Poll periodically with a 3-minute sleep interval
+    command: >
+      bash -c "while true; do
+        get_swipes || true;
+        echo 'Sleeping 180 seconds before next sync run...';
+        sleep 180;
+      done"
     depends_on:
       - beseen-api
       - postgres
