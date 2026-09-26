@@ -344,6 +344,56 @@ def get_controller_fob_permissions(fob_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# 8. Get the maximum swipe recpord ID from the controller
+api_bp.route('controller/get_max_swipe_id', methods=['GET'])
+def get_max_swipe_id():
+    config = load_config()
+    settings = config.get('settings', {}) if isinstance(config, dict) else {}
+    username = settings.get('username', 'admin')
+    password = settings.get('password', 'admin')
+    controller_url = request.args.get('controller_url')
+
+    if not controller_url:
+        urls = settings.get('urls', [])
+        controller_url = urls[0] if urls else 'http://192.168.1.100'
+
+    try:
+        obj_swipe = FobSwipes(controller_url, username, password)
+        # Using the single-page method or range method
+        if hasattr(obj_swipe, 'get_swipe_page'):
+            batch, next_cursor, has_more = obj_swipe.get_swipe_page(cursor=0)
+            swipes = batch
+        else:
+            return jsonify({
+                'status': 'error',
+                'controller_url': controller_url,
+                'message': 'Controller does not support get_swipe_page method'
+            }), 501
+        
+        formatted_fobs = []
+        for row in batch:
+            formatted_fobs.append({
+                'record_id': row[0],
+                'fob_id': row[1],
+                'status': row[2],
+                'owner_name': row[3],
+                'controller_url': row[4]
+            })
+        max_record_id = formatted_fobs[0]['record_id'] if formatted_fobs else None
+        return jsonify({
+            'status': 'success',
+            'controller_url': controller_url,
+            'max_record_id': max_record_id
+        }), 200     
+    except Exception as e:
+        log_error(f"API /api/controller/get_max_swipe_id error on {controller_url}: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'controller_url': controller_url,
+            'message': str(e)
+        }), 502
+
+
 # Module-level application factory / instance for Flask CLI and debugpy
 def create_app():
     application = Flask(__name__)

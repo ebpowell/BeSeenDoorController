@@ -150,14 +150,14 @@ class ApiClient:
             return resp.json()
         raise RuntimeError(f"ApiClient.get_controller_fobs failed with status {resp.status_code}: {resp.text}")
 
-def get_swipes(self, controller_url=None, start_record_id=0):
+    def get_swipes(self, controller_url=None, start_record_id=0):
         """Retrieves card swipe activity via REST API."""
         try:
             # Correct endpoint is /api/controller/swipes on the REST API server
             resp = requests.get(
                 f"{self.api_url}/api/controller/swipes",
                 params={'controller_url': controller_url, 'start_record_id': start_record_id},
-                timeout=30
+                timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -166,3 +166,20 @@ def get_swipes(self, controller_url=None, start_record_id=0):
         except Exception as e:
             raise RuntimeError(f"ApiClient.get_swipes failed: {e}")
         return []
+
+    def get_max_swipe_id(self, controller_url=None):
+        """Retrieves maximum swipe recordid via REST API."""
+        try:
+            # Correct endpoint is /api/controller/get_max_swipe_id on the REST API server
+            resp = requests.get(
+                f"{self.api_url}/api/controller/get_max_swipe_id",
+                params={'controller_url': controller_url},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get('max_record_id')
+            log_error(f"API request to {self.api_url}/api/controller/get_max_swipe_id returned status {resp.status_code}")
+        except Exception as e:
+            raise RuntimeError(f"ApiClient.get_max_swipe_id failed: {e}")
+        return None

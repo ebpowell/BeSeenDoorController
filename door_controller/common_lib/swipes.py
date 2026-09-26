@@ -55,8 +55,10 @@ class fob_swipes(door_controller):
         if response is None or response.status_code != 200:
             log_warning(f"Failed to fetch initial swipe page from {url}: HTTP {getattr(response, 'status_code', None)}")
             return [], None, False  
+        # *** TO DO: Parse records to get the maximum record_id for the first page. ***
+
         url = f"{self.url}/ACT_ID_345"
-        data = {'PC': int(cursor), 'PE': 0, 'PN': 'Next'}
+        data = {'PC': int(cursor) + 19, 'PE': 0, 'PN': 'Next'}
 
         response = self.get_httpresponse(url, data)
         if not response or response.status_code != 200:
@@ -71,15 +73,45 @@ class fob_swipes(door_controller):
         # Hardware uses the ID of the record to page backward
         try:
             if len(batch) > 1:
-                next_cursor = int(batch[1][0])
+                next_cursor = int(batch[1][0]) + 19
             else:
-                next_cursor = int(batch[0][0])
+                next_cursor = int(batch[0][0]) + 19
         except (ValueError, IndexError):
             next_cursor = None
 
         has_more = len(batch) >= 20 and next_cursor is not None
         return batch, next_cursor, has_more
 
+    def get_maxid (self, response):
+        """
+        Retrieves the maximum record ID from the door controller board.
+        Returns: max_record_id (int) or None if unable to retrieve.
+        """
+        self.verify_or_reauth()
+
+        # Connect to the controller and navigate to the Swipe page.*****
+        self.connect()
+        # Navigate to the swipes page 
+        url = f"{self.url}/ACT_ID_21"
+        data = {'s4': 'Swipe'}
+        response = self.get_httpresponse(url, data)
+        if response is None or response.status_code != 200:
+            log_warning(f"Failed to fetch initial swipe page from {url}: HTTP {getattr(response, 'status_code', None)}")
+            return [], None, False  
+        batch = self.parse_swipes_data(response.text)
+        if not batch:
+            return None
+        try:
+            max_record_id = max(int(row[0]) for row in batch)
+            return max_record_id
+        except (ValueError, IndexError):
+            log_warning("Failed to determine max record ID from swipe data.")
+            return None 
+
+
+
+
+        
 # # File: door_controller/common_lib/swipes.py
 
 # def get_swipe_range(self, iterations, rec_id_start):

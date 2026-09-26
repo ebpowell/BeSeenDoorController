@@ -11,17 +11,34 @@ from door_controller.common_lib.utils import load_config, log_info, log_error
 from door_controller.common_lib.pg_database import postgres
 from door_controller.cli_synch_tools.common import init_cli_tool
 
-def sync_controller_swipes(api_client, db, url, start_record_id):
+def sync_controller_swipes(api_client, db, url, db_max_id):
     cursor = None
     total_added = 0
     page_count = 0
     max_pages = 50
 
-    log_info(f"Syncing swipes for {url} since record ID: {start_record_id}")
-
+    log_info(f"Syncing swipes for {url} since record ID: {db_max_id}")
+    try:
+        res = api_client.get_max_swipe_id(controller_url=url)
+    except Exception as e:
+        log_error(f"Failed to retrieve initial swipe page from {url}: {e}")
+        return
+    # Extract the maximum record ID from the initial batch to determine the starting point for pagination
+    if res and isinstance(res, dict) and res.get('status') == 'success':
+        swipes = res.get('swipes', [])
+        if swipes:
+            try:
+                max_record_id = max(int(s['record_id']) for s in swipes)
+                log_info(f"Initial batch max record ID: {max_record_id}")
+            except (ValueError, IndexError) as e:
+                log_error(f"Failed to determine max record ID from initial swipe data: {e}")
+                return
+        else:
+            log_info(f"No swipes returned in initial batch for {url}.")
+            return
     while page_count < max_pages:
         try:
-            res = api_client.get_swipes(controller_url=url, start_record_id=start_record_id)
+            res = api_client.get_swipes(controller_url=url, start_record_id=max_record_id)
         except Exception as e:
             log_error(f"Failed to retrieve swipe page at cursor {cursor} from {url}: {e}")
             break
@@ -41,7 +58,7 @@ def sync_controller_swipes(api_client, db, url, start_record_id):
             break
 
         # Filter out records already seen
-        new_swipes = [s for s in swipes if int(s['record_id']) > start_record_id]
+        new_swipes = [s for s in swipes if int(s['record_id']) > max_record_id]
         if new_swipes and db:
             formatted_data = [
                 [
@@ -55,7 +72,7 @@ def sync_controller_swipes(api_client, db, url, start_record_id):
                 for s in new_swipes
             ]
             db.insert_swipe_record(formatted_data)
-            db.add_new_swipess()
+            db.add_new_swipes()
             total_added += len(new_swipes)
 
         if len(new_swipes) < len(swipes) or not res.get('has_more'):

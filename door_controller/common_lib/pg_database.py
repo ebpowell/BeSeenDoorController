@@ -82,7 +82,7 @@ class postgres:
                  'group by fob_id, door_controller, status, door_id, controller_ip')
         self.db_con.commit()
 
-    def add_new_swipess(self):
+    def add_new_swipes(self):
         cur = self.db_con.cursor()
         sql = """
             INSERT INTO door_controller.t_keyswipes (record_id, fob_id, status, swipe_timestamp, door, door_controller_ip)
