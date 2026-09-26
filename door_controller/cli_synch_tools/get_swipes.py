@@ -23,19 +23,7 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
     except Exception as e:
         log_error(f"Failed to retrieve initial swipe page from {url}: {e}")
         return
-    # Extract the maximum record ID from the initial batch to determine the starting point for pagination
-    # if res and isinstance(res, dict) and res.get('status') == 'success':
-    #     swipes = res.get('swipes', [])
-    #     if swipes:
-    #         try:
-    #             max_record_id = max(int(s['record_id']) for s in swipes)
-    #             log_info(f"Initial batch max record ID: {max_record_id}")
-    #         except (ValueError, IndexError) as e:
-    #             log_error(f"Failed to determine max record ID from initial swipe data: {e}")
-    #             return
-    #     else:
-    #         log_info(f"No swipes returned in initial batch for {url}.")
-    #         return
+   
     cursor = res.get('max_record_id', db_max_id) if res and isinstance(res, dict) else db_max_id
     while page_count < max_pages:
         try:
@@ -86,10 +74,7 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
     log_info(f"Sync complete for {url}. Total added: {total_added}")
 
 def main():
-    config = load_config()
-    connect_str = config.get('settings', {}).get('postgres_connect_string')
-    db = postgres(connect_str) if connect_str else None
-    api_client = init_cli_tool("get_swipes")
+    config, db, api_client = init_cli_tool("get_swipes")
     
     urls = config.get('settings', {}).get('urls', [])
     for url in urls:

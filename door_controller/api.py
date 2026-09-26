@@ -68,12 +68,7 @@ def get_data_extractor(controller_url=None):
         log_error(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
         traceback.print_exc()
         return {"error": str(e), "traceback": traceback.format_exc()}, 500
-        # raise RuntimeError(f"DataExtractor initialization failed for controller {controller_url}: {e}")               
-    # return DataExtractor(config.get('settings', {}).get('username'),
-    #                     config.get('settings', {}).get('password'), 
-    #                     controller_url, 
-    #                     iterations=config.get('settings', {}).get('iterations', {}))    
-
+    
 def get_fob_swipes(username, password,controller_url=None):
     config = get_config()
     settings = config.get('settings', {})
@@ -91,12 +86,7 @@ def get_fob_swipes(username, password,controller_url=None):
         log_error(f"\n[CRITICAL ERROR] Failed to instantiate DataExtractor: {e}", flush=True) 
         traceback.print_exc()
         return {"error": str(e), "traceback": traceback.format_exc()}, 500
-        # raise RuntimeError(f"DataExtractor initialization failed for controller {controller_url}: {e}")               
-    # return DataExtractor(config.get('settings', {}).get('username'),
-    #                     config.get('settings', {}).get('password'), 
-    #                     controller_url, 
-    #                     iterations=config.get('settings', {}).get('iterations', {}))    
-
+ 
 def get_data_manager(controller_url=None):
     config = get_config()
     settings = config.get('settings', {})
@@ -388,7 +378,6 @@ def get_controller_fob_permissions(fob_id):
 
 # 8. Get the maximum swipe recpord ID from the controller
 @api_bp.route('/controller/get_max_swipe_id', methods=['GET'])
-@api_bp.route('/get_max_swipe_id', methods=['GET'])
 def get_max_swipe_id():
     config = load_config()
     settings = config.get('settings', {}) if isinstance(config, dict) else {}
@@ -411,20 +400,7 @@ def get_max_swipe_id():
                 'controller_url': controller_url,
                 'message': 'Controller does not support get_swipe_page method'
             }), 501
-        
-        # formatted_fobs = []
-        # for row in batch:
-        #     if isinstance(row, dict):
-        #         formatted_fobs.append(row)
-        #     elif len(row) >= 4:
-        #         formatted_fobs.append({
-        #             'record_id': row[0],
-        #             'fob_id': row[1],
-        #             'status': row[2],
-        #             'owner_name': row[3],
-        #             'controller_url': row[4] if len(row) > 4 else controller_url
-        #         })
-        # max_record_id = formatted_fobs[0]['record_id'] if formatted_fobs else None
+      
         return jsonify({
             'status': 'success',
             'controller_url': controller_url,

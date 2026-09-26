@@ -181,7 +181,7 @@ class ApiClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                return data.get('max_record_id')
+                return data
             log_error(f"API request to {self.api_url}/api/controller/get_max_swipe_id returned status {resp.status_code}")
         except Exception as e:
             raise RuntimeError(f"ApiClient.get_max_swipe_id failed: {e}")
