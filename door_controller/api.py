@@ -208,15 +208,47 @@ def update_fob_permissions():
 
 
 # 5. get swipes data for the last <time period>
-@api_bp.route('controller/swipes', methods=['GET'])
+@api_bp.route('/controller/swipes', methods=['GET'])
+@api_bp.route('/swipes', methods=['GET'])
 def get_swipes_data():
     config = load_config()
     settings = config.get('settings', {}) if isinstance(config, dict) else {}
     username = settings.get('username', 'admin')
     password = settings.get('password', 'admin')
+    period_str = request.args.get('period')
     iterations = int(request.args.get('iterations', settings.get('iterations', 10)))
     start_rec = int(request.args.get('start_record_id', 0))
     controller_url = request.args.get('controller_url')
+
+    if period_str:
+        try:
+            db_mgr = get_db_mgr()
+            with db_mgr._get_connection() as conn:
+                with conn.cursor() as cur:
+                    td = parse_period_to_timedelta(period_str)
+                    start_time = datetime.now() - td
+                    query = "SELECT record_id, fob_id, status, door, swipe_timestamp, door_controller_ip FROM door_controller.t_keyswipes WHERE swipe_timestamp >= %s ORDER BY swipe_timestamp DESC"
+                    cur.execute(query, (start_time,))
+                    rows = cur.fetchall()
+            formatted_swipes = []
+            for s in rows:
+                formatted_swipes.append({
+                    'record_id': s[0],
+                    'fob_id': s[1],
+                    'status': s[2] if len(s) > 2 else '',
+                    'door': s[3] if len(s) > 3 else 'Door',
+                    'swipe_timestamp': s[4].isoformat() if isinstance(s[4], datetime) else str(s[4]),
+                    'door_controller_ip': s[5] if len(s) > 5 else ''
+                })
+            return jsonify({
+                'status': 'success',
+                'controller_url': controller_url,
+                'count': len(formatted_swipes),
+                'swipes': formatted_swipes,
+                'has_more': False
+            }), 200
+        except Exception as e:
+            log_error(f"Error retrieving database swipes: {e}", exc_info=True)
 
     if not controller_url:
         urls = settings.get('urls', [])
@@ -263,34 +295,44 @@ def get_swipes_data():
         }), 502
 
 
-@api_bp.route('controller/fobs', methods=['GET'])
+@api_bp.route('/controller/fobs', methods=['GET'])
 def get_controller_fobs():
     controller_url = request.args.get('controller_url')
     cursor = request.args.get('cursor', type=int)
 
     config = get_config()
     settings = config.get('settings', {})
-    username = settings.get('username', 'admin')
-    password = settings.get('password', 'admin')
 
     if not controller_url:
         urls = settings.get('urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.100'
 
     try:
-        from door_controller.common_lib.key_fobs import key_fobs
-        kf = key_fobs(controller_url, username, password)
-        batch, next_cursor, has_more = kf.get_fob_page(cursor=cursor)
+        dm = get_data_manager(controller_url)
+        fob_page_fn = getattr(dm, 'get_fob_page', None)
+        res = fob_page_fn(cursor=cursor) if callable(fob_page_fn) else None
+        if isinstance(res, (tuple, list)) and len(res) == 3:
+            batch, next_cursor, has_more = res
+        elif hasattr(dm, 'get_keyfobs'):
+            raw_fobs = dm.get_keyfobs() or []
+            batch = raw_fobs
+            next_cursor = None
+            has_more = False
+        else:
+            batch, next_cursor, has_more = [], None, False
 
         formatted_fobs = []
         for row in batch:
-            formatted_fobs.append({
-                'record_id': row[0],
-                'fob_id': row[1],
-                'status': row[2],
-                'owner_name': row[3],
-                'controller_url': row[4]
-            })
+            if isinstance(row, dict):
+                formatted_fobs.append(row)
+            elif len(row) >= 4:
+                formatted_fobs.append({
+                    'record_id': row[0],
+                    'fob_id': row[1],
+                    'status': row[2],
+                    'owner_name': row[3],
+                    'controller_url': row[4] if len(row) > 4 else controller_url
+                })
 
         return jsonify({
             'status': 'success',
@@ -345,7 +387,8 @@ def get_controller_fob_permissions(fob_id):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # 8. Get the maximum swipe recpord ID from the controller
-api_bp.route('controller/get_max_swipe_id', methods=['GET'])
+@api_bp.route('/controller/get_max_swipe_id', methods=['GET'])
+@api_bp.route('/get_max_swipe_id', methods=['GET'])
 def get_max_swipe_id():
     config = load_config()
     settings = config.get('settings', {}) if isinstance(config, dict) else {}
@@ -360,9 +403,8 @@ def get_max_swipe_id():
     try:
         obj_swipe = FobSwipes(controller_url, username, password)
         # Using the single-page method or range method
-        if hasattr(obj_swipe, 'get_swipe_page'):
-            batch, next_cursor, has_more = obj_swipe.get_swipe_page(cursor=0)
-            swipes = batch
+        if hasattr(obj_swipe, 'get_maxid'):
+            max_record_id = obj_swipe.get_maxid()
         else:
             return jsonify({
                 'status': 'error',
@@ -370,16 +412,19 @@ def get_max_swipe_id():
                 'message': 'Controller does not support get_swipe_page method'
             }), 501
         
-        formatted_fobs = []
-        for row in batch:
-            formatted_fobs.append({
-                'record_id': row[0],
-                'fob_id': row[1],
-                'status': row[2],
-                'owner_name': row[3],
-                'controller_url': row[4]
-            })
-        max_record_id = formatted_fobs[0]['record_id'] if formatted_fobs else None
+        # formatted_fobs = []
+        # for row in batch:
+        #     if isinstance(row, dict):
+        #         formatted_fobs.append(row)
+        #     elif len(row) >= 4:
+        #         formatted_fobs.append({
+        #             'record_id': row[0],
+        #             'fob_id': row[1],
+        #             'status': row[2],
+        #             'owner_name': row[3],
+        #             'controller_url': row[4] if len(row) > 4 else controller_url
+        #         })
+        # max_record_id = formatted_fobs[0]['record_id'] if formatted_fobs else None
         return jsonify({
             'status': 'success',
             'controller_url': controller_url,

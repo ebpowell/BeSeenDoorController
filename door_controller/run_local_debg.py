@@ -48,13 +48,18 @@ class LocalDebugApiClient:
         params = {
             'controller_url': controller_url
         }
-        response = self.client.get('/api/controller/get_max_swipe_id', query_string=params)
-        
-        if response.status_code == 200:
-            return response.get_json()
-        
-        logging.error(f"GET /api/controller/get_max_swipe_id failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
-        return {'status': 'error', 'swipes': []}
+        try:
+            # In-process call directly hits Flask @api_bp.route('/controller/get_max_swipe_id') via /api/controller/get_max_swipe_id
+            response = self.client.get('/api/controller/get_max_swipe_id', query_string=params)
+            
+            if response.status_code == 200:
+                return response.get_json()
+            
+            logging.error(f"GET /api/controller/get_max_swipe_id failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'swipes': []}
+        except Exception as e:
+            logging.error(f"Exception during GET /api/controller/get_max_swipe_id: {e}")
+            return {'status': 'error', 'swipes': []}
 
 if __name__ == '__main__':
     config = load_config()

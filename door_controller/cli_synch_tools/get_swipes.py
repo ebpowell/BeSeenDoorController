@@ -24,21 +24,22 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
         log_error(f"Failed to retrieve initial swipe page from {url}: {e}")
         return
     # Extract the maximum record ID from the initial batch to determine the starting point for pagination
-    if res and isinstance(res, dict) and res.get('status') == 'success':
-        swipes = res.get('swipes', [])
-        if swipes:
-            try:
-                max_record_id = max(int(s['record_id']) for s in swipes)
-                log_info(f"Initial batch max record ID: {max_record_id}")
-            except (ValueError, IndexError) as e:
-                log_error(f"Failed to determine max record ID from initial swipe data: {e}")
-                return
-        else:
-            log_info(f"No swipes returned in initial batch for {url}.")
-            return
+    # if res and isinstance(res, dict) and res.get('status') == 'success':
+    #     swipes = res.get('swipes', [])
+    #     if swipes:
+    #         try:
+    #             max_record_id = max(int(s['record_id']) for s in swipes)
+    #             log_info(f"Initial batch max record ID: {max_record_id}")
+    #         except (ValueError, IndexError) as e:
+    #             log_error(f"Failed to determine max record ID from initial swipe data: {e}")
+    #             return
+    #     else:
+    #         log_info(f"No swipes returned in initial batch for {url}.")
+    #         return
+    cursor = res.get('max_record_id', db_max_id) if res and isinstance(res, dict) else db_max_id
     while page_count < max_pages:
         try:
-            res = api_client.get_swipes(controller_url=url, start_record_id=max_record_id)
+            res = api_client.get_swipes(controller_url=url, start_record_id=cursor)
         except Exception as e:
             log_error(f"Failed to retrieve swipe page at cursor {cursor} from {url}: {e}")
             break
@@ -58,7 +59,7 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
             break
 
         # Filter out records already seen
-        new_swipes = [s for s in swipes if int(s['record_id']) > max_record_id]
+        new_swipes = [s for s in swipes if int(s['record_id']) > db_max_id]
         if new_swipes and db:
             formatted_data = [
                 [

@@ -147,7 +147,10 @@ class ApiClient:
 
         resp = requests.get(f"{self.api_url}/api/controller/fobs", params=params, timeout=15)
         if resp.status_code == 200:
-            return resp.json()
+            data = resp.json()
+            if isinstance(data, dict):
+                return data.get('fobs', [])
+            return data
         raise RuntimeError(f"ApiClient.get_controller_fobs failed with status {resp.status_code}: {resp.text}")
 
     def get_swipes(self, controller_url=None, start_record_id=0):

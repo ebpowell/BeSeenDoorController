@@ -38,5 +38,7 @@ def init_cli_tool(tool_name):
         port = server_cfg.get('port', 5000)
         api_url = f"http://{host}:{port}"
 
+    db_conn = config.get('settings', {}).get('postgres_connect_string')
+    db = postgres(db_conn) if db_conn else None
     api_client = ApiClient(api_url=api_url)
-    return api_client
+    return config, db, api_client

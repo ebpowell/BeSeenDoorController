@@ -82,7 +82,7 @@ class fob_swipes(door_controller):
         has_more = len(batch) >= 20 and next_cursor is not None
         return batch, next_cursor, has_more
 
-    def get_maxid (self, response):
+    def get_maxid (self):
         """
         Retrieves the maximum record ID from the door controller board.
         Returns: max_record_id (int) or None if unable to retrieve.
