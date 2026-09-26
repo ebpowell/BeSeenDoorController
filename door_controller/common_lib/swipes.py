@@ -25,13 +25,13 @@ class fob_swipes(door_controller):
                 door_row = row[3]
                 if 'IN[#' in door_row:
                     splt_row = door_row.split('IN[#')
-                    door_name = splt_row[0].strip()
+                    status = splt_row[0].strip()
                     door_num = splt_row[1][0:1] if len(splt_row) > 1 else '0'
                 else:
-                    door_name = door_row.strip()
+                    status = door_row.strip()
                     door_num = ''.join(c for c in door_row if c.isdigit()) or '0'
 
-                tpl_row.append([row[0], row[1], door_name, door_num, row[4], self.url])
+                tpl_row.append([row[0], row[1], status, door_num, row[4], self.url])
         except Exception as e:
             log_error(f"parse_swipes_data exception: {e}")
 
@@ -44,7 +44,7 @@ class fob_swipes(door_controller):
         If cursor is provided, fetches the next page using the cursor index (/ACT_ID_345).
         Returns: (records: list, next_cursor: int or None, has_more: bool)
         """
-        self.verify_or_reauth()
+        # self.verify_or_reauth()
 
         # Connect to the controller and navigate to the Swipe page.*****
         self.connect()
@@ -58,6 +58,8 @@ class fob_swipes(door_controller):
         # *** TO DO: Parse records to get the maximum record_id for the first page. ***
 
         url = f"{self.url}/ACT_ID_345"
+        # The counter on the controller counts really oddly - have to be 19 past max to get most recent records. 
+        # The controller uses the ID of the record to page backward.
         data = {'PC': int(cursor) + 19, 'PE': 0, 'PN': 'Next'}
 
         response = self.get_httpresponse(url, data)
@@ -73,9 +75,9 @@ class fob_swipes(door_controller):
         # Hardware uses the ID of the record to page backward
         try:
             if len(batch) > 1:
-                next_cursor = int(batch[1][0]) + 19
+                next_cursor = int(batch[1][0]) - 19
             else:
-                next_cursor = int(batch[0][0]) + 19
+                next_cursor = int(batch[0][0]) - 19
         except (ValueError, IndexError):
             next_cursor = None
 
@@ -87,7 +89,7 @@ class fob_swipes(door_controller):
         Retrieves the maximum record ID from the door controller board.
         Returns: max_record_id (int) or None if unable to retrieve.
         """
-        self.verify_or_reauth()
+        # self.verify_or_reauth()
 
         # Connect to the controller and navigate to the Swipe page.*****
         self.connect()
@@ -110,64 +112,3 @@ class fob_swipes(door_controller):
 
 
 
-
-        
-# # File: door_controller/common_lib/swipes.py
-
-# def get_swipe_range(self, iterations, rec_id_start):
-#     next_index = int(rec_id_start) + 20
-#     swipes = []
-    
-#     # Pre-emptively verify session viability rather than unconditional force-connect
-#     self.verify_or_reauth()
-
-#     for x in range(1, iterations):
-#         if x == 1:
-#             url = self.url + '/ACT_ID_21'
-#             data = {'s4': 'Swipe'}
-#         else:
-#             data = {'PC': next_index, 'PE': 0, 'PN': 'Next'}
-#             url = self.url + '/ACT_ID_345'
-            
-#         try:
-#             response = self.get_httpresponse(url, data)
-#         except Exception as e:
-#             log_error(f"Failed HTTP call on iteration {x}: {e}")
-#             break
-
-#         if not response or response.status_code != 200:
-#             log_warning(f"Unexpected status code {getattr(response, 'status_code', None)} on iteration {x}")
-#             break
-
-#         if x > 1:
-#             try:
-#                 batch = self.parse_swipes_data(response.text)
-#                 if batch:
-#                     # FIX: Defensively retrieve next_index without assuming len(batch) > 1
-#                     try:
-#                         if len(batch) > 1:
-#                             next_index = int(batch[1][0])
-#                         else:
-#                             next_index = int(batch[0][0])
-#                     except (ValueError, IndexError):
-#                         next_index += 20
-
-#                     swipes = swipes + batch
-#                     log_info(f"Swipes Count: {len(swipes)}")
-#                 else:
-#                     # FIX: Avoid IndexError when swipes has fewer than 20 items
-#                     if len(swipes) >= 20:
-#                         next_index = swipes[len(swipes) - 20][0]
-#                     elif swipes:
-#                         next_index = swipes[0][0]
-#                     log_info(f"No Records returned, Next Index: {next_index}")
-#                     break  # Stop paging if controller has no more data
-#             except Exception as e:
-#                 log_error(f"Error parsing swipe batch: {e}")
-#                 break
-
-#         # Slight pause between requests to prevent saturating the controller
-#         time.sleep(0.3)
-
-#     log_info(f"Records to add: {len(swipes)}")
-#     return swipes

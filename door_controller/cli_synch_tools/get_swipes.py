@@ -53,8 +53,8 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
                 [
                     s['record_id'],
                     s['fob_id'],
-                    s.get('status', 'Allowed'),
-                    s['door'],
+                    s['status'],
+                    s['door_num'],
                     s['swipe_timestamp'],
                     s.get('door_controller_ip', url)
                 ]
@@ -64,6 +64,7 @@ def sync_controller_swipes(api_client, db, url, db_max_id):
             db.add_new_swipes()
             total_added += len(new_swipes)
 
+        #if len(new_swipes) < len(swipes) or not res.get('has_more'):
         if len(new_swipes) < len(swipes) or not res.get('has_more'):
             break
 

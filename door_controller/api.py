@@ -205,40 +205,9 @@ def get_swipes_data():
     settings = config.get('settings', {}) if isinstance(config, dict) else {}
     username = settings.get('username', 'admin')
     password = settings.get('password', 'admin')
-    period_str = request.args.get('period')
     iterations = int(request.args.get('iterations', settings.get('iterations', 10)))
     start_rec = int(request.args.get('start_record_id', 0))
     controller_url = request.args.get('controller_url')
-
-    if period_str:
-        try:
-            db_mgr = get_db_mgr()
-            with db_mgr._get_connection() as conn:
-                with conn.cursor() as cur:
-                    td = parse_period_to_timedelta(period_str)
-                    start_time = datetime.now() - td
-                    query = "SELECT record_id, fob_id, status, door, swipe_timestamp, door_controller_ip FROM door_controller.t_keyswipes WHERE swipe_timestamp >= %s ORDER BY swipe_timestamp DESC"
-                    cur.execute(query, (start_time,))
-                    rows = cur.fetchall()
-            formatted_swipes = []
-            for s in rows:
-                formatted_swipes.append({
-                    'record_id': s[0],
-                    'fob_id': s[1],
-                    'status': s[2] if len(s) > 2 else '',
-                    'door': s[3] if len(s) > 3 else 'Door',
-                    'swipe_timestamp': s[4].isoformat() if isinstance(s[4], datetime) else str(s[4]),
-                    'door_controller_ip': s[5] if len(s) > 5 else ''
-                })
-            return jsonify({
-                'status': 'success',
-                'controller_url': controller_url,
-                'count': len(formatted_swipes),
-                'swipes': formatted_swipes,
-                'has_more': False
-            }), 200
-        except Exception as e:
-            log_error(f"Error retrieving database swipes: {e}", exc_info=True)
 
     if not controller_url:
         urls = settings.get('urls', [])
@@ -261,7 +230,7 @@ def get_swipes_data():
                 formatted_swipes.append({
                     'record_id': s[0],
                     'fob_id': s[1],
-                    'door': s[2],
+                    'status': s[2],
                     'door_num': s[3],
                     'swipe_timestamp': s[4],
                     'door_controller_ip': s[5]
@@ -272,7 +241,8 @@ def get_swipes_data():
             'controller_url': controller_url,
             'count': len(formatted_swipes),
             'swipes': formatted_swipes,
-            'has_more': False
+            'has_more': has_more,
+            'next_cursor': next_cursor
         }), 200
 
     except Exception as e:
