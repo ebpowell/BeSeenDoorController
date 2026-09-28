@@ -164,7 +164,7 @@ class ApiClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                return data.get('swipes', [])
+                return data
             log_error(f"API request to {self.api_url}/api/controller/swipes returned status {resp.status_code}")
         except Exception as e:
             raise RuntimeError(f"ApiClient.get_swipes failed: {e}")
