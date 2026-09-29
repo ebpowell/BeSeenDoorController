@@ -71,6 +71,29 @@ class TestApiClient(unittest.TestCase):
         fobs = self.client.get_controller_fobs()
         self.assertEqual(len(fobs), 1)
 
+    @patch('requests.get')
+    def test_get_fobs_api_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {'status': 'success', 'fobs': [{'record_id': 10, 'fob_id': 1001}], 'has_more': False}
+        mock_get.return_value = mock_resp
+
+        res = self.client.get_fobs()
+        self.assertEqual(res['status'], 'success')
+        self.assertEqual(len(res['fobs']), 1)
+
+    @patch('requests.get')
+    def test_get_max_fob_id_api_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {'status': 'success', 'max_record_id': 150}
+        mock_get.return_value = mock_resp
+
+        res = self.client.get_max_fob_id()
+        self.assertEqual(res['status'], 'success')
+        self.assertEqual(res['max_record_id'], 150)
+
+
     @patch('door_controller.cli_synch_tools.common.load_config')
     def test_init_cli_tool(self, mock_load):
         mock_load.return_value = {

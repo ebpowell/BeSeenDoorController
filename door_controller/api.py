@@ -256,9 +256,10 @@ def get_swipes_data():
 
 
 @api_bp.route('/controller/fobs', methods=['GET'])
+@api_bp.route('/fobs', methods=['GET'])
 def get_controller_fobs():
     controller_url = request.args.get('controller_url')
-    cursor = request.args.get('cursor', type=int)
+    cursor = request.args.get('cursor', request.args.get('start_record_id', type=int), type=int)
 
     config = get_config()
     settings = config.get('settings', {})
@@ -308,7 +309,8 @@ def get_controller_fobs():
         return jsonify({
             'status': 'error',
             'controller_url': controller_url,
-            'message': str(e)
+            'message': str(e),
+            'fobs': []
         }), 502
 
 # 7. get fob permissions for a given time from controller
@@ -383,6 +385,47 @@ def get_max_swipe_id():
             'controller_url': controller_url,
             'message': str(e)
         }), 502
+
+# 9. Get the maximum fob record ID from the controller
+@api_bp.route('/controller/get_max_fob_id', methods=['GET'])
+def get_max_fob_id():
+    config = load_config()
+    settings = config.get('settings', {}) if isinstance(config, dict) else {}
+    controller_url = request.args.get('controller_url')
+
+    if not controller_url:
+        urls = settings.get('urls', [])
+        controller_url = urls[0] if urls else 'http://192.168.1.100'
+
+    try:
+        dm = get_data_manager(controller_url)
+        max_record_id = 0
+        if hasattr(dm, 'get_maxid'):
+            try:
+                res = dm.get_maxid()
+                if res is not None and isinstance(res, (int, float, str)) and str(res).isdigit():
+                    max_record_id = int(res)
+            except Exception:
+                pass
+
+        if not max_record_id and hasattr(dm, 'get_keyfobs'):
+            raw_fobs = dm.get_keyfobs() or []
+            max_record_id = max([int(f[0]) for f in raw_fobs if isinstance(f, (list, tuple)) and str(f[0]).isdigit()], default=0) if raw_fobs else 0
+
+        return jsonify({
+            'status': 'success',
+            'controller_url': controller_url,
+            'max_record_id': max_record_id
+        }), 200
+    except Exception as e:
+        log_error(f"API /api/controller/get_max_fob_id error on {controller_url}: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'controller_url': controller_url,
+            'message': str(e)
+        }), 502
+
+
 
 
 # Module-level application factory / instance for Flask CLI and debugpy

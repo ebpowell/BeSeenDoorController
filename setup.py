@@ -8,6 +8,7 @@ setup(
     entry_points={
         'console_scripts': [
             'get_swipes=door_controller.cli_synch_tools.get_swipes:main',
+            'get_fobs=door_controller.cli_synch_tools.get_fobs:main',
             'get_acl_from_controller=door_controller.cli_synch_tools.get_acl_from_controller:main',
             'get_foblist_from_controller=door_controller.cli_synch_tools.get_foblist_from_controller:main',
             'DoorController_Driver_API=door_controller.cli_synch_tools.DoorController_Driver_API:main',

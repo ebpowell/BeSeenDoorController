@@ -138,20 +138,45 @@ class ApiClient:
         return dm.get_permissions_record(record_id)
 
     def get_controller_fobs(self, controller_url=None, cursor=None):
-        """Retrieves a single page of key fobs from the hardware controller via REST API."""
-        params = {}
-        if controller_url:
-            params['controller_url'] = controller_url
-        if cursor is not None:
-            params['cursor'] = cursor
+        """Retrieves a list of key fobs from the hardware controller via REST API."""
+        res = self.get_fobs(controller_url=controller_url, cursor=cursor)
+        if isinstance(res, dict):
+            return res.get('fobs', [])
+        return res
 
-        resp = requests.get(f"{self.api_url}/api/controller/fobs", params=params, timeout=15)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, dict):
-                return data.get('fobs', [])
-            return data
-        raise RuntimeError(f"ApiClient.get_controller_fobs failed with status {resp.status_code}: {resp.text}")
+    def get_fobs(self, controller_url=None, start_record_id=0, cursor=None):
+        """Retrieves key fobs data via REST API."""
+        try:
+            cur = cursor if cursor is not None else start_record_id
+            params = {'controller_url': controller_url, 'start_record_id': cur}
+            resp = requests.get(
+                f"{self.api_url}/api/controller/fobs",
+                params=params,
+                timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data
+            log_error(f"API request to {self.api_url}/api/controller/fobs returned status {resp.status_code}")
+        except Exception as e:
+            raise RuntimeError(f"ApiClient.get_fobs failed: {e}")
+        return {}
+
+    def get_max_fob_id(self, controller_url=None):
+        """Retrieves maximum fob record ID via REST API."""
+        try:
+            resp = requests.get(
+                f"{self.api_url}/api/controller/get_max_fob_id",
+                params={'controller_url': controller_url},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data
+            log_error(f"API request to {self.api_url}/api/controller/get_max_fob_id returned status {resp.status_code}")
+        except Exception as e:
+            raise RuntimeError(f"ApiClient.get_max_fob_id failed: {e}")
+        return None
 
     def get_swipes(self, controller_url=None, start_record_id=0):
         """Retrieves card swipe activity via REST API."""
