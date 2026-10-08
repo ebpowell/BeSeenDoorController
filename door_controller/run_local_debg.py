@@ -13,6 +13,7 @@ logging.basicConfig(
 
 from door_controller.api import api_bp
 from door_controller.cli_synch_tools.get_swipes import sync_controller_swipes
+from door_controller.cli_synch_tools.get_fobs import sync_controller_fobs
 from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.utils import load_config
 
@@ -98,4 +99,5 @@ if __name__ == '__main__':
 
     for url in urls:
         print(f"\n[*] Testing sync for: {url}")
-        sync_controller_swipes(debug_api, db, url, db_max_id=20052)
+        # sync_controller_swipes(debug_api, db, url, db_max_id=20052)
+        sync_controller_fobs(debug_api, db, url, db_max_id=20052)

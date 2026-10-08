@@ -27,7 +27,73 @@ class key_fobs(door_controller):
         [tpl_row.append([row[0], row[1],cidr, now]) for row in tpl_murow]
         return  tpl_row
 
-    def get_keyfobs(self):
+    def get_max_id(self):
+        try:
+            # self.verify_or_reauth()
+            response = self.connect()
+            # response = self.navigate()
+        except Exception as e:
+            raise e
+
+        if response.status_code != 200:
+            return None
+        data = {'s2':'Users'}
+        self.session.headers['Referer'] = f"{self.url}/ACT_ID_21"
+        url = f"{self.url}/ACT_ID_21"
+        try:
+            # print(f"Fetching page {page_iteration} -> {url}")
+            # print(f"Payload: {data}")
+            response = self.get_httpresponse(url, data)
+        except Exception as e:
+            log_info(f"Network error on page {page_iteration}: {e}")
+            # Add to logger
+            raise e
+        data = {'PC': '00001',
+                'PE': {0: '00020',
+                       1: 'Last' }
+                }
+        self.session.headers['Referer'] = f"{self.url}/ACT_ID_21"
+        url = f"{self.url}/ACT_ID_325"
+        # Transform nested dictionary values into lists
+        clean_data = {
+            k: list(v.values()) if isinstance(v, dict) else v 
+            for k, v in data.items()
+        }
+        try:
+            # print(f"Fetching page {page_iteration} -> {url}")
+            # print(f"Payload: {data}")
+            
+            response = self.get_httpresponse(url, clean_data)
+        except Exception as e:
+            log_info(f"Network error on page getting max ID: {e}")
+            # Add to logger
+            raise e
+        # Extract UserID and CardNo from the return markup
+        if response.status_code == 200:
+            try:
+                total_fobs_match = re.search(r"Total Users:\s* (\d+)", response.text)
+                if total_fobs_match:
+                    total_fobs = int(total_fobs_match.group(1))
+                    log_info(f"Total key fobs to sync: {total_fobs}")
+                else:
+                    log_info("Could not determine total number of key fobs. Returning None.")
+                    return None
+            except Exception as e:
+                log_error(f"Error occurred while parsing page response for max ID: {e}")
+                return None
+            lstfobs = self.parse_fobs_data(response.text)
+            if lstfobs:
+                max_id = max(int(fob[0]) for fob in lstfobs)
+                log_info(f"Max record ID found: {max_id}")
+                return max_id, total_fobs
+            else:
+                log_info("No fobs found in the response. Returning None.")
+                return None
+        else:
+            log_error(f"Received non-200 status code ({response.status_code}) while fetching max ID. Returning None.")
+            return None 
+
+    def get_keyfobs(self, total_fobs=None, max_id=None):
         batch_len = 20  # Number of records to fetch per page
         start_idx = 1  # Starting index for the first page
         fobs = []
@@ -35,7 +101,7 @@ class key_fobs(door_controller):
         page_iteration = 1  # Track page step dynamically instead of using range()
 
         try:
-            self.verify_or_reauth()
+            # self.verify_or_reauth()
             response = self.connect()
             # response = self.navigate()
         except Exception as e:
@@ -71,31 +137,23 @@ class key_fobs(door_controller):
 
             if response.status_code == 200:
                 try:
-                    # First iteration, extract total number of key fobs from the page to determine when to sto
-                    if page_iteration == 1:
-                        total_fobs_match = re.search(r"Total Users:\s* (\d+)", response.text)
-                        if total_fobs_match:
-                            total_fobs = int(total_fobs_match.group(1))
-                            log_info(f"Total key fobs to sync: {total_fobs}")
-                        else:
-                            log_info("Could not determine total number of key fobs. Proceeding with pagination until no more records are returned.")
-                            total_fobs = None  # Unknown, will rely on termination condition
                     # Extract data from the returned page HTML
                     batch = self.parse_fobs_data(response.text) 
                     fobs.extend(batch)
                     start_idx += 20
                     batch_len = len(batch)      
-                    if len(fobs) >= total_fobs if total_fobs is not None else False:
+                    if total_fobs is not None and len(fobs) >= total_fobs:
                         log_info("Reached the end of available records based on total count. Finalizing sync.")
                         log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
+                   
                     if not batch:
                         log_info("No more records returned. Ending pagination.")
                         log_info(f"Total fobs pulled: {len(fobs)}. Expected total: {total_fobs}.")
                         break
                     # print(f"Processed page {page_iteration}: {batch_len} records added. Next index target: {next_index}. Total fobs pulled so far: {len(fobs)}")              
-                    log_info(f"Batch Size: {batch_len} | Next Index Target: {next_index} | Total Fobs Pulled: {len(fobs)}")
-                    
+                    log_info(f"Batch Size: {batch_len} | Next Index Target: {start_idx} | Total Fobs Pulled: {len(fobs)}")
+
                 except Exception as e:
                     log_error(f"Error occurred while parsing page response: {e}")
                     # Optional: break or raise here if parsing failure shouldn't infinite-loop

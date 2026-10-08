@@ -409,14 +409,22 @@ def get_max_fob_id():
                 pass
 
         if not max_record_id and hasattr(dm, 'get_keyfobs'):
-            raw_fobs = dm.get_keyfobs() or []
-            max_record_id = max([int(f[0]) for f in raw_fobs if isinstance(f, (list, tuple)) and str(f[0]).isdigit()], default=0) if raw_fobs else 0
-
-        return jsonify({
-            'status': 'success',
-            'controller_url': controller_url,
-            'max_record_id': max_record_id
-        }), 200
+            max_record_id = dm.get_max_id() or []
+            # max_record_id = max([int(f[0]) for f in raw_fobs if isinstance(f, (list, tuple)) and str(f[0]).isdigit()], default=0) if raw_fobs else 0
+        if isinstance(max_record_id, (list, tuple)) and len(max_record_id) > 1:
+            return jsonify({
+                'status': 'success',
+                'controller_url': controller_url,
+                'max_record_id': max_record_id[0],
+                'total_fobs': max_record_id[1]
+            }), 200
+        else:
+            return jsonify({
+                    'status': 'fail',
+                    'controller_url': controller_url,
+                    'max_record_id': 0,
+                    'total_fobs': 0
+                }), 200
     except Exception as e:
         log_error(f"API /api/controller/get_max_fob_id error on {controller_url}: {e}", exc_info=True)
         return jsonify({
