@@ -29,24 +29,9 @@ class key_fobs(door_controller):
 
     def get_max_id(self):
         try:
-            # self.verify_or_reauth()
-            response = self.connect()
-            # response = self.navigate()
+            response = self.users_page()
         except Exception as e:
-            raise e
-
-        if response.status_code != 200:
-            return None
-        data = {'s2':'Users'}
-        self.session.headers['Referer'] = f"{self.url}/ACT_ID_21"
-        url = f"{self.url}/ACT_ID_21"
-        try:
-            # print(f"Fetching page {page_iteration} -> {url}")
-            # print(f"Payload: {data}")
-            response = self.get_httpresponse(url, data)
-        except Exception as e:
-            log_info(f"Network error on page {page_iteration}: {e}")
-            # Add to logger
+            log_info(f"Network error on page getting max ID: {e}")
             raise e
         data = {'PC': '00001',
                 'PE': {0: '00020',
@@ -60,14 +45,12 @@ class key_fobs(door_controller):
             for k, v in data.items()
         }
         try:
-            # print(f"Fetching page {page_iteration} -> {url}")
-            # print(f"Payload: {data}")
-            
             response = self.get_httpresponse(url, clean_data)
         except Exception as e:
             log_info(f"Network error on page getting max ID: {e}")
             # Add to logger
             raise e
+        
         # Extract UserID and CardNo from the return markup
         if response.status_code == 200:
             try:
@@ -97,26 +80,13 @@ class key_fobs(door_controller):
         batch_len = 20  # Number of records to fetch per page
         start_idx = 1  # Starting index for the first page
         fobs = []
-        next_index = 20
         page_iteration = 1  # Track page step dynamically instead of using range()
-
-        try:
-            # self.verify_or_reauth()
-            response = self.connect()
-            # response = self.navigate()
-        except Exception as e:
-            raise e
-
-        if response.status_code != 200:
-            return None
 
         log_info("Starting controller sync...")
 
         while True:
             if page_iteration == 1:
-                data = {'s2':'Users'}
-                self.session.headers['Referer'] = f"{self.url}/ACT_ID_21"
-                url = f"{self.url}/ACT_ID_21"
+                response = self.users_page()
             else:
                 data = {
                     'PC': start_idx,
@@ -126,14 +96,11 @@ class key_fobs(door_controller):
                 self.session.headers['Referer'] = f"{self.url}/ACT_ID_325"
                 url = f"{self.url}/ACT_ID_325"
 
-            try:
-                # print(f"Fetching page {page_iteration} -> {url}")
-                # print(f"Payload: {data}")
-                response = self.get_httpresponse(url, data)
-            except Exception as e:
-                log_info(f"Network error on page {page_iteration}: {e}")
-                # Add to logger
-                raise e
+                try:
+                    response = self.get_httpresponse(url, data)
+                except Exception as e:
+                    log_info(f"Network error on page {page_iteration}: {e}")
+                    raise e
 
             if response.status_code == 200:
                 try:
