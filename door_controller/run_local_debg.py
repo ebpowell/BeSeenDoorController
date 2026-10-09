@@ -1,6 +1,4 @@
-# File: door_controller/run_locall_debg.py (or run_local_debug.py)
-# File: door_controller/run_locall_debg.py
-# File: door_controller/run_locall_debg.pycursor=cursor, 
+
 import sys
 import logging
 from flask import Flask
@@ -99,5 +97,5 @@ if __name__ == '__main__':
 
     for url in urls:
         print(f"\n[*] Testing sync for: {url}")
-        # sync_controller_swipes(debug_api, db, url, db_max_id=20052)
+        sync_controller_swipes(debug_api, db, url, db_max_id=20052)
         sync_controller_fobs(debug_api, db, url, db_max_id=20052)
