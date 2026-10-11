@@ -1,7 +1,6 @@
 import psycopg2
 import datetime
 
-
 class postgres:
     def __init__(self, str_connect):
         self.db_con = psycopg2.connect(str_connect)

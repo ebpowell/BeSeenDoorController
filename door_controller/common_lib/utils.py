@@ -4,6 +4,9 @@ import logging
 import os
 import webbrowser
 import sys
+import ipaddress
+import socket
+from urllib.parse import urlparse
 
 # Configure basic logging for all tools using this utility
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -119,9 +122,13 @@ def extract_cidr(url):
     """
     Extracts the IP and appends '/32' subnet mask from a given controller URL.
     """
-    ip_port = url.split("://")[-1]
+    CIDR = resolve_to_cidr(url)[0].with_prefixlen
+    ip_port = CIDR.split("://")[-1]
     ip = ip_port.split(":")[0]
-    return f"{ip}/32"
+    if ip.find("/") != -1:  # Already has port range or CIDR
+        return ip
+    else: # Append /32 for single host
+        return f"{ip}/32"
 
 def parse_door_name(door_name):
     """
@@ -215,3 +222,44 @@ def configure_app_security(app_instance, ssl_enabled=False):
     else:
         app_instance.config['SESSION_COOKIE_SECURE'] = False
 
+def resolve_to_cidr(uri_or_target: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Parse a URI, domain, or IP/CIDR string and return a list of CIDR networks.
+    
+    If the target is already a valid CIDR or IP, it returns that network.
+    Otherwise, it performs a DNS lookup and wraps resolved addresses into /32 or /128 networks.
+    """
+    # 1. Normalize and extract the host if a full URI scheme is present
+    
+    target = uri_or_target.strip()
+    if "://" in target:
+        parsed = urlparse(target)
+        target = parsed.hostname or parsed.netloc
+
+    # Strip port if present in non-bracketed host:port format
+    if ":" in target and not target.startswith("[") and "/" not in target:
+        # Check if it's an IPv6 address or host:port
+        try:
+            ipaddress.ip_address(target)
+        except ValueError:
+            target = target.split(":", 1)[0]
+
+    # 2. Check if already a valid CIDR (or bare IP address)
+    try:
+        # strict=False allows bare IPs (e.g., '192.168.1.1' -> /32) 
+        # as well as host bits in CIDRs (e.g., '192.168.1.10/24' -> 192.168.1.0/24)
+        return [ipaddress.ip_network(target, strict=False)]
+    except ValueError:
+        pass
+
+    # 3. Fallback: Perform DNS lookup
+    try:
+        # getaddrinfo resolves both IPv4 and IPv6 without hardcoding socket.AF_INET
+        addr_info = socket.getaddrinfo(target, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        
+        # Deduplicate while preserving order
+        unique_ips = dict.fromkeys(info[4][0] for info in addr_info)
+        
+        # Convert resolved IP strings into single-host CIDR objects (/32 or /128)
+        return [ipaddress.ip_network(ip) for ip in unique_ips]
+    except socket.gaierror as exc:
+        raise ValueError(f"Could not resolve host '{target}': {exc}") from exc

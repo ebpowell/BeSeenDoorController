@@ -1,6 +1,4 @@
-# File: door_controller/run_locall_debg.py (or run_local_debug.py)
-# File: door_controller/run_locall_debg.py
-# File: door_controller/run_locall_debg.pycursor=cursor, 
+
 import sys
 import logging
 from flask import Flask
@@ -13,6 +11,7 @@ logging.basicConfig(
 
 from door_controller.api import api_bp
 from door_controller.cli_synch_tools.get_swipes import sync_controller_swipes
+from door_controller.cli_synch_tools.get_fobs import sync_controller_fobs
 from door_controller.common_lib.pg_database import postgres
 from door_controller.common_lib.utils import load_config
 
@@ -61,6 +60,33 @@ class LocalDebugApiClient:
             logging.error(f"Exception during GET /api/controller/get_max_swipe_id: {e}")
             return {'status': 'error', 'swipes': []}
 
+    def get_fobs(self, controller_url=None, start_record_id=0, cursor=None):
+        cur = cursor if cursor is not None else start_record_id
+        params = {
+            'controller_url': controller_url,
+            'start_record_id': cur
+        }
+        response = self.client.get('/api/controller/fobs', query_string=params)
+        if response.status_code == 200:
+            return response.get_json()
+        logging.error(f"GET /api/controller/fobs failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+        return {'status': 'error', 'fobs': []}
+
+    def get_max_fob_id(self, controller_url=None):
+        params = {
+            'controller_url': controller_url
+        }
+        try:
+            response = self.client.get('/api/controller/get_max_fob_id', query_string=params)
+            if response.status_code == 200:
+                return response.get_json()
+            logging.error(f"GET /api/controller/get_max_fob_id failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'fobs': []}
+        except Exception as e:
+            logging.error(f"Exception during GET /api/controller/get_max_fob_id: {e}")
+            return {'status': 'error', 'fobs': []}
+
+
 if __name__ == '__main__':
     config = load_config()
     db_conn = config.get('settings', {}).get('postgres_connect_string')
@@ -72,3 +98,4 @@ if __name__ == '__main__':
     for url in urls:
         print(f"\n[*] Testing sync for: {url}")
         sync_controller_swipes(debug_api, db, url, db_max_id=20052)
+        sync_controller_fobs(debug_api, db, url, db_max_id=20052)
