@@ -433,7 +433,27 @@ def get_max_fob_id():
             'message': str(e)
         }), 502
 
+#10 Remote Unlock Door via API
+@api_bp.route('/controller/unlock_door', methods=['POST'])
+def unlock_door():
+    data = request.get_json() or {}
+    controller_url = data.get('controller_url')
+    door_num = data.get('door_num')
 
+    if not controller_url or door_num is None:
+        return jsonify({'status': 'error', 'message': 'controller_url and door_num are required'}), 400
+
+    dm = get_data_manager(controller_url)
+    try:
+        result = dm.unlock_door(door_num)
+        return jsonify({
+            'status': 'success',
+            'controller_url': controller_url,
+            'door_num': door_num,
+            'result': result
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 # Module-level application factory / instance for Flask CLI and debugpy
