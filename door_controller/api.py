@@ -52,8 +52,8 @@ def get_db_mgr():
 def get_data_extractor(controller_url=None):
     config = get_config()
     settings = config.get('settings', {})
-    username = settings.get('username', 'admin')
-    password = settings.get('password', 'admin')    
+    username = settings.get('username', [])
+    password = settings.get('password', [])    
     iterations = settings.get('iterations', 10)
     if not controller_url:
         urls = settings.get('urls', [])
@@ -92,10 +92,10 @@ def get_data_manager(controller_url=None):
     settings = config.get('settings', {})
     if not controller_url:
         urls = settings.get('urls', [])
-        controller_url = urls[0] if urls else 'http://192.168.1.100'
-    username = settings.get('username', 'admin')
-    password = settings.get('password', 'admin')
-    retry_sleep = settings.get('recovery_delay', 5)
+        controller_url = urls[0] if urls else 'http://192.168.1.5'
+    username = settings.get('username', [])
+    password = settings.get('password', [])
+    retry_sleep = settings.get('recovery_delay', [])
     return DataManager(controller_url, username, password, retry_sleep)
 
 
@@ -203,8 +203,8 @@ def update_fob_permissions():
 def get_swipes_data():
     config = load_config()
     settings = config.get('settings', {}) if isinstance(config, dict) else {}
-    username = settings.get('username', 'admin')
-    password = settings.get('password', 'admin')
+    username = settings.get('username', [])
+    password = settings.get('password', [])
     iterations = int(request.args.get('iterations', settings.get('iterations', 10)))
     start_rec = int(request.args.get('start_record_id', 0))
     controller_url = request.args.get('controller_url')
