@@ -439,17 +439,19 @@ def unlock_door():
     data = request.get_json() or {}
     controller_url = data.get('controller_url')
     door_num = data.get('door_num')
+    door_desc = data.get('door_desc', f"Door {door_num}" if door_num is not None else "Unknown Door")
 
     if not controller_url or door_num is None:
         return jsonify({'status': 'error', 'message': 'controller_url and door_num are required'}), 400
 
     dm = get_data_manager(controller_url)
     try:
-        result = dm.unlock_door(door_num)
+        result = dm.unlock_door(door_desc, door_num)
         return jsonify({
             'status': 'success',
             'controller_url': controller_url,
             'door_num': door_num,
+            'door_desc': door_desc,
             'result': result
         }), 200
     except Exception as e:
