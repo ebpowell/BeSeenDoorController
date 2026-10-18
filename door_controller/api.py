@@ -144,7 +144,7 @@ def get_fob_record_id():
 
 
 # 2. add a fob
-@api_bp.route('/fob', methods=['POST'])
+@api_bp.route('/fob/add', methods=['POST'])
 def add_fob():
     data = request.get_json() or {}
     fob_id = data.get('fob_id')
@@ -163,15 +163,18 @@ def add_fob():
             'fob_id': fob_id,
             'owner_name': owner_name,
             'record_id': record_id
-        }), 201
+        }), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 # 3. delete a fob
-@api_bp.route('/fob/<int:fob_id>', methods=['DELETE'])
-def delete_fob(fob_id):
-    controller_url = request.args.get('controller_url')
+@api_bp.route('/fob/delete', methods=['DELETE'])
+def delete_fob():
+    data = request.get_json() or {}
+    fob_id = data.get('fob_id')
+    controller_url = data.get('controller_url')
+    
     dm = get_data_manager(controller_url)
     try:
         dm.del_fob(fob_id)
@@ -325,10 +328,11 @@ def get_controller_fobs():
         }), 502
 
 # 7. get fob permissions for a given time from controller
-@api_bp.route('/controller/fob/<int:fob_id>/permissions', methods=['GET'])
+@api_bp.route('/controller/fob/permissions', methods=['GET'])
 def get_controller_fob_permissions(fob_id):
     controller_url = request.args.get('controller_url')
     target_time_str = request.args.get('timestamp')
+    # permissions = request.args.get('permissions')
     dm = get_data_manager(controller_url)
     db_mgr = get_db_mgr()
     cidr = extract_cidr(dm.url)
