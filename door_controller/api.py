@@ -329,10 +329,13 @@ def get_controller_fobs():
 
 # 7. get fob permissions for a given time from controller
 @api_bp.route('/controller/fob/permissions', methods=['GET'])
-def get_controller_fob_permissions(fob_id):
+def get_controller_fob_permissions():
+    fob_id = request.args.get('fob_id', type=int)
+    if fob_id is None:
+        return jsonify({'status': 'error', 'message': 'fob_id is required'}), 400
+
     controller_url = request.args.get('controller_url')
     target_time_str = request.args.get('timestamp')
-    # permissions = request.args.get('permissions')
     dm = get_data_manager(controller_url)
     db_mgr = get_db_mgr()
     cidr = extract_cidr(dm.url)
@@ -507,4 +510,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

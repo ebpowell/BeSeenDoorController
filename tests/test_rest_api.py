@@ -141,7 +141,10 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         mock_db.get_expected_permissions.return_value = {1: True, 2: False}
         mock_get_db.return_value = mock_db
 
-        res = self.client.get('/api/controller/fob/1001/permissions?timestamp=2026-09-01T12:00:00')
+        res = self.client.get(
+            '/api/controller/fob/permissions',
+            query_string={'fob_id': 1001, 'timestamp': '2026-09-01T12:00:00'}
+        )
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data['status'], 'success')
