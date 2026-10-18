@@ -2,7 +2,8 @@ app_name: Door_Controller
 settings:
   log_level: INFO
   controller_urls:
-    - http://192.168.1.5
+    # - http://192.168.1.5
+    - http://wentworthhoa.ddns.net:60001
   username: abc
   password: 654321
   recovery_delay: 5

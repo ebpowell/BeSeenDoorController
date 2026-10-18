@@ -119,8 +119,11 @@ def parse_period_to_timedelta(period_str: str) -> timedelta:
 
 
 # 1. get_record_id for a fob_id
-@api_bp.route('/fob/<int:fob_id>/record_id', methods=['GET'])
-def get_fob_record_id(fob_id):
+@api_bp.route('/fob/record_id', methods=['GET'])
+def get_fob_record_id():
+    fob_id = request.args.get('fob_id', type=int)
+    if fob_id is None:
+        return jsonify({'status': 'error', 'message': 'fob_id is required'}), 400
     controller_url = request.args.get('controller_url')
     dm = get_data_manager(controller_url)
     try:

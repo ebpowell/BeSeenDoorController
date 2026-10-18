@@ -86,6 +86,21 @@ class LocalDebugApiClient:
             logging.error(f"Exception during GET /api/controller/get_max_fob_id: {e}")
             return {'status': 'error', 'fobs': []}
 
+    def get_fob_record_id(self, controller_url=None, fob_id=None):
+        params = {
+            'controller_url': controller_url,
+            'fob_id': fob_id
+        }
+        try:
+            response = self.client.get(f'/api/fob/record_id', query_string=params)
+            if response.status_code == 200:
+                return response.get_json()
+            logging.error(f"GET /api/controller/get_fob_record_id failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'record_id': None}
+        except Exception as e:
+            logging.error(f"Exception during GET /api/controller/get_fob_record_id: {e}")
+            return {'status': 'error', 'record_id': None}
+
 
 if __name__ == '__main__':
     config = load_config()
@@ -93,9 +108,11 @@ if __name__ == '__main__':
     db = postgres(db_conn) if db_conn else None
 
     debug_api = LocalDebugApiClient(app)
-    urls = config.get('settings', {}).get('urls', [])
+    urls = config.get('settings', {}).get('controller_urls', [])
 
     for url in urls:
         print(f"\n[*] Testing sync for: {url}")
-        sync_controller_swipes(debug_api, db, url, db_max_id=20052)
-        sync_controller_fobs(debug_api, db, url, db_max_id=20052)
+        # sync_controller_swipes(debug_api, db, url, db_max_id=20052)
+        # sync_controller_fobs(debug_api, db, url, db_max_id=20052)
+        record_id = debug_api.get_fob_record_id(controller_url=url, fob_id=2651013)
+        print(f"get_fob_record_id_result: {record_id}")
