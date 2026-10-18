@@ -125,6 +125,14 @@ def get_fob_record_id():
     if fob_id is None:
         return jsonify({'status': 'error', 'message': 'fob_id is required'}), 400
     controller_url = request.args.get('controller_url')
+    # Filter for prefix / suffix if needed, or validate the URL format
+    if controller_url:
+        if not controller_url.startswith(('http://', 'https://')):
+            controller_url = 'http://' + controller_url
+        if controller_url.endswith('/'):
+            controller_url = controller_url.rstrip('/')
+        if controller_url[-3:].find('/') >= 0:
+            controller_url = controller_url[:-3]
     dm = get_data_manager(controller_url)
     try:
         record_id = dm.get_record_id(fob_id)

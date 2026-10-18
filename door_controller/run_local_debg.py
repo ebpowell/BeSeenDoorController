@@ -100,6 +100,53 @@ class LocalDebugApiClient:
         except Exception as e:
             logging.error(f"Exception during GET /api/controller/get_fob_record_id: {e}")
             return {'status': 'error', 'record_id': None}
+        
+    def set_fob_permissions(self, controller_url=None, fob_id=None, permissions=None):
+        params = {
+            'controller_url': controller_url,
+            'fob_id': fob_id,
+            'permissions': permissions
+        }
+        try:
+            response = self.client.post(f'/api/fob/set_permissions', json=params)
+            if response.status_code == 200:
+                return response.get_json()
+            logging.error(f"POST /api/controller/set_fob_permissions failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'message': 'Failed to set permissions'}
+        except Exception as e:
+            logging.error(f"Exception during POST /api/controller/set_fob_permissions: {e}")
+            return {'status': 'error', 'message': str(e)}
+        
+    def add_fob(self, controller_url=None, fob_id=None, name=None):
+        params = {
+            'controller_url': controller_url,
+            'fob_id': fob_id,
+            'name': name
+        }
+        try:
+            response = self.client.post(f'/api/fob/add', json=params)
+            if response.status_code == 200:
+                return response.get_json()
+            logging.error(f"POST /api/controller/add_fob failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'message': 'Failed to add fob'}
+        except Exception as e:
+            logging.error(f"Exception during POST /api/controller/add_fob: {e}")
+            return {'status': 'error', 'message': str(e)}
+
+    def delete_fob(self, controller_url=None, fob_id=None):
+        params = {
+            'controller_url': controller_url,
+            'fob_id': fob_id
+        }
+        try:
+            response = self.client.post(f'/api/fob/delete', json=params)
+            if response.status_code == 200:
+                return response.get_json()
+            logging.error(f"POST /api/controller/delete_fob failed [{response.status_code}]: {response.data.decode('utf-8', errors='ignore')}")
+            return {'status': 'error', 'message': 'Failed to delete fob'}
+        except Exception as e:
+            logging.error(f"Exception during POST /api/controller/delete_fob: {e}")
+            return {'status': 'error', 'message': str(e)}
 
 
 if __name__ == '__main__':
