@@ -148,7 +148,7 @@ class ApiClient:
         """Retrieves key fobs data via REST API."""
         try:
             cur = cursor if cursor is not None else start_record_id
-            params = {'controller_url': controller_url, 'start_record_id': cur}
+            params = {'controller_url': controller_url, 'cursor': cur}
             resp = requests.get(
                 f"{self.api_url}/api/controller/fobs",
                 params=params,
@@ -181,16 +181,15 @@ class ApiClient:
     def get_swipes(self, controller_url=None, start_record_id=0):
         """Retrieves card swipe activity via REST API."""
         try:
-            # Correct endpoint is /api/controller/swipes on the REST API server
             resp = requests.get(
-                f"{self.api_url}/api/controller/swipes",
+                f"{self.api_url}/api/swipes",
                 params={'controller_url': controller_url, 'start_record_id': start_record_id},
                 timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
                 return data
-            log_error(f"API request to {self.api_url}/api/controller/swipes returned status {resp.status_code}")
+            log_error(f"API request to {self.api_url}/api/swipes returned status {resp.status_code}")
         except Exception as e:
             raise RuntimeError(f"ApiClient.get_swipes failed: {e}")
         return []

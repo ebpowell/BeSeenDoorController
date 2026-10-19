@@ -78,9 +78,29 @@ class TestApiClient(unittest.TestCase):
         mock_resp.json.return_value = {'status': 'success', 'fobs': [{'record_id': 10, 'fob_id': 1001}], 'has_more': False}
         mock_get.return_value = mock_resp
 
-        res = self.client.get_fobs()
+        res = self.client.get_fobs(controller_url='http://door-controller', start_record_id=25)
         self.assertEqual(res['status'], 'success')
         self.assertEqual(len(res['fobs']), 1)
+        mock_get.assert_called_once_with(
+            'http://127.0.0.1:5000/api/controller/fobs',
+            params={'controller_url': 'http://door-controller', 'cursor': 25},
+            timeout=15
+        )
+
+    @patch('requests.get')
+    def test_get_swipes_api_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {'status': 'success', 'swipes': [], 'has_more': False}
+        mock_get.return_value = mock_resp
+
+        res = self.client.get_swipes(controller_url='http://door-controller', start_record_id=25)
+        self.assertEqual(res['status'], 'success')
+        mock_get.assert_called_once_with(
+            'http://127.0.0.1:5000/api/swipes',
+            params={'controller_url': 'http://door-controller', 'start_record_id': 25},
+            timeout=10
+        )
 
     @patch('requests.get')
     def test_get_max_fob_id_api_success(self, mock_get):
