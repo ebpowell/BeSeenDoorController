@@ -187,13 +187,14 @@ def delete_fob():
 @api_bp.route('/fob/permissions', methods=['PUT'])
 def update_fob_permissions():
     data = request.get_json() or {}
-    record_id = data.get('record_id')
+    fob_id = data.get('fob_id')
+    # record_id = data.get('record_id')
     raw_perms = data.get('permissions')
     controller_url = data.get('controller_url')
 
-    if record_id is None or raw_perms is None:
-        return jsonify({'status': 'error', 'message': 'record_id and permissions are required'}), 400
-
+    if fob_id is None or raw_perms is None:
+        return jsonify({'status': 'error', 'message': 'fob_id and permissions are required'}), 400
+    
     target_perms = []
     if isinstance(raw_perms, dict):
         for k, v in raw_perms.items():
@@ -204,6 +205,7 @@ def update_fob_permissions():
                 target_perms.append((int(item[0]), bool(item[1])))
 
     dm = get_data_manager(controller_url)
+    record_id = dm.get_record_id(fob_id)
     try:
         resp = dm.set_permissions(target_perms, record_id)
         return jsonify({'status': 'success', 'record_id': record_id, 'permissions': target_perms}), 200
@@ -328,7 +330,7 @@ def get_controller_fobs():
         }), 502
 
 # 7. get fob permissions for a given time from controller
-@api_bp.route('/controller/fob/permissions', methods=['GET'])
+@api_bp.route('/fob/permissions', methods=['GET'])
 def get_controller_fob_permissions():
     fob_id = request.args.get('fob_id', type=int)
     if fob_id is None:
