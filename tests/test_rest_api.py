@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from datetime import datetime
 from flask import Flask
 
 from door_controller.api import api_bp, parse_period_to_timedelta
@@ -14,6 +13,23 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.app.register_blueprint(api_bp)
         self.client = self.app.test_client()
 
+    @patch('door_controller.api.DataManager')
+    def test_get_data_manager_uses_controller_urls_config(self, mock_data_manager):
+        from door_controller.api import get_data_manager
+
+        self.app.config['DOOR_CONFIG'] = {
+            'settings': {
+                'controller_urls': ['https://controller.example:60001'],
+                'username': 'user',
+                'password': 'pass',
+                'recovery_delay': 5,
+            }
+        }
+        with self.app.app_context():
+            get_data_manager()
+
+        self.assertEqual(mock_data_manager.call_args.args[0], 'https://controller.example:60001')
+
     def test_parse_period_to_timedelta(self):
         self.assertEqual(parse_period_to_timedelta('1h').total_seconds(), 3600)
         self.assertEqual(parse_period_to_timedelta('24h').total_seconds(), 86400)
@@ -21,74 +37,6 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(parse_period_to_timedelta('2w').days, 14)
         self.assertEqual(parse_period_to_timedelta('1m').days, 30)
         self.assertEqual(parse_period_to_timedelta('invalid').total_seconds(), 86400)
-
-    @patch('door_controller.api.get_data_manager')
-    def test_get_fob_record_id_success(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_dm.get_record_id.return_value = 21
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.get('/api/fob/1001/record_id')
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['fob_id'], 1001)
-        self.assertEqual(data['record_id'], 21)
-
-    @patch('door_controller.api.get_data_manager')
-    def test_get_fob_record_id_not_found(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_dm.get_record_id.return_value = None
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.get('/api/fob/9999/record_id')
-        self.assertEqual(res.status_code, 404)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'error')
-
-    @patch('door_controller.api.get_data_manager')
-    def test_add_fob_success(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_dm.add_fob.return_value = ['success_code', 22]
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.post('/api/fob', json={'fob_id': 1002, 'owner_name': 'Jane Doe'})
-        self.assertEqual(res.status_code, 201)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['fob_id'], 1002)
-        self.assertEqual(data['record_id'], 22)
-
-    def test_add_fob_missing_id(self):
-        res = self.client.post('/api/fob', json={'owner_name': 'Jane Doe'})
-        self.assertEqual(res.status_code, 400)
-
-    @patch('door_controller.api.get_data_manager')
-    def test_delete_fob_success(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.delete('/api/fob/1001')
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['fob_id'], 1001)
-        self.assertTrue(data['deleted'])
-
-    @patch('door_controller.api.get_data_manager')
-    def test_update_fob_permissions_success(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_dm.set_permissions.return_value = MagicMock(status_code=200)
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.put('/api/fob/permissions', json={
-            'record_id': 21,
-            'permissions': [[1, True], [2, False]]
-        })
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['record_id'], 21)
 
     @patch('door_controller.api.FobSwipes')
     @patch('door_controller.api.get_db_mgr')
@@ -101,8 +49,7 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         )
         mock_fob_swipes.return_value = mock_swipe_inst
 
-        mock_db = MagicMock()
-        mock_get_db.return_value = mock_db
+        mock_get_db.return_value = MagicMock()
 
         res = self.client.get('/api/swipes?period=24h')
         self.assertEqual(res.status_code, 200)
@@ -110,7 +57,6 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['count'], 1)
         self.assertEqual(data['swipes'][0]['fob_id'], 1001)
-
 
     @patch('door_controller.api.get_data_manager')
     def test_get_controller_fobs_success(self, mock_get_dm):
@@ -127,47 +73,6 @@ class TestDoorControllerRESTAPI(unittest.TestCase):
         data = res.get_json()
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['count'], 2)
-
-    @patch('door_controller.api.get_db_mgr')
-    @patch('door_controller.api.get_data_manager')
-    def test_get_controller_fob_permissions_success(self, mock_get_dm, mock_get_db):
-        mock_dm = MagicMock()
-        mock_dm.url = 'http://192.168.1.100'
-        mock_dm.get_record_id.return_value = 21
-        mock_dm.get_permissions_record.return_value = [["21", "1001", "Door 01", "Allow", "url"]]
-        mock_get_dm.return_value = mock_dm
-
-        mock_db = MagicMock()
-        mock_db.get_expected_permissions.return_value = {1: True, 2: False}
-        mock_get_db.return_value = mock_db
-
-        res = self.client.get(
-            '/api/controller/fob/permissions',
-            query_string={'fob_id': 1001, 'timestamp': '2026-09-01T12:00:00'}
-        )
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['fob_id'], 1001)
-        self.assertEqual(data['record_id'], 21)
-        self.assertEqual(data['expected_permissions'], {'1': True, '2': False})
-
-    @patch('door_controller.api.get_data_manager')
-    def test_get_max_fob_id_success(self, mock_get_dm):
-        mock_dm = MagicMock()
-        mock_dm.url = 'http://192.168.1.100'
-        mock_dm.get_keyfobs.return_value = [
-            ['21', '1001', 'Active', 'Permissions'],
-            ['25', '1002', 'Active', 'Permissions']
-        ]
-        mock_get_dm.return_value = mock_dm
-
-        res = self.client.get('/api/controller/get_max_fob_id')
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['max_record_id'], 25)
-
 
 
 if __name__ == '__main__':

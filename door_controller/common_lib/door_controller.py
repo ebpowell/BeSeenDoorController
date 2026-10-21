@@ -98,6 +98,10 @@ def validate_and_parse_controller_html(response: Response, expected_marker: str 
 
 class door_controller:
     def __init__(self, url, username, password, session_timeout_secs=180):
+        url = url.strip()
+        if not url.lower().startswith(('http://', 'https://')):
+            url = f'http://{url}'
+        url = url.rstrip('/')
         self.auth = HTTPBasicAuth(username, password)
         self.url = url
         self.username = username

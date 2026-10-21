@@ -91,7 +91,7 @@ def get_data_manager(controller_url=None):
     config = get_config()
     settings = config.get('settings', {})
     if not controller_url:
-        urls = settings.get('urls', [])
+        urls = settings.get('urls') or settings.get('controller_urls', [])
         controller_url = urls[0] if urls else 'http://192.168.1.5'
     username = settings.get('username', [])
     password = settings.get('password', [])

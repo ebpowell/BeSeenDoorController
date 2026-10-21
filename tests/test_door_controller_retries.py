@@ -6,6 +6,17 @@ from door_controller.common_lib.door_controller import door_controller
 
 class TestDoorControllerRetries(unittest.TestCase):
 
+    def test_controller_url_is_normalized(self):
+        cases = (
+            ('192.168.1.5/', 'http://192.168.1.5'),
+            ('https://192.168.1.5/', 'https://192.168.1.5'),
+        )
+        for input_url, expected_url in cases:
+            with self.subTest(input_url=input_url):
+                ctrl = door_controller(input_url, 'user', 'pass')
+                self.assertEqual(ctrl.url, expected_url)
+                self.assertEqual(ctrl.url + '/ACT_ID_1', expected_url + '/ACT_ID_1')
+
     def test_session_has_retry_adapter(self):
         ctrl = door_controller("http://69.21.119.147", "user", "pass")
         adapter_http = ctrl.session.get_adapter("http://localhost")
