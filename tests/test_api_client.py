@@ -48,8 +48,37 @@ class TestApiClient(unittest.TestCase):
         mock_resp.json.return_value = {'status': 'success', 'fob_id': 1001, 'deleted': True}
         mock_del.return_value = mock_resp
 
-        res = self.client.delete_fob(1001)
+        res = self.client.delete_fob(1001, controller_url='http://door-controller')
         self.assertTrue(res['deleted'])
+        mock_del.assert_called_once_with(
+            'http://127.0.0.1:5000/api/fob/delete',
+            json={'controller_url': 'http://door-controller', 'fob_id': 1001},
+            timeout=10
+        )
+
+    @patch('door_controller.api_client.ApiClient._get_data_manager')
+    @patch('requests.get')
+    def test_get_permissions_record_api_success(self, mock_get, mock_get_dm):
+        permissions = [{'door': 1, 'permission': 'Allow'}]
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            'status': 'success',
+            'fob_id': 1001,
+            'record_id': 42,
+            'live_permissions': permissions
+        }
+        mock_get.return_value = mock_resp
+
+        result = self.client.get_permissions_record(1001, controller_url='http://door-controller')
+
+        self.assertEqual(result, permissions)
+        mock_get.assert_called_once_with(
+            'http://127.0.0.1:5000/api/fob/permissions',
+            params={'controller_url': 'http://door-controller', 'fob_id': 1001},
+            timeout=10
+        )
+        mock_get_dm.assert_not_called()
 
     @patch('requests.put')
     def test_update_fob_permissions_api_success(self, mock_put):

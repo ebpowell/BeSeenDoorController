@@ -74,8 +74,8 @@ class ApiClient:
     def delete_fob(self, fob_id, controller_url=None, data_manager=None):
         """Deletes an existing key fob via REST API or direct fallback."""
         try:
-            params = {'controller_url': controller_url, 'fob_id':fob_id}
-            resp = requests.delete(f"{self.api_url}/api/fob/delete", params=params, timeout=10)
+            payload = {'controller_url': controller_url, 'fob_id': fob_id}
+            resp = requests.delete(f"{self.api_url}/api/fob/delete", json=payload, timeout=10)
             if resp.status_code == 200:
                 return resp.json()
         except Exception as e:
@@ -130,8 +130,8 @@ class ApiClient:
             resp = requests.get(f"{self.api_url}/api/fob/permissions", params=params, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                if data.get('status') == 'success' and 'permissions' in data:
-                    return data.get('permissions')
+                if data.get('status') == 'success' and 'live_permissions' in data:
+                    return data.get('live_permissions')
         except Exception as e:
             log_info(f"ApiClient.get_permissions_record fallback to DataManager: {e}")
 
