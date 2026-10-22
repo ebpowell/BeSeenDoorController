@@ -337,17 +337,17 @@ def get_controller_fob_permissions():
         return jsonify({'status': 'error', 'message': 'fob_id is required'}), 400
 
     controller_url = request.args.get('controller_url')
-    target_time_str = request.args.get('timestamp')
+    # target_time_str = request.args.get('timestamp')
     dm = get_data_manager(controller_url)
     db_mgr = get_db_mgr()
     cidr = extract_cidr(dm.url)
 
-    target_time = None
-    if target_time_str:
-        try:
-            target_time = datetime.fromisoformat(target_time_str)
-        except ValueError:
-            return jsonify({'status': 'error', 'message': 'Invalid timestamp ISO format'}), 400
+    # target_time = None
+    # if target_time_str:
+    #     try:
+    #         target_time = datetime.fromisoformat(target_time_str)
+    #     except ValueError:
+    #         return jsonify({'status': 'error', 'message': 'Invalid timestamp ISO format'}), 400
 
     try:
         record_id = dm.get_record_id(fob_id)
@@ -355,14 +355,12 @@ def get_controller_fob_permissions():
         if record_id:
             live_perms = dm.get_permissions_record(record_id)
 
-        expected_perms = db_mgr.get_expected_permissions(fob_id, cidr)
+        # expected_perms = db_mgr.get_expected_permissions(fob_id, cidr)
 
         return jsonify({
             'status': 'success',
             'fob_id': fob_id,
             'record_id': record_id,
-            'target_time': target_time.isoformat() if target_time else None,
-            'expected_permissions': expected_perms,
             'live_permissions': live_perms
         }), 200
     except Exception as e:

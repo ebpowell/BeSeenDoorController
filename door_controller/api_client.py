@@ -40,8 +40,8 @@ class ApiClient:
     def get_fob_record_id(self, fob_id, controller_url=None, data_manager=None):
         """Fetches the hardware record ID for a given key fob ID."""
         try:
-            params = {'controller_url': controller_url} if controller_url else None
-            resp = requests.get(f"{self.api_url}/api/fob/{fob_id}/record_id", params=params, timeout=5)
+            params = {'controller_url': controller_url, 'fob_id': fob_id} if controller_url else {'fob_id': fob_id} 
+            resp = requests.get(f"{self.api_url}/api/fob/record_id", params=params, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get('status') == 'success':
@@ -60,7 +60,7 @@ class ApiClient:
             'controller_url': controller_url
         }
         try:
-            resp = requests.post(f"{self.api_url}/api/fob", json=payload, timeout=10)
+            resp = requests.post(f"{self.api_url}/api/fob/add", json=payload, timeout=10)
             if resp.status_code in (200, 201):
                 return resp.json()
         except Exception as e:
@@ -74,8 +74,8 @@ class ApiClient:
     def delete_fob(self, fob_id, controller_url=None, data_manager=None):
         """Deletes an existing key fob via REST API or direct fallback."""
         try:
-            params = {'controller_url': controller_url} if controller_url else None
-            resp = requests.delete(f"{self.api_url}/api/fob/{fob_id}", params=params, timeout=10)
+            params = {'controller_url': controller_url, 'fob_id':fob_id} if controller_url else None
+            resp = requests.delete(f"{self.api_url}/api/fob/delete", params=params, timeout=10)
             if resp.status_code == 200:
                 return resp.json()
         except Exception as e:
@@ -89,10 +89,10 @@ class ApiClient:
         """Alias for delete_fob."""
         return self.delete_fob(fob_id, controller_url=controller_url, data_manager=data_manager)
 
-    def update_fob_permissions(self, record_id, permissions, controller_url=None, data_manager=None):
+    def update_fob_permissions(self, fob_id, permissions, controller_url=None, data_manager=None):
         """Updates permissions for a key fob via REST API or direct fallback."""
         payload = {
-            'record_id': record_id,
+            'fob_id': fob_id,
             'permissions': permissions,
             'controller_url': controller_url
         }
@@ -113,20 +113,21 @@ class ApiClient:
                     target_perms.append((int(item[0]), bool(item[1])))
 
         dm = data_manager or self._get_data_manager(controller_url)
+        record_id = dm.get_record_id(fob_id)
         dm.set_permissions(target_perms, record_id)
-        return {'status': 'success', 'record_id': record_id, 'permissions': target_perms}
+        return {'status': 'success', 'fob_id': fob_id, 'permissions': target_perms}
 
-    def set_permissions(self, permissions, record_id=None, controller_url=None, data_manager=None):
+    def set_permissions(self, permissions, fob_id=None, controller_url=None, data_manager=None):
         """Alias for update_fob_permissions supporting flexible argument order."""
-        if isinstance(permissions, (int, str)) and record_id is not None:
-            record_id, permissions = permissions, record_id
-        return self.update_fob_permissions(record_id, permissions, controller_url=controller_url, data_manager=data_manager)
+        if isinstance(permissions, (int, str)) and fob_id is not None:
+            fob_id, permissions = permissions, fob_id
+        return self.update_fob_permissions(fob_id, permissions, controller_url=controller_url, data_manager=data_manager)
 
-    def get_permissions_record(self, record_id, controller_url=None, data_manager=None):
-        """Retrieves permissions record for a given hardware record ID via REST API or DataManager fallback."""
+    def get_permissions_record(self, fob_id, controller_url=None, data_manager=None):
+        """Retrieves permissions record for a given hardware fob ID via REST API or DataManager fallback."""
         try:
-            params = {'controller_url': controller_url} if controller_url else None
-            resp = requests.get(f"{self.api_url}/api/fob/record/{record_id}/permissions", params=params, timeout=10)
+            params = {'controller_url': controller_url, 'fob_id':fob_id}
+            resp = requests.get(f"{self.api_url}/api/fob/permissions", params=params, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get('status') == 'success' and 'permissions' in data:
@@ -135,6 +136,7 @@ class ApiClient:
             log_info(f"ApiClient.get_permissions_record fallback to DataManager: {e}")
 
         dm = data_manager or self._get_data_manager(controller_url)
+        record_id = dm.get_record_id(fob_id)
         return dm.get_permissions_record(record_id)
 
     def get_controller_fobs(self, controller_url=None, cursor=None):
