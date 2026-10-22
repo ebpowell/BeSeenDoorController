@@ -74,7 +74,7 @@ class ApiClient:
     def delete_fob(self, fob_id, controller_url=None, data_manager=None):
         """Deletes an existing key fob via REST API or direct fallback."""
         try:
-            params = {'controller_url': controller_url, 'fob_id':fob_id} if controller_url else None
+            params = {'controller_url': controller_url, 'fob_id':fob_id}
             resp = requests.delete(f"{self.api_url}/api/fob/delete", params=params, timeout=10)
             if resp.status_code == 200:
                 return resp.json()

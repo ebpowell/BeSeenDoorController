@@ -361,7 +361,7 @@ def get_controller_fob_permissions():
             'status': 'success',
             'fob_id': fob_id,
             'record_id': record_id,
-            'live_permissions': live_perms
+            'permissions': live_perms
         }), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
